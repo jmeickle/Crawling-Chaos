@@ -42,6 +42,26 @@ static armour_type _random_nonbody_armour_type()
         static_cast<armour_type>(
             random_choose(ARM_SHIELD, ARM_CLOAK, ARM_HELMET,
                           ARM_GLOVES, ARM_SHOES, -1));
+
+        if (at == ARM_GLOVES && one_chance_in(10))
+        {
+            at = ARM_HANDWRAP;
+        }
+
+        else if (at == ARM_GLOVES && one_chance_in(3))
+        {
+            at = ARM_GAUNTLET;
+        }
+
+        else if (at == ARM_SHOES && one_chance_in(10))
+        {
+            at = ARM_FOOTWRAP;
+        }
+
+        else if (at == ARM_SHOES && one_chance_in(3))
+        {
+            at = ARM_BOOTS;
+        }
     return (at);
 }
 
@@ -406,7 +426,10 @@ static bool _try_give_plain_armour(item_def &arm)
         arm.plus = -max_ench;
     item_colour(arm);
 
-    ASSERT(arm.is_valid());
+    if (armour_has_variants(arm))
+        set_variant_random_desc(arm);
+
+ASSERT(arm.is_valid());
     return (true);
 }
 
