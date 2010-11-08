@@ -41,7 +41,7 @@ static armour_type _random_nonbody_armour_type()
     const armour_type at =
         static_cast<armour_type>(
             random_choose(ARM_SHIELD, ARM_CLOAK, ARM_HELMET,
-                          ARM_GLOVES, ARM_BOOTS, -1));
+                          ARM_GLOVES, ARM_SHOES, -1));
     return (at);
 }
 
@@ -70,7 +70,9 @@ static armour_type _pick_wearable_armour(const armour_type arm)
     case SP_BASE_DRACONIAN:
     case SP_SPRIGGAN:
         if (arm == ARM_GLOVES
+            || arm == ARM_GAUNTLET
             || arm == ARM_BOOTS
+            || arm == ARM_SHOES
             || arm == ARM_CENTAUR_BARDING
             || arm == ARM_NAGA_BARDING)
         {
@@ -90,12 +92,12 @@ static armour_type _pick_wearable_armour(const armour_type arm)
         break;
 
     case SP_NAGA:
-        if (arm == ARM_BOOTS || arm == ARM_CENTAUR_BARDING)
+        if (arm == ARM_BOOTS || arm == ARM_SHOES || arm == ARM_FOOTWRAP || arm == ARM_CENTAUR_BARDING)
             result = ARM_NAGA_BARDING;
         break;
 
     case SP_CENTAUR:
-        if (arm == ARM_BOOTS || arm == ARM_NAGA_BARDING)
+        if (arm == ARM_BOOTS || arm == ARM_SHOES || arm == ARM_FOOTWRAP || arm == ARM_NAGA_BARDING)
             result = ARM_CENTAUR_BARDING;
         break;
 
@@ -106,8 +108,8 @@ static armour_type _pick_wearable_armour(const armour_type arm)
     }
 
     // Mutation specific problems (horns allow caps).
-    if (result == ARM_BOOTS && !player_has_feet()
-        || result == ARM_GLOVES && you.has_claws(false) >= 3)
+    if ((result == ARM_BOOTS || result == ARM_SHOES) && !player_has_feet()
+        || (result == ARM_GLOVES || result == ARM_GAUNTLET) && you.has_claws(false) >= 3)
     {
         result = NUM_ARMOURS;
     }
@@ -165,12 +167,32 @@ static armour_type _acquirement_armour_subtype(bool divine)
         case EQ_GLOVES:
             result = ARM_GLOVES; break;
         case EQ_BOOTS:
-            result = ARM_BOOTS;  break;
+            result = ARM_SHOES;  break;
         default:
         case EQ_BODY_ARMOUR:
             result = NUM_ARMOURS; break;
         }
     }
+
+        if (result == ARM_GLOVES && one_chance_in(10))
+        {
+            result = ARM_HANDWRAP;
+        }
+
+        else if (result == ARM_GLOVES && one_chance_in(3))
+        {
+            result = ARM_GAUNTLET;
+        }
+
+        else if (result == ARM_SHOES && one_chance_in(10))
+        {
+            result = ARM_FOOTWRAP;
+        }
+
+        else if (result == ARM_SHOES && one_chance_in(3))
+        {
+            result = ARM_BOOTS;
+        }
 
     result = _pick_wearable_armour(result);
 
@@ -346,10 +368,31 @@ static bool _try_give_plain_armour(item_def &arm)
     case EQ_GLOVES:
         result = ARM_GLOVES; break;
     case EQ_BOOTS:
-        result = ARM_BOOTS;  break;
+        result = ARM_SHOES;  break;
     default:
         return (false);
     }
+
+        if (result == ARM_GLOVES && one_chance_in(10))
+        {
+            result = ARM_HANDWRAP;
+        }
+
+        else if (result == ARM_GLOVES && one_chance_in(3))
+        {
+            result = ARM_GAUNTLET;
+        }
+
+        else if (result == ARM_SHOES && one_chance_in(10))
+        {
+            result = ARM_FOOTWRAP;
+        }
+
+        else if (result == ARM_SHOES && one_chance_in(3))
+        {
+            result = ARM_BOOTS;
+        }
+
     arm.clear();
     arm.quantity = 1;
     arm.base_type = OBJ_ARMOUR;
