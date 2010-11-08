@@ -1395,13 +1395,14 @@ std::string item_def::name_aux(description_level_type desc,
                 if (testbits(ignore_flags, ISFLAG_EMBROIDERED_SHINY))
                     break;
                 if (item_typ == ARM_ROBE || item_typ == ARM_CLOAK
-                    || item_typ == ARM_GLOVES || item_typ == ARM_BOOTS
+                    || item_typ == ARM_HANDWRAP || item_typ == ARM_FOOTWRAP
+                    || item_typ == ARM_GLOVES || item_typ == ARM_SHOES
                     || get_armour_slot(*this) == EQ_HELMET
                        && !is_hard_helmet(*this))
                 {
                     buff << "embroidered ";
                 }
-                else if (item_typ != ARM_LEATHER_ARMOUR
+                else if (item_typ != ARM_LEATHER_ARMOUR 
                          && item_typ != ARM_ANIMAL_SKIN)
                 {
                     buff << "shiny ";
