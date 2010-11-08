@@ -38,7 +38,12 @@ void set_equip_desc(item_def &item, iflags_t flags);
 iflags_t get_equip_race(const item_def &item);
 iflags_t get_equip_desc(const item_def &item);
 
-// helmet functions:
+//Item variant functions:
+
+bool armour_has_variants(item_def &item)
+short set_variant_random_desc(item_def &item)
+short get_armour_variant_desc(const item_def &item)
+
 void  set_helmet_desc(item_def &item, short flags);
 void  set_helmet_random_desc(item_def &item);
 short get_helmet_desc(const item_def &item);
