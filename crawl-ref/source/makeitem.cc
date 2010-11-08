@@ -2269,7 +2269,10 @@ static special_armour_type _determine_armour_ego(const item_def& item,
         rc = coinflip() ? SPARM_SEE_INVISIBLE : SPARM_INTELLIGENCE;
         break;
 
+    case ARM_HANDWRAP:
     case ARM_GLOVES:
+    case ARM_GAUNTLET:
+
         switch (random2(3))
         {
         case 0:
@@ -2283,6 +2286,8 @@ static special_armour_type _determine_armour_ego(const item_def& item,
         }
         break;
 
+    case ARM_FOOTWRAP:
+    case ARM_SHOES:
     case ARM_BOOTS:
     case ARM_NAGA_BARDING:
     case ARM_CENTAUR_BARDING:
