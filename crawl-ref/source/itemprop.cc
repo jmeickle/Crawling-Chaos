@@ -933,8 +933,8 @@ void set_variant_random_desc(item_def &item)
         break;
 
         case ARM_GAUNTLET:
-            max_desc = THEAVYCLOAK_NUM_DESCS;
-            rare_desc = THEAVYCLOAK_DESC_MAX_RARE;
+            max_desc = TGAUNTLET_NUM_DESCS;
+            rare_desc = TGAUNTLET_DESC_MAX_RARE;
         break;
 
         case ARM_FOOTWRAP:

@@ -22,7 +22,7 @@ enum armour_type
 
     ARM_HANDWRAP,
     ARM_GLOVES,
-    ARM_GAUNTLETS,
+    ARM_GAUNTLET,
 
     ARM_FOOTWRAP,
     ARM_SHOES,

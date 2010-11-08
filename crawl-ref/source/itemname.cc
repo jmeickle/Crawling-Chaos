@@ -1504,7 +1504,7 @@ std::string item_def::name_aux(description_level_type desc,
                                                       "bug-ridden gloves");
                 break;
 
-                case ARM_GAUNTLETS:
+                case ARM_GAUNTLET:
                 buff <<
                        ((variant == TGAUNTLET_DESC_GAUNTLETS)         ? "gauntlets" :
                         (variant == TGAUNTLET_DESC_VAMBRACES)         ? "vambraces" :
