@@ -1434,32 +1434,12 @@ std::string item_def::name_aux(description_level_type desc,
 
             switch (item_typ)
             {
-                case ARM_HELMET:
-                buff <<
-                       ((variant == THELM_DESC_HELMET)     ? "helmet" :
-                        (variant == THELM_DESC_HELM)       ? "helm" :
-                        (variant == THELM_DESC_HORNED)     ? "horned helmet" :
-                        (variant == THELM_DESC_CRESTED)    ? "crested helmet" :
-                        (variant == THELM_DESC_PLUMED)     ? "plumed helmet" :
-                        (variant == THELM_DESC_VISORED)    ? "visored helmet" :
-                        (variant == THELM_DESC_GREATHELM)  ? "greathelm" :
-                        (variant == THELM_DESC_WINGED)     ? "winged helmet" :
-                        (variant == THELM_DESC_SPIKED)     ? "spiked helmet" :
-                        (variant == THELM_DESC_GOLDEN)     ? "golden helmet" :
-                        (variant == THELM_DESC_CROWN)      ? "crown" :
-                        (variant == THELM_DESC_TIARA)      ? "tiara" :
-                        (variant == THELM_DESC_CORONET)    ? "coronet" :
-                        (variant == THELM_DESC_DIADEM)     ? "diadem" :
-                                                      "bug-eyed helmet");
-                break;
-
                 case ARM_CAP:
                 buff <<
                        ((variant == TCAP_DESC_CAP)            ? "cap" :
                         (variant == TCAP_DESC_HAT)            ? "hat" :
                         (variant == TCAP_DESC_COIF)           ? "coif" :
                         (variant == TCAP_DESC_HOOD)           ? "hood" :
-                        (variant == TCAP_DESC_COWL)           ? "cowl" :
                         (variant == TCAP_DESC_FEATHERED_CAP)  ? "feathered cap" :
                         (variant == TCAP_DESC_PEAKED_CAP)     ? "peaked cap" :
                         (variant == TCAP_DESC_FEDORA)         ? "fedora" :
@@ -1474,13 +1454,63 @@ std::string item_def::name_aux(description_level_type desc,
                 case ARM_WIZARD_HAT:
                 buff <<
                        ((variant == TWIZHAT_DESC_WIZARD_HAT)  ? "wizard hat" :
-                        (variant == TWIZHAT_DESC_TURBAN)    ? "turban" :
+                        (variant == TWIZHAT_DESC_TURBAN)      ? "turban" :
                         (variant == TWIZHAT_DESC_SKULLCAP)    ? "skullcap" :
-                        (variant == TWIZHAT_DESC_MITER)    ? "miter" :
-                        (variant == TWIZHAT_DESC_DUNCE_CAP)    ? "dunce cap" :
-                        (variant == TWIZHAT_DESC_VEIL)    ? "veil" :
-                        (variant == TWIZHAT_DESC_MASK)    ? "mask" :
+                        (variant == TWIZHAT_DESC_COWL)        ? "cowl" :
+                        (variant == TWIZHAT_DESC_MITER)       ? "miter" :
+                        (variant == TWIZHAT_DESC_DUNCE_CAP)   ? "dunce cap" :
+                        (variant == TWIZHAT_DESC_VEIL)        ? "veil" :
+                        (variant == TWIZHAT_DESC_MASK)        ? "mask" :
+                        (variant == TWIZHAT_DESC_GOGGLES)     ? "pair of goggles" :
                                                       "bug-ridden wizard hat");
+                break;
+
+                case ARM_HELMET:
+                buff <<
+                       ((variant == THELM_DESC_HELMET)     ? "helmet" :
+                        (variant == THELM_DESC_HELM)       ? "helm" :
+                        (variant == THELM_DESC_HORNED)     ? "horned helmet" :
+                        (variant == THELM_DESC_CRESTED)    ? "crested helmet" :
+                        (variant == THELM_DESC_PLUMED)     ? "plumed helmet" :
+                        (variant == THELM_DESC_VISORED)    ? "visored helmet" :
+                        (variant == THELM_DESC_MAIL_COIF)  ? "mail coif" :
+                        (variant == THELM_DESC_GREATHELM)  ? "greathelm" :
+                        (variant == THELM_DESC_WINGED)     ? "winged helmet" :
+                        (variant == THELM_DESC_SPIKED)     ? "spiked helmet" :
+                        (variant == THELM_DESC_GOLDEN)     ? "golden helmet" :
+                        (variant == THELM_DESC_CROWN)      ? "crown" :
+                        (variant == THELM_DESC_TIARA)      ? "tiara" :
+                        (variant == THELM_DESC_CORONET)    ? "coronet" :
+                        (variant == THELM_DESC_DIADEM)     ? "diadem" :
+                                                      "bug-ridden helmet");
+                break;
+
+                case ARM_HANDWRAP:
+                buff <<
+                       ((variant == THANDWRAP_DESC_HANDWRAP)   ? "handwraps" :
+                        (variant == THANDWRAP_DESC_WRISTBAND)  ? "wristbands" :
+                        (variant == THANDWRAP_DESC_BRACELET)   ? "bracelets" :
+                        (variant == THANDWRAP_DESC_BANGLE)     ? "bangles" :
+                        (variant == THANDWRAP_DESC_MITTENS)    ? "mittens" :
+                                                      "bug-ridden handwraps");
+                break;
+
+                case ARM_GLOVES:
+                buff <<
+                       ((variant == TGLOV_DESC_GLOVES)          ? "gloves" :
+                        (variant == TGLOV_DESC_BRACERS)         ? "bracers" :
+                        (variant == TGLOV_DESC_MYRMEX)          ? "myrmex" :
+                        (variant == TGLOV_DESC_WEIGHTED_GLOVE)  ? "weighted gloves" :
+                                                      "bug-ridden gloves");
+                break;
+
+                case ARM_GAUNTLETS:
+                buff <<
+                       ((variant == TGAUNTLET_DESC_GAUNTLETS)         ? "gauntlets" :
+                        (variant == TGAUNTLET_DESC_VAMBRACES)         ? "vambraces" :
+                        (variant == TGAUNTLET_DESC_CESTUS)            ? "cestus" :
+                        (variant == TGAUNTLET_DESC_SPIKED_GAUNTLETS)  ? "spiked gauntlets" :
+                                                      "bug-ridden gauntlets");
                 break;
 
                 case ARM_CLOAK:
@@ -1488,35 +1518,36 @@ std::string item_def::name_aux(description_level_type desc,
                        ((variant == TCLOAK_DESC_CLOAK)   ? "cloak" :
                         (variant == TCLOAK_DESC_CAPE)    ? "cape" :
                         (variant == TCLOAK_DESC_MANTLE)  ? "mantle" :
+                        (variant == TCLOAK_DESC_TABARD)  ? "tabard" :
                         (variant == TCLOAK_DESC_SHAWL)   ? "shawl" :
                         (variant == TCLOAK_DESC_SCARF)   ? "scarf" :
                         (variant == TCLOAK_DESC_STOLE)   ? "stole" :
                                                       "bug-ridden cloak");
                 break;
-
-                case ARM_GLOVES:
+                case ARM_FOOTWRAP:
                 buff <<
-                       ((variant == TGLOV_DESC_GLOVES)     ? "gloves" :
-                        (variant == TGLOV_DESC_GAUNTLETS)  ? "gauntlets" :
-                        (variant == TGLOV_DESC_BRACERS)    ? "bracers" :
-                        (variant == TGLOV_DESC_BRACELET)   ? "bracelets" :
-                        (variant == TGLOV_DESC_HANDWRAP)   ? "handwraps" :
-                        (variant == TGLOV_DESC_MITTENS)    ? "mittens" :
-                                                      "bug-ridden gloves");
+                       ((variant == TFOOTWRAP_DESC_FOOTWRAP)  ? "footwraps" :
+                        (variant == TFOOTWRAP_DESC_SANDALS)   ? "sandals" :
+                        (variant == TFOOTWRAP_DESC_ANKLET)    ? "anklets" :
+                        (variant == TFOOTWRAP_DESC_SLIPPERS)  ? "slippers" :
+                                                      "bug-ridden footwraps");
+                break;
+
+                case ARM_SHOES:
+                buff <<
+                       ((variant == TSHOE_DESC_SHOES)      ? "shoes" :
+                        (variant == TSHOE_DESC_MOCCASINS)  ? "moccasins" :
+                        (variant == TSHOE_DESC_GALOSHES)   ? "galoshes" :
+                        (variant == TSHOE_DESC_LOAFERS)    ? "loafers" :
+                                                      "bug-ridden shoes");
                 break;
 
                 case ARM_BOOTS:
                 buff <<
-                       ((variant == TBOOT_DESC_BOOTS)    ? "boots" :
-                        (variant == TBOOT_DESC_SHOES)    ? "shoes" :
-                        (variant == TBOOT_DESC_SANDALS)    ? "sandals" :
-                        (variant == TBOOT_DESC_SOLLERETS)    ? "sollerets" :
-                        (variant == TBOOT_DESC_GALOSHES)    ? "galoshes" :
-                        (variant == TBOOT_DESC_MOCCASINS)    ? "moccasins" :
-                        (variant == TBOOT_DESC_LOAFERS)    ? "loafers" :
-                        (variant == TBOOT_DESC_SLIPPERS)    ? "slippers" :
-                        (variant == TBOOT_DESC_FOOTWRAP)    ? "footwraps" :
-                        (variant == TBOOT_DESC_ANKLET)    ? "anklets" :
+                       ((variant == TBOOT_DESC_BOOTS)         ? "boots" :
+                        (variant == TBOOT_DESC_HIKING_BOOTS)  ? "hiking boots" :
+                        (variant == TBOOT_DESC_CLOGS)         ? "clogs" :
+                        (variant == TBOOT_DESC_SOLLERETS)     ? "sollerets" :
                                                       "bug-ridden boots");
                 break;
             }
