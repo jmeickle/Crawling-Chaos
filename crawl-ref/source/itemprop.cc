@@ -866,6 +866,76 @@ void set_equip_desc(item_def &item, iflags_t flags)
 //
 // These functions handle the description and subtypes for helmets/caps.
 //
+
+bool armour_has_variants(item_def &item)
+{
+    return (item.sub_type == ARM_HELMET || item.sub_type == ARM_CAP ||
+            item.sub_type == ARM_WIZARD_HAT || item.sub_type == ARM_CLOAK ||
+            item.sub_type == ARM_GLOVES || item.sub_type == ARM_BOOTS)
+}
+
+short set_variant_random_desc(item_def &item)
+{
+    ASSERT(armour_has_variants(item));
+
+    item.plus2 = NULL;
+    int rare_desc = 1;
+    int max_desc = 1;
+
+    switch (item.sub_type)
+    {
+
+        case ARM_HELMET
+            max_desc = THELM_NUM_DESCS;
+            rare_desc = THELM_DESC_MAX_RARE;
+        break;
+
+        case ARM_CAP
+            max_desc = TCAP_NUM_DESCS;
+            rare_desc = TCAP_DESC_MAX_RARE;
+        break;
+
+        case ARM_WIZARD_HAT
+            max_desc = TWIZHAT_NUM_DESCS;
+            rare_desc = TWIZHAT_DESC_MAX_RARE;
+        break;
+
+        case ARM_CLOAK
+            max_desc = TCLOAK_NUM_DESCS;
+            rare_desc = TCLOAK_DESC_MAX_RARE;
+        break;
+
+        case ARM_GLOVES
+            max_desc = TGLOV_NUM_DESCS;
+            rare_desc = TGLOV_DESC_MAX_RARE;
+
+            if (get_armour_ego_type(item) == SPARM_ARCHERY)
+                item.plus2 = TGLOV_DESC_BRACERS;
+        break;
+
+        case ARM_BOOTS
+            max_desc = TBOOT_NUM_DESCS;
+            rare_desc = TBOOT_DESC_MAX_RARE;
+        break;
+
+    }
+
+//We only define a random item type if we weren't overridden by something above.
+    if (item.plus2 == NULL)
+    {
+        item.plus2 = coinflip();
+            if (item.plus2 > 0)
+                item.plus2 = one_chance_in(5) ? random2(max_desc) : random2(rare_desc);
+    }
+}
+
+short get_armour_variant_desc(const item_def &item)
+{
+    ASSERT(armour_has_variants(item));
+
+    return item.plus2;
+}
+
 short get_helmet_desc(const item_def &item)
 {
     ASSERT(is_helmet(item));

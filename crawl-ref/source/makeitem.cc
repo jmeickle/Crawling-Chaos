@@ -2445,8 +2445,6 @@ static void _generate_armour_item(item_def& item, bool allow_uniques,
     }
 
     // If we get here the item is not an artefact.
-    if (is_helmet(item) && one_chance_in(3))
-        set_helmet_random_desc(item);
 
     if (item_race == MAKE_ITEM_RANDOM_RACE && item.sub_type == ARM_BOOTS)
     {
@@ -2537,8 +2535,8 @@ static void _generate_armour_item(item_def& item, bool allow_uniques,
     if (armour_is_hide(item))
         item.plus = 0;
 
-    if (item.sub_type == ARM_GLOVES)
-        set_gloves_random_desc(item);
+    if (armour_has_variants(item)
+        set_variant_random_desc(item);
 }
 
 static monster_type _choose_random_monster_corpse()
