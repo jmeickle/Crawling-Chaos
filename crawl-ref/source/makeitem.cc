@@ -2535,7 +2535,7 @@ static void _generate_armour_item(item_def& item, bool allow_uniques,
     if (armour_is_hide(item))
         item.plus = 0;
 
-    if (armour_has_variants(item)
+    if (armour_has_variants(item))
         set_variant_random_desc(item);
 }
 
