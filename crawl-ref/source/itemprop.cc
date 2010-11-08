@@ -867,14 +867,14 @@ void set_equip_desc(item_def &item, iflags_t flags)
 // These functions handle the description and subtypes for helmets/caps.
 //
 
-bool armour_has_variants(item_def &item)
+bool armour_has_variants(const item_def& item)
 {
     return (item.sub_type == ARM_HELMET || item.sub_type == ARM_CAP ||
             item.sub_type == ARM_WIZARD_HAT || item.sub_type == ARM_CLOAK ||
             item.sub_type == ARM_GLOVES || item.sub_type == ARM_BOOTS)
 }
 
-short set_variant_random_desc(item_def &item)
+void set_variant_random_desc(item_def &item)
 {
     ASSERT(armour_has_variants(item));
 
