@@ -58,7 +58,7 @@ enum armour_type
     ARM_CENTAUR_BARDING,         //   35
     ARM_NAGA_BARDING,
 
-    NUM_ARMOURS                  //   37
+    NUM_ARMOURS                  //   41
 };
 
 enum armour_property_type

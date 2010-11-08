@@ -454,7 +454,7 @@ static food_def Food_prop[NUM_FOODS] =
 void init_properties()
 {
     // Compare with enum comments, to catch changes.
-    COMPILE_CHECK(NUM_ARMOURS  == 37, c1);
+    COMPILE_CHECK(NUM_ARMOURS  == 41, c1);
     COMPILE_CHECK(NUM_WEAPONS  == 56, c2);
     COMPILE_CHECK(NUM_MISSILES ==  9, c3);
     COMPILE_CHECK(NUM_FOODS    == 23, c4);
