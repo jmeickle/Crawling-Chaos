@@ -1615,7 +1615,7 @@ void give_shield(monster* mon, int level)
         break;
     case MONS_NIKOLA:
         {
-            make_item_for_monster(mon, OBJ_ARMOUR, ARM_GLOVES,
+            make_item_for_monster(mon, OBJ_ARMOUR, ARM_GAUNTLET,
                                   level * 2 + 1, MAKE_ITEM_NO_RACE, 1);
 
             item_def *gaunt = mon->shield();
@@ -1623,7 +1623,7 @@ void give_shield(monster* mon, int level)
             {
                 if (get_armour_ego_type(*gaunt) == SPARM_ARCHERY)
                     set_item_ego_type(*gaunt, OBJ_ARMOUR, SPARM_NORMAL);
-                gaunt->plus2 = TGLOV_DESC_GAUNTLETS;
+                gaunt->plus2 = TGAUNTLET_DESC_GAUNTLETS;
             }
         }
         break;
@@ -2061,7 +2061,7 @@ void give_armour(monster* mon, int level, bool spectral_orcs)
     switch (mon->type)
     {
     case MONS_NIKOLA:
-        mitm[thing_created].plus2 = TGLOV_DESC_GAUNTLETS;
+        mitm[thing_created].plus2 = TGAUNTLET_DESC_GAUNTLETS;
         break;
     default:
         break;
