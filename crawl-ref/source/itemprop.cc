@@ -114,23 +114,36 @@ static armour_def Armour_prop[NUM_ARMOURS] =
 
     { ARM_CLOAK,                "cloak",                  1,  0,   40,
         true,  EQ_CLOAK,       SIZE_LITTLE, SIZE_BIG },
-    { ARM_GLOVES,               "gloves",                 1,  0,   20,
+
+    { ARM_HANDWRAP,               "handwraps",                 1,  0,   10,
+        true,  EQ_GLOVES,      SIZE_LITTLE,  SIZE_BIG },
+    { ARM_GLOVES,               "gloves",                 2,  0,   20,
         true,  EQ_GLOVES,      SIZE_SMALL,  SIZE_MEDIUM },
+    { ARM_GAUNTLET,               "gauntlets",                 3,  -1,   40,
+        false,  EQ_GLOVES,      SIZE_SMALL,  SIZE_MEDIUM },
 
-    { ARM_HELMET,               "helmet",                 1,  0,   80,
+    { ARM_CAP,                  "cap",                    1,  0,   10,
+        true,  EQ_HELMET,      SIZE_LITTLE, SIZE_BIG },
+
+    { ARM_WIZARD_HAT,           "wizard hat",             1,  0,   10,
+        true,  EQ_HELMET,      SIZE_LITTLE, SIZE_BIG },
+
+    { ARM_HELMET,               "helmet",                 3,  -1,   40,
         false, EQ_HELMET,      SIZE_SMALL,  SIZE_MEDIUM },
-
-    { ARM_CAP,                  "cap",                    0,  0,   40,
-        true,  EQ_HELMET,      SIZE_LITTLE, SIZE_LARGE },
-
-    { ARM_WIZARD_HAT,           "wizard hat",             0,  0,   40,
-        true,  EQ_HELMET,      SIZE_LITTLE, SIZE_LARGE },
 
     // Note that barding size is compared against torso so it currently
     // needs to fit medium, but that doesn't matter as much as race
     // and shapeshift status.
-    { ARM_BOOTS,                "boots",                  1,  0,   30,
+
+    { ARM_FOOTWRAP,                "footwraps",                  1,  0,   10,
+        true,  EQ_BOOTS,       SIZE_LITTLE,  SIZE_BIG },
+
+    { ARM_SHOES,                "shoes",                  2,  0,   20,
         true,  EQ_BOOTS,       SIZE_SMALL,  SIZE_MEDIUM },
+
+    { ARM_BOOTS,                "boots",                  3,  -1,   40,
+        false,  EQ_BOOTS,       SIZE_SMALL,  SIZE_MEDIUM },
+
     // Changed max. barding size to large to allow for the appropriate
     // monster types (monsters don't differentiate between torso and general).
     { ARM_CENTAUR_BARDING,      "centaur barding",        4, -2,  100,
@@ -869,9 +882,10 @@ void set_equip_desc(item_def &item, iflags_t flags)
 
 bool armour_has_variants(const item_def& item)
 {
-    return (item.sub_type == ARM_HELMET || item.sub_type == ARM_CAP ||
-            item.sub_type == ARM_WIZARD_HAT || item.sub_type == ARM_CLOAK ||
-            item.sub_type == ARM_GLOVES || item.sub_type == ARM_BOOTS);
+    return (item.sub_type == ARM_HELMET || item.sub_type == ARM_CAP || item.sub_type == ARM_WIZARD_HAT ||
+            item.sub_type == ARM_CLOAK ||
+            item.sub_type == ARM_HANDWRAP || item.sub_type == ARM_GLOVES || item.sub_type == ARM_GAUNTLET ||
+            item.sub_type == ARM_FOOTWRAP || item.sub_type == ARM_SHOES || item.sub_type == ARM_BOOTS);
 }
 
 void set_variant_random_desc(item_def &item)
@@ -885,11 +899,6 @@ void set_variant_random_desc(item_def &item)
     switch (item.sub_type)
     {
 
-        case ARM_HELMET:
-            max_desc = THELM_NUM_DESCS;
-            rare_desc = THELM_DESC_MAX_RARE;
-        break;
-
         case ARM_CAP:
             max_desc = TCAP_NUM_DESCS;
             rare_desc = TCAP_DESC_MAX_RARE;
@@ -900,9 +909,19 @@ void set_variant_random_desc(item_def &item)
             rare_desc = TWIZHAT_DESC_MAX_RARE;
         break;
 
+        case ARM_HELMET:
+            max_desc = THELM_NUM_DESCS;
+            rare_desc = THELM_DESC_MAX_RARE;
+        break;
+
         case ARM_CLOAK:
             max_desc = TCLOAK_NUM_DESCS;
             rare_desc = TCLOAK_DESC_MAX_RARE;
+        break;
+
+        case ARM_HANDWRAP:
+            max_desc = THANDWRAP_NUM_DESCS;
+            rare_desc = THANDWRAP_DESC_MAX_RARE;
         break;
 
         case ARM_GLOVES:
@@ -911,6 +930,21 @@ void set_variant_random_desc(item_def &item)
 
             if (get_armour_ego_type(item) == SPARM_ARCHERY)
                 item.plus2 = TGLOV_DESC_BRACERS;
+        break;
+
+        case ARM_GAUNTLET:
+            max_desc = THEAVYCLOAK_NUM_DESCS;
+            rare_desc = THEAVYCLOAK_DESC_MAX_RARE;
+        break;
+
+        case ARM_FOOTWRAP:
+            max_desc = TFOOTWRAP_NUM_DESCS;
+            rare_desc = TFOOTWRAP_DESC_MAX_RARE;
+        break;
+
+        case ARM_SHOES:
+            max_desc = TSHOE_NUM_DESCS;
+            rare_desc = TSHOE_DESC_MAX_RARE;
         break;
 
         case ARM_BOOTS:

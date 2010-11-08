@@ -2147,17 +2147,17 @@ static item_status_flag_type _determine_armour_race(const item_def& item,
             break;
 
         case ARM_CLOAK:
-            if (one_chance_in(4))
+            if (one_chance_in(5))
                 rc = ISFLAG_ORCISH;
-            if (one_chance_in(4))
+            if (one_chance_in(5))
                 rc = ISFLAG_DWARVEN;
             if (one_chance_in(4))
                 rc = ISFLAG_ELVEN;
             break;
 
         case ARM_GLOVES:
-        case ARM_BOOTS:
-            if (one_chance_in(4))
+        case ARM_SHOES:
+            if (one_chance_in(6))
                 rc = ISFLAG_ORCISH;
             if (one_chance_in(4))
                 rc = ISFLAG_ELVEN;
@@ -2166,6 +2166,8 @@ static item_status_flag_type _determine_armour_race(const item_def& item,
             break;
 
         case ARM_CAP:
+        case ARM_HANDWRAP:
+        case ARM_FOOTWRAP:
             if (one_chance_in(6))
                 rc = ISFLAG_ELVEN;
             break;
@@ -2178,9 +2180,11 @@ static item_status_flag_type _determine_armour_race(const item_def& item,
             break;
 
         case ARM_HELMET:
-            if (one_chance_in(6))
+        case ARM_GAUNTLET:
+        case ARM_BOOTS:
+            if (one_chance_in(4))
                 rc = ISFLAG_ORCISH;
-            if (one_chance_in(5))
+            if (one_chance_in(4))
                 rc = ISFLAG_DWARVEN;
             break;
 
@@ -2433,6 +2437,8 @@ static void _generate_armour_item(item_def& item, bool allow_uniques,
         int i;
         for (i=0; i<100; i++)
             if (_try_make_armour_artefact(item, force_type, 0, true) && is_artefact(item))
+                if (armour_has_variants(item))
+                    set_variant_random_desc(item);
                 return;
         // fall back to an ordinary item
         item_level = MAKE_GOOD_ITEM;
@@ -2441,12 +2447,14 @@ static void _generate_armour_item(item_def& item, bool allow_uniques,
     if (allow_uniques
         && _try_make_armour_artefact(item, force_type, item_level))
     {
+        if (armour_has_variants(item))
+            set_variant_random_desc(item);
         return;
     }
 
     // If we get here the item is not an artefact.
 
-    if (item_race == MAKE_ITEM_RANDOM_RACE && item.sub_type == ARM_BOOTS)
+    if (item_race == MAKE_ITEM_RANDOM_RACE && item.sub_type == ARM_BOOTS || ARM_SHOES || ARM_FOOTWRAP)
     {
         if (one_chance_in(8))
             item.sub_type = ARM_NAGA_BARDING;
@@ -3519,7 +3527,7 @@ armour_type get_random_body_armour_type(int item_level)
     {
         const armour_type tr = get_random_armour_type(item_level);
         if (get_armour_slot(tr) == EQ_BODY_ARMOUR)
-            return (tr);
+        return (tr);
     }
     return (ARM_ROBE);
 }
@@ -3606,6 +3614,27 @@ armour_type get_random_armour_type(int item_level)
 
             armtype = RANDOM_ELEMENT(hats);
         }
+
+        else if (armtype == ARM_GLOVES && one_chance_in(10))
+        {
+            armtype = ARM_HANDWRAP;
+        }
+
+        else if (armtype == ARM_GLOVES && one_chance_in(3))
+        {
+            armtype = ARM_GAUNTLET;
+        }
+
+        else if (armtype == ARM_SHOES && one_chance_in(10))
+        {
+            armtype = ARM_FOOTWRAP;
+        }
+
+        else if (armtype == ARM_SHOES && one_chance_in(3))
+        {
+            armtype = ARM_BOOTS;
+        }
+
         else if (armtype == ARM_SHIELD)
         {
             armtype = random_choose_weighted(333, ARM_SHIELD,
