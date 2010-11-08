@@ -871,41 +871,41 @@ bool armour_has_variants(const item_def& item)
 {
     return (item.sub_type == ARM_HELMET || item.sub_type == ARM_CAP ||
             item.sub_type == ARM_WIZARD_HAT || item.sub_type == ARM_CLOAK ||
-            item.sub_type == ARM_GLOVES || item.sub_type == ARM_BOOTS)
+            item.sub_type == ARM_GLOVES || item.sub_type == ARM_BOOTS);
 }
 
 void set_variant_random_desc(item_def &item)
 {
     ASSERT(armour_has_variants(item));
 
-    item.plus2 = NULL;
+    item.plus2 = 0;
     int rare_desc = 1;
     int max_desc = 1;
 
     switch (item.sub_type)
     {
 
-        case ARM_HELMET
+        case ARM_HELMET:
             max_desc = THELM_NUM_DESCS;
             rare_desc = THELM_DESC_MAX_RARE;
         break;
 
-        case ARM_CAP
+        case ARM_CAP:
             max_desc = TCAP_NUM_DESCS;
             rare_desc = TCAP_DESC_MAX_RARE;
         break;
 
-        case ARM_WIZARD_HAT
+        case ARM_WIZARD_HAT:
             max_desc = TWIZHAT_NUM_DESCS;
             rare_desc = TWIZHAT_DESC_MAX_RARE;
         break;
 
-        case ARM_CLOAK
+        case ARM_CLOAK:
             max_desc = TCLOAK_NUM_DESCS;
             rare_desc = TCLOAK_DESC_MAX_RARE;
         break;
 
-        case ARM_GLOVES
+        case ARM_GLOVES:
             max_desc = TGLOV_NUM_DESCS;
             rare_desc = TGLOV_DESC_MAX_RARE;
 
@@ -913,7 +913,7 @@ void set_variant_random_desc(item_def &item)
                 item.plus2 = TGLOV_DESC_BRACERS;
         break;
 
-        case ARM_BOOTS
+        case ARM_BOOTS:
             max_desc = TBOOT_NUM_DESCS;
             rare_desc = TBOOT_DESC_MAX_RARE;
         break;
@@ -921,11 +921,9 @@ void set_variant_random_desc(item_def &item)
     }
 
 //We only define a random item type if we weren't overridden by something above.
-    if (item.plus2 == NULL)
+    if (item.plus2 == 0)
     {
-        item.plus2 = coinflip();
-            if (item.plus2 > 0)
-                item.plus2 = one_chance_in(5) ? random2(max_desc) : random2(rare_desc);
+        item.plus2 = coinflip() ? 0 : (one_chance_in(5) ? random2(max_desc) : random2(rare_desc));
     }
 }
 
@@ -943,6 +941,7 @@ short get_helmet_desc(const item_def &item)
     return item.plus2;
 }
 
+/**
 void set_helmet_desc(item_def &item, helmet_desc_type type)
 {
     ASSERT(is_helmet(item));
@@ -952,7 +951,7 @@ void set_helmet_desc(item_def &item, helmet_desc_type type)
 
     item.plus2 = type;
 }
-
+**/
 bool is_helmet(const item_def& item)
 {
     return (item.base_type == OBJ_ARMOUR && get_armour_slot(item) == EQ_HELMET);
@@ -962,7 +961,7 @@ bool is_hard_helmet(const item_def &item)
 {
     return (item.base_type == OBJ_ARMOUR && item.sub_type == ARM_HELMET);
 }
-
+/**
 void set_helmet_random_desc(item_def &item)
 {
     ASSERT(is_helmet(item));
@@ -988,7 +987,7 @@ void set_gloves_random_desc(item_def &item)
     if (get_armour_ego_type(item) == SPARM_ARCHERY)
         item.plus2 = TGLOV_DESC_BRACERS;
 }
-
+**/
 //
 // Ego item functions:
 //
