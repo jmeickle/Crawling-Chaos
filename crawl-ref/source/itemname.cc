@@ -1377,7 +1377,7 @@ std::string item_def::name_aux(description_level_type desc,
             buff << ' ';
         }
 
-        if (item_typ == ARM_GLOVES || item_typ == ARM_BOOTS)
+        if (item_typ == ARM_GLOVES || item_typ == ARM_BOOTS || item_typ == ARM_GAUNTLET || item_typ == ARM_SHOES)
             buff << "pair of ";
 
         // When asking for the base item name, randartism is ignored.
