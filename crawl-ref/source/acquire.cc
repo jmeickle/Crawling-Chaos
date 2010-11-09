@@ -426,9 +426,6 @@ static bool _try_give_plain_armour(item_def &arm)
         arm.plus = -max_ench;
     item_colour(arm);
 
-    if (armour_has_variants(arm))
-        set_variant_random_desc(arm);
-
 ASSERT(arm.is_valid());
     return (true);
 }
