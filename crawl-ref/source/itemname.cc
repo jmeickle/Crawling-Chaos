@@ -1094,7 +1094,7 @@ std::string base_type_string (object_class_type type, bool known)
 
 std::string sub_type_string (const item_def &item, bool known)
 {
-    return sub_type_string(item.base_type, item.sub_type, item.plus);
+     return (armour_has_variants(item) ? get_armour_variant_name(item) : sub_type_string(item.base_type, item.sub_type, item.plus));
 }
 
 std::string sub_type_string (object_class_type type, int sub_type, bool known, int plus)
