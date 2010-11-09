@@ -2678,10 +2678,10 @@ void ident_reflector(item_def *item)
 
 std::string item_base_name(const item_def &item)
 {
-    return item_base_name(item.base_type, item.sub_type);
+    return item_base_name(item.base_type, item.sub_type, item);
 }
 
-std::string item_base_name (object_class_type type, int sub_type)
+std::string item_base_name (object_class_type type, int sub_type, const item_def &item)
 {
     switch (type)
     {
@@ -2690,7 +2690,7 @@ std::string item_base_name (object_class_type type, int sub_type)
     case OBJ_MISSILES:
         return Missile_prop[Missile_index[sub_type]].name;
     case OBJ_ARMOUR:
-        return Armour_prop[Armour_index[sub_type]].name;
+        return (armour_has_variants(item) ? armour_get_variant_name(item) : Armour_prop[Armour_index[sub_type]].name;
     case OBJ_JEWELLERY:
         return (jewellery_is_amulet(sub_type) ? "amulet" : "ring");
     default:
