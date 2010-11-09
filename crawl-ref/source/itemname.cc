@@ -1307,6 +1307,7 @@ std::string item_def::name_aux(description_level_type desc,
             else if (brand == SPWPN_ANTIMAGIC)
                 buff << "anti-magic ";
         }
+
         buff << item_base_name(*this);
 
         if (know_brand)
