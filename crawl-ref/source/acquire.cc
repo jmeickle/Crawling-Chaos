@@ -38,7 +38,7 @@
 
 static armour_type _random_nonbody_armour_type()
 {
-    const armour_type at =
+        armour_type at =
         static_cast<armour_type>(
             random_choose(ARM_SHIELD, ARM_CLOAK, ARM_HELMET,
                           ARM_GLOVES, ARM_SHOES, -1));
