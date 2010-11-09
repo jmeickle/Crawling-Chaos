@@ -1916,6 +1916,9 @@ bool make_item_randart(item_def &item, bool force_mundane)
     while (randart_is_bad(item)
            || god_gift != GOD_NO_GOD && !_god_fits_artefact(god_gift, item));
 
+    if (armour_has_variants(item))
+    set_variant_random_desc(item);
+
     // get true artefact name
     if (item.props.exists(ARTEFACT_NAME_KEY))
         ASSERT(item.props[ARTEFACT_NAME_KEY].get_type() == SV_STR);
@@ -1928,9 +1931,6 @@ bool make_item_randart(item_def &item, bool force_mundane)
     else
         item.props[ARTEFACT_APPEAR_KEY].get_string() =
             artefact_name(item, true);
-
-    if (armour_has_variants(item))
-        set_variant_random_desc(item);
 
     return (true);
 }
