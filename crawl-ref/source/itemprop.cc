@@ -973,7 +973,7 @@ std::string get_armour_variant_name(const item_def &item)
     ASSERT(armour_has_variants(item));
 
     const short variant = get_armour_variant_desc(item);
-    std::string result = 0;
+    std::string result = "buggy thing";
     switch (item.sub_type)
     {
                 case ARM_CAP:
