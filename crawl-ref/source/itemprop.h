@@ -43,6 +43,7 @@ iflags_t get_equip_desc(const item_def &item);
 bool armour_has_variants(const item_def& item);
 void set_variant_random_desc(item_def &item);
 short get_armour_variant_desc(const item_def &item);
+short get_armour_variant_name(const item_def &item);
 
 //void  set_helmet_desc(item_def &item, short flags);
 //void  set_helmet_random_desc(item_def &item);

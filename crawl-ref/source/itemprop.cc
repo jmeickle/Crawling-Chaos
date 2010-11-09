@@ -968,6 +968,135 @@ short get_armour_variant_desc(const item_def &item)
     return item.plus2;
 }
 
+short get_armour_variant_name(const item_def &item)
+{
+    ASSERT(armour_has_variants(item));
+
+    const short variant = get_armour_variant_desc(item);
+
+    switch (item.sub_type)
+    {
+                case ARM_CAP:
+                std::string result =
+                        ((variant == TCAP_DESC_CAP)            ? "cap" :
+                        (variant == TCAP_DESC_HAT)            ? "hat" :
+                        (variant == TCAP_DESC_COIF)           ? "coif" :
+                        (variant == TCAP_DESC_HOOD)           ? "hood" :
+                        (variant == TCAP_DESC_FEATHERED_CAP)  ? "feathered cap" :
+                        (variant == TCAP_DESC_PEAKED_CAP)     ? "peaked cap" :
+                        (variant == TCAP_DESC_FEDORA)         ? "fedora" :
+                        (variant == TCAP_DESC_FEZ)            ? "fez" :
+                        (variant == TCAP_DESC_BANDANA)        ? "bandana" :
+                        (variant == TCAP_DESC_SOMBRERO)       ? "sombrero" :
+                        (variant == TCAP_DESC_TOP_HAT)        ? "top hat" :
+                        (variant == TCAP_DESC_TOQUE)          ? "toque" :
+                                                      "bug-ridden cap");
+                break;
+
+                case ARM_WIZARD_HAT:
+                std::string result =
+                       ((variant == TWIZHAT_DESC_WIZARD_HAT)  ? "wizard hat" :
+                        (variant == TWIZHAT_DESC_TURBAN)      ? "turban" :
+                        (variant == TWIZHAT_DESC_SKULLCAP)    ? "skullcap" :
+                        (variant == TWIZHAT_DESC_COWL)        ? "cowl" :
+                        (variant == TWIZHAT_DESC_MITER)       ? "miter" :
+                        (variant == TWIZHAT_DESC_DUNCE_CAP)   ? "dunce cap" :
+                        (variant == TWIZHAT_DESC_VEIL)        ? "veil" :
+                        (variant == TWIZHAT_DESC_MASK)        ? "mask" :
+                        (variant == TWIZHAT_DESC_GOGGLES)     ? "pair of goggles" :
+                                                      "bug-ridden wizard hat");
+                break;
+
+                case ARM_HELMET:
+                std::string result =
+                       ((variant == THELM_DESC_HELMET)     ? "helmet" :
+                        (variant == THELM_DESC_HELM)       ? "helm" :
+                        (variant == THELM_DESC_HORNED)     ? "horned helmet" :
+                        (variant == THELM_DESC_CRESTED)    ? "crested helmet" :
+                        (variant == THELM_DESC_PLUMED)     ? "plumed helmet" :
+                        (variant == THELM_DESC_VISORED)    ? "visored helmet" :
+                        (variant == THELM_DESC_MAIL_COIF)  ? "mail coif" :
+                        (variant == THELM_DESC_GREATHELM)  ? "greathelm" :
+                        (variant == THELM_DESC_WINGED)     ? "winged helmet" :
+                        (variant == THELM_DESC_SPIKED)     ? "spiked helmet" :
+                        (variant == THELM_DESC_GOLDEN)     ? "golden helmet" :
+                        (variant == THELM_DESC_CROWN)      ? "crown" :
+                        (variant == THELM_DESC_TIARA)      ? "tiara" :
+                        (variant == THELM_DESC_CORONET)    ? "coronet" :
+                        (variant == THELM_DESC_DIADEM)     ? "diadem" :
+                                                      "bug-ridden helmet");
+                break;
+
+                case ARM_HANDWRAP:
+                std::string result =
+                       ((variant == THANDWRAP_DESC_HANDWRAP)   ? "handwraps" :
+                        (variant == THANDWRAP_DESC_WRISTBAND)  ? "wristbands" :
+                        (variant == THANDWRAP_DESC_BRACELET)   ? "bracelets" :
+                        (variant == THANDWRAP_DESC_BANGLE)     ? "bangles" :
+                        (variant == THANDWRAP_DESC_MITTENS)    ? "mittens" :
+                                                      "bug-ridden handwraps");
+                break;
+
+                case ARM_GLOVES:
+                std::string result =
+                       ((variant == TGLOV_DESC_GLOVES)          ? "gloves" :
+                        (variant == TGLOV_DESC_BRACERS)         ? "bracers" :
+                        (variant == TGLOV_DESC_MYRMEX)          ? "myrmex" :
+                        (variant == TGLOV_DESC_WEIGHTED_GLOVE)  ? "weighted gloves" :
+                                                      "bug-ridden gloves");
+                break;
+
+                case ARM_GAUNTLET:
+                std::string result =
+                       ((variant == TGAUNTLET_DESC_GAUNTLETS)         ? "gauntlets" :
+                        (variant == TGAUNTLET_DESC_VAMBRACES)         ? "vambraces" :
+                        (variant == TGAUNTLET_DESC_CESTUS)            ? "cestus" :
+                        (variant == TGAUNTLET_DESC_SPIKED_GAUNTLETS)  ? "spiked gauntlets" :
+                                                      "bug-ridden gauntlets");
+                break;
+
+                case ARM_CLOAK:
+                std::string result =
+                       ((variant == TCLOAK_DESC_CLOAK)   ? "cloak" :
+                        (variant == TCLOAK_DESC_CAPE)    ? "cape" :
+                        (variant == TCLOAK_DESC_MANTLE)  ? "mantle" :
+                        (variant == TCLOAK_DESC_TABARD)  ? "tabard" :
+                        (variant == TCLOAK_DESC_SHAWL)   ? "shawl" :
+                        (variant == TCLOAK_DESC_SCARF)   ? "scarf" :
+                        (variant == TCLOAK_DESC_STOLE)   ? "stole" :
+                                                      "bug-ridden cloak");
+                break;
+
+                case ARM_FOOTWRAP:
+                std::string result =
+                       ((variant == TFOOTWRAP_DESC_FOOTWRAP)  ? "footwraps" :
+                        (variant == TFOOTWRAP_DESC_SANDALS)   ? "sandals" :
+                        (variant == TFOOTWRAP_DESC_ANKLET)    ? "anklets" :
+                        (variant == TFOOTWRAP_DESC_SLIPPERS)  ? "slippers" :
+                                                      "bug-ridden footwraps");
+                break;
+
+                case ARM_SHOES:
+                std::string result =
+                       ((variant == TSHOE_DESC_SHOES)      ? "shoes" :
+                        (variant == TSHOE_DESC_MOCCASINS)  ? "moccasins" :
+                        (variant == TSHOE_DESC_GALOSHES)   ? "galoshes" :
+                        (variant == TSHOE_DESC_LOAFERS)    ? "loafers" :
+                                                      "bug-ridden shoes");
+                break;
+
+                case ARM_BOOTS:
+                std::string result =
+                       ((variant == TBOOT_DESC_BOOTS)         ? "boots" :
+                        (variant == TBOOT_DESC_HIKING_BOOTS)  ? "hiking boots" :
+                        (variant == TBOOT_DESC_CLOGS)         ? "clogs" :
+                        (variant == TBOOT_DESC_SOLLERETS)     ? "sollerets" :
+                                                      "bug-ridden boots");
+                break;
+            }
+    return result;
+}
+
 short get_helmet_desc(const item_def &item)
 {
     ASSERT(is_helmet(item));
@@ -2690,7 +2819,7 @@ std::string item_base_name (object_class_type type, int sub_type, const item_def
     case OBJ_MISSILES:
         return Missile_prop[Missile_index[sub_type]].name;
     case OBJ_ARMOUR:
-        return (armour_has_variants(item) ? armour_get_variant_name(item) : Armour_prop[Armour_index[sub_type]].name;
+        return (armour_has_variants(item) ? get_armour_variant_name(item) : Armour_prop[Armour_index[sub_type]].name;
     case OBJ_JEWELLERY:
         return (jewellery_is_amulet(sub_type) ? "amulet" : "ring");
     default:

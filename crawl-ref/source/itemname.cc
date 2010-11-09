@@ -1434,6 +1434,7 @@ std::string item_def::name_aux(description_level_type desc,
         {
             const short variant = get_armour_variant_desc(*this);
 
+            buff << get_armour_variant_name(*this);
             switch (item_typ)
             {
                 case ARM_CAP:
