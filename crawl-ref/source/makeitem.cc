@@ -2069,7 +2069,7 @@ static bool _try_make_armour_artefact(item_def& item, int force_type,
         // The other 98% are normal randarts.
 
         // 10% of boots become barding.
-        if (item.sub_type == ARM_BOOTS && one_chance_in(10))
+        if (item.sub_type == ARM_FOOTWRAP || item.sub_type == ARM_SHOES || item.sub_type == ARM_BOOTS && one_chance_in(10))
         {
             item.sub_type = coinflip() ? ARM_NAGA_BARDING
                                        : ARM_CENTAUR_BARDING;
