@@ -1383,12 +1383,12 @@ std::string item_def::name_aux(description_level_type desc,
             buff << "pair of ";
 
         // When asking for the base item name, randartism is ignored.
-/**        if (is_artefact(*this) && !basename && !dbname)
+        if (is_artefact(*this) && !basename && !dbname)
         {
             buff << get_artefact_name(*this);
             break;
         }
-**/
+
         if (show_cosmetic)
         {
             switch (get_equip_desc(*this))

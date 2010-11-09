@@ -978,7 +978,7 @@ std::string get_armour_variant_name(const item_def &item)
     {
                 case ARM_CAP:
                 result =
-                        ((variant == TCAP_DESC_CAP)            ? "cap" :
+                        ((variant == TCAP_DESC_CAP)           ? "cap" :
                         (variant == TCAP_DESC_HAT)            ? "hat" :
                         (variant == TCAP_DESC_COIF)           ? "coif" :
                         (variant == TCAP_DESC_HOOD)           ? "hood" :
