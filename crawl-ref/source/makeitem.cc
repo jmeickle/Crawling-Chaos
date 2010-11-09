@@ -3276,6 +3276,9 @@ int items(int allow_uniques,       // not just true-false,
         item.special = 0;
     }
 
+    if (armour_has_variants(item))
+      set_variant_random_desc(item);
+
     // Colour the item.
     item_colour(item);
 
