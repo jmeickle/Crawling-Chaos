@@ -2068,9 +2068,6 @@ static bool _try_make_armour_artefact(item_def& item, int force_type,
 
         // The other 98% are normal randarts.
 
-        if (armour_has_variants(item))
-            set_variant_random_desc(item);
-
         // 10% of boots become barding.
         if (item.sub_type == ARM_FOOTWRAP || item.sub_type == ARM_SHOES || item.sub_type == ARM_BOOTS && one_chance_in(10))
         {
@@ -2445,26 +2442,15 @@ static void _generate_armour_item(item_def& item, bool allow_uniques,
         int i;
         for (i=0; i<100; i++)
             if (_try_make_armour_artefact(item, force_type, 0, true) && is_artefact(item))
-            {
-                if (armour_has_variants(item))
-                {
-                    set_variant_random_desc(item);
-                }
                 return;
-            }
+
         // fall back to an ordinary item
         item_level = MAKE_GOOD_ITEM;
     }
 
     if (allow_uniques
         && _try_make_armour_artefact(item, force_type, item_level))
-    {
-        if (armour_has_variants(item))
-        {
-            set_variant_random_desc(item);
-        }
-        return;
-    }
+            return;
 
     // If we get here the item is not an artefact.
 

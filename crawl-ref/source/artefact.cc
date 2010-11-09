@@ -1929,6 +1929,9 @@ bool make_item_randart(item_def &item, bool force_mundane)
         item.props[ARTEFACT_APPEAR_KEY].get_string() =
             artefact_name(item, true);
 
+    if (armour_has_variants(item))
+        set_variant_random_desc(item);
+
     return (true);
 }
 
