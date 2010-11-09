@@ -973,11 +973,11 @@ short get_armour_variant_name(const item_def &item)
     ASSERT(armour_has_variants(item));
 
     const short variant = get_armour_variant_desc(item);
-
+    std::string result = 0;
     switch (item.sub_type)
     {
                 case ARM_CAP:
-                std::string result =
+                result =
                         ((variant == TCAP_DESC_CAP)            ? "cap" :
                         (variant == TCAP_DESC_HAT)            ? "hat" :
                         (variant == TCAP_DESC_COIF)           ? "coif" :
@@ -994,7 +994,7 @@ short get_armour_variant_name(const item_def &item)
                 break;
 
                 case ARM_WIZARD_HAT:
-                std::string result =
+                result =
                        ((variant == TWIZHAT_DESC_WIZARD_HAT)  ? "wizard hat" :
                         (variant == TWIZHAT_DESC_TURBAN)      ? "turban" :
                         (variant == TWIZHAT_DESC_SKULLCAP)    ? "skullcap" :
@@ -1008,7 +1008,7 @@ short get_armour_variant_name(const item_def &item)
                 break;
 
                 case ARM_HELMET:
-                std::string result =
+                result =
                        ((variant == THELM_DESC_HELMET)     ? "helmet" :
                         (variant == THELM_DESC_HELM)       ? "helm" :
                         (variant == THELM_DESC_HORNED)     ? "horned helmet" :
@@ -1028,7 +1028,7 @@ short get_armour_variant_name(const item_def &item)
                 break;
 
                 case ARM_HANDWRAP:
-                std::string result =
+                result =
                        ((variant == THANDWRAP_DESC_HANDWRAP)   ? "handwraps" :
                         (variant == THANDWRAP_DESC_WRISTBAND)  ? "wristbands" :
                         (variant == THANDWRAP_DESC_BRACELET)   ? "bracelets" :
@@ -1038,7 +1038,7 @@ short get_armour_variant_name(const item_def &item)
                 break;
 
                 case ARM_GLOVES:
-                std::string result =
+                result =
                        ((variant == TGLOV_DESC_GLOVES)          ? "gloves" :
                         (variant == TGLOV_DESC_BRACERS)         ? "bracers" :
                         (variant == TGLOV_DESC_MYRMEX)          ? "myrmex" :
@@ -1047,7 +1047,7 @@ short get_armour_variant_name(const item_def &item)
                 break;
 
                 case ARM_GAUNTLET:
-                std::string result =
+                result =
                        ((variant == TGAUNTLET_DESC_GAUNTLETS)         ? "gauntlets" :
                         (variant == TGAUNTLET_DESC_VAMBRACES)         ? "vambraces" :
                         (variant == TGAUNTLET_DESC_CESTUS)            ? "cestus" :
@@ -1056,7 +1056,7 @@ short get_armour_variant_name(const item_def &item)
                 break;
 
                 case ARM_CLOAK:
-                std::string result =
+                result =
                        ((variant == TCLOAK_DESC_CLOAK)   ? "cloak" :
                         (variant == TCLOAK_DESC_CAPE)    ? "cape" :
                         (variant == TCLOAK_DESC_MANTLE)  ? "mantle" :
@@ -1068,7 +1068,7 @@ short get_armour_variant_name(const item_def &item)
                 break;
 
                 case ARM_FOOTWRAP:
-                std::string result =
+                result =
                        ((variant == TFOOTWRAP_DESC_FOOTWRAP)  ? "footwraps" :
                         (variant == TFOOTWRAP_DESC_SANDALS)   ? "sandals" :
                         (variant == TFOOTWRAP_DESC_ANKLET)    ? "anklets" :
@@ -1077,7 +1077,7 @@ short get_armour_variant_name(const item_def &item)
                 break;
 
                 case ARM_SHOES:
-                std::string result =
+                result =
                        ((variant == TSHOE_DESC_SHOES)      ? "shoes" :
                         (variant == TSHOE_DESC_MOCCASINS)  ? "moccasins" :
                         (variant == TSHOE_DESC_GALOSHES)   ? "galoshes" :
@@ -1086,7 +1086,7 @@ short get_armour_variant_name(const item_def &item)
                 break;
 
                 case ARM_BOOTS:
-                std::string result =
+                result =
                        ((variant == TBOOT_DESC_BOOTS)         ? "boots" :
                         (variant == TBOOT_DESC_HIKING_BOOTS)  ? "hiking boots" :
                         (variant == TBOOT_DESC_CLOGS)         ? "clogs" :
@@ -2807,10 +2807,10 @@ void ident_reflector(item_def *item)
 
 std::string item_base_name(const item_def &item)
 {
-    return item_base_name(item.base_type, item.sub_type, item);
+    return (armour_has_variants(item) ? get_armour_variant_name(item) : item_base_name(item.base_type, item.sub_type));
 }
 
-std::string item_base_name (object_class_type type, int sub_type, const item_def &item)
+std::string item_base_name (object_class_type type, int sub_type)
 {
     switch (type)
     {
@@ -2819,7 +2819,7 @@ std::string item_base_name (object_class_type type, int sub_type, const item_def
     case OBJ_MISSILES:
         return Missile_prop[Missile_index[sub_type]].name;
     case OBJ_ARMOUR:
-        return (armour_has_variants(item) ? get_armour_variant_name(item) : Armour_prop[Armour_index[sub_type]].name;
+        return Armour_prop[Armour_index[sub_type]].name;
     case OBJ_JEWELLERY:
         return (jewellery_is_amulet(sub_type) ? "amulet" : "ring");
     default:

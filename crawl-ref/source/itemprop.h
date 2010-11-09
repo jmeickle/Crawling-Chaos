@@ -178,7 +178,8 @@ equipment_type get_item_slot(object_class_type type, int sub_type);
 equipment_type get_item_slot(const item_def& item);
 
 std::string item_base_name(const item_def &item);
-std::string item_base_name (object_class_type type, int sub_type);
+std::string item_base_name(object_class_type type, int sub_type);
+std::string item_base_name(object_class_type type, int sub_type, const item_def &item);
 std::string food_type_name (const item_def &item);
 std::string food_type_name (int sub_type);
 const char* weapon_base_name(uint8_t subtype);
