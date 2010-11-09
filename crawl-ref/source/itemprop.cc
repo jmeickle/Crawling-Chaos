@@ -968,7 +968,7 @@ short get_armour_variant_desc(const item_def &item)
     return item.plus2;
 }
 
-short get_armour_variant_name(const item_def &item)
+std::string get_armour_variant_name(const item_def &item)
 {
     ASSERT(armour_has_variants(item));
 
