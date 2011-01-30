@@ -881,6 +881,12 @@ bolt mons_spells(monster* mons, spell_type spell_cast, int power,
         beam.flavour  = BEAM_LIGHT;
         break;
 
+    case SPELL_PLANT_BREATH:
+        beam.short_name = "plant life";
+        beam.flavour  = BEAM_MISSILE;
+        beam.is_beam  = true;
+        break;
+
     default:
         if (check_validity)
         {
@@ -3344,6 +3350,24 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
         return;
     case SPELL_SUMMON_HYDRA:
         cast_summon_hydra(mons, mons->hit_dice * 5, god);
+        return;
+    case SPELL_PLANT_BREATH:
+        for (radius_iterator ri(pbolt.target, 2); ri; ++ri)
+        {
+            if (monster_at(*ri) == NULL && coinflip())
+            {
+                const monster_type mon = static_cast<monster_type>(
+                    random_choose_weighted(16, MONS_TOADSTOOL,
+                                           4, MONS_FUNGUS,
+                                           2, MONS_PLANT,
+                                           1, MONS_BUSH,
+                                           0));
+                create_monster(
+                    mgen_data(mon, SAME_ATTITUDE(mons),
+                              mons, 0, 0, *ri,
+                              MHITNOT, MG_FORCE_PLACE, god));
+            }
+        }
         return;
     }
 

@@ -2319,7 +2319,7 @@ enum monster_type                      // (int) menv[].type
     MONS_SENSED_EASY,
     MONS_SENSED_TOUGH,
     MONS_SENSED_NASTY,
-
+    MONS_FOREST_WYRM,
     NUM_MONSTERS,                      // used for polymorph
 
     // MONS_NO_MONSTER can get put in savefiles, so it shouldn't change
@@ -2626,6 +2626,7 @@ enum mon_spellbook_type
     MST_SERPENT_OF_HELL_DIS,
     MST_NERGALLE,
     MST_JORY,
+    MST_FOREST_WYRM,
 
     MST_GHOST, // special
     MST_TEST_SPAWNER,
@@ -3265,6 +3266,7 @@ enum spell_type
     SPELL_LEDAS_LIQUEFACTION,
     SPELL_HOMUNCULUS,
     SPELL_SUMMON_HYDRA,
+    SPELL_PLANT_BREATH,
 
     NUM_SPELLS
 };
