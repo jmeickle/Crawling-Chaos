@@ -598,6 +598,23 @@ bool mons_has_body(const monster* mon)
     return (true);
 }
 
+bool mons_has_flesh(const monster* mon)
+{
+    if (mon->is_skeletal() || mon->is_insubstantial())
+        return false;
+
+    // Dictionary says:
+    // 1. (12) flesh -- (the soft tissue of the body of a vertebrate:
+    //    mainly muscle tissue and fat)
+    // 3. pulp, flesh -- (a soft moist part of a fruit)
+    // yet I exclude sense 3 anyway but include arthropods and molluscs.
+    return (mon->holiness() != MH_PLANT
+            && mon->holiness() != MH_NONLIVING
+            && mons_base_char(mon->type) != 'G'  // eyes
+            && mons_base_char(mon->type) != 'J'  // jellies
+            && mons_base_char(mon->type) != '%');// cobs (plant!)
+}
+
 // Difference in speed between monster and the player for Cheibriados'
 // purposes. This is the speed difference disregarding the player's
 // slow status.
@@ -2505,7 +2522,7 @@ mon_attitude_type mons_attitude(const monster* m)
 
 bool mons_is_confused(const monster* m, bool class_too)
 {
-    return (m->has_ench(ENCH_CONFUSION)
+    return ((m->has_ench(ENCH_CONFUSION) || m->has_ench(ENCH_MAD))
             && (class_too || !mons_class_flag(m->type, M_CONFUSED)));
 }
 

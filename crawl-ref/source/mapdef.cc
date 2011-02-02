@@ -793,7 +793,7 @@ std::string map_lines::add_colour(const std::string &sub)
 
 bool map_fprop_list::parse(const std::string &fp, int weight)
 {
-    unsigned long fprop;
+    feature_property_type fprop;
 
     if (fp == "nothing")
         fprop = FPROP_NONE;
@@ -4907,12 +4907,22 @@ item_spec item_list::parse_single_spec(std::string s)
         const std::string title = replace_all_of(strip_tag_prefix(s, "title:"),
                                                 "_", " ");
 
-        const std::string spell = replace_all_of(strip_tag_prefix(s, "spell:"),
-                                                "_", " ");
-        if (!spell.empty() && spell_by_name(spell) == SPELL_NO_SPELL)
+        const std::string spells = strip_tag_prefix(s, "spells:");
+
+        std::vector<std::string> spell_list = split_string("|", spells);
+        CrawlVector &incl_spells
+            = result.props["randbook_spells"].new_vector(SV_INT);
+
+        for (unsigned int i = 0; i < spell_list.size(); ++i)
         {
-            error = make_stringf("Bad spell: %s", spell.c_str());
-            return (result);
+            std::string spell_name = replace_all_of(spell_list[i], "_", " ");
+            spell_type spell = spell_by_name(spell_name);
+            if (spell == SPELL_NO_SPELL)
+            {
+                error = make_stringf("Bad spell: %s", spell_list[i].c_str());
+                return (result);
+            }
+            incl_spells.push_back(spell);
         }
 
         const std::string owner = replace_all_of(strip_tag_prefix(s, "owner:"),
@@ -4921,7 +4931,6 @@ item_spec item_list::parse_single_spec(std::string s)
         result.props["randbook_disc2"] = disc2;
         result.props["randbook_num_spells"] = num_spells;
         result.props["randbook_slevels"] = slevels;
-        result.props["randbook_spell"] = spell;
         result.props["randbook_title"] = title;
         result.props["randbook_owner"] = owner;
 
@@ -5200,12 +5209,12 @@ int colour_spec::get_colour()
 //////////////////////////////////////////////////////////////////////////
 // fprop_spec
 
-unsigned long fprop_spec::get_property()
+feature_property_type fprop_spec::get_property()
 {
     if (fixed_prop != FPROP_NONE)
         return (fixed_prop);
 
-    unsigned long chosen = FPROP_NONE;
+    feature_property_type chosen = FPROP_NONE;
     int cweight = 0;
     for (int i = 0, size = fprops.size(); i < size; ++i)
         if (x_chance_in_y(fprops[i].second, cweight += fprops[i].second))

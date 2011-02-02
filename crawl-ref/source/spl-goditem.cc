@@ -697,7 +697,7 @@ bool detect_curse(int scroll, bool suppress_msg)
     return (true);
 }
 
-static bool _do_imprison(int pow, const coord_def& where, bool force_full)
+static bool _do_imprison(int pow, const coord_def& where, bool zin)
 {
     // power guidelines:
     // powc is roughly 50 at Evoc 10 with no godly assistance, ranging
@@ -710,44 +710,57 @@ static bool _do_imprison(int pow, const coord_def& where, bool force_full)
     };
 
     bool proceed;
+    monster *mon;
+    std::string targname;
 
-    if (force_full)
+    if (zin)
     {
+        // We need to get this now because we won't be able to see
+        // the monster once the walls go up!
+        mon = monster_at(where);
+        targname = mon->name(DESC_NOCAP_THE);
         bool success = true;
+        bool none_vis = true;
 
         for (adjacent_iterator ai(where); ai; ++ai)
         {
             // The tile is occupied.
-            if (actor_at(*ai))
+            if (actor *fatass = actor_at(*ai))
             {
                 success = false;
+                if (you.can_see(fatass))
+                    none_vis = false;
                 break;
             }
 
             // Make sure we have a legitimate tile.
             proceed = false;
             for (unsigned int i = 0; i < ARRAYSZ(safe_tiles) && !proceed; ++i)
-                if (grd(*ai) == safe_tiles[i] || feat_is_trap(grd(*ai)))
+                if (grd(*ai) == safe_tiles[i] || feat_is_trap(grd(*ai), true))
                     proceed = true;
 
             if (!proceed && grd(*ai) > DNGN_MAX_NONREACH)
             {
                 success = false;
+                none_vis = false;
                 break;
             }
         }
 
         if (!success)
         {
-            mpr("Half-formed walls emerge from the floor, then retract.");
+            mprf(none_vis ? "You briefly glimpse something next to %s."
+                          : "You need more space to imprison %s.",
+                 targname.c_str());
             return (false);
         }
+
     }
 
     for (adjacent_iterator ai(where); ai; ++ai)
     {
         // This is where power comes in.
-        if (!force_full && one_chance_in(pow / 5))
+        if (!zin && one_chance_in(pow / 5))
             continue;
 
         // The tile is occupied.
@@ -757,7 +770,7 @@ static bool _do_imprison(int pow, const coord_def& where, bool force_full)
         // Make sure we have a legitimate tile.
         proceed = false;
         for (unsigned int i = 0; i < ARRAYSZ(safe_tiles) && !proceed; ++i)
-            if (grd(*ai) == safe_tiles[i] || feat_is_trap(grd(*ai)))
+            if (grd(*ai) == safe_tiles[i] || feat_is_trap(grd(*ai), true))
                 proceed = true;
 
         if (proceed)
@@ -775,7 +788,22 @@ static bool _do_imprison(int pow, const coord_def& where, bool force_full)
                 ptrap->destroy();
 
             // Actually place the wall.
-            grd(*ai) = DNGN_ROCK_WALL;
+
+            if (zin)
+            {
+                // Make the walls silver.
+                grd(*ai) = DNGN_METAL_WALL;
+                env.grid_colours(*ai) = LIGHTGREY;
+
+                map_wiz_props_marker *marker = new map_wiz_props_marker(*ai);
+                marker->set_property("feature_description", "A gleaming silver wall");
+                marker->set_property("prison", "Zin");
+                env.markers.add(marker);
+            }
+            else
+            {
+                grd(*ai) = DNGN_ROCK_WALL;
+            }
             set_terrain_changed(*ai);
             number_built++;
         }
@@ -783,9 +811,14 @@ static bool _do_imprison(int pow, const coord_def& where, bool force_full)
 
     if (number_built > 0)
     {
-        mpr("Walls emerge from the floor!");
+        if (!zin)
+            mpr("Walls emerge from the floor!");
+        else
+            mprf("Zin imprisons %s with walls of pure silver!", targname.c_str());
+
         you.update_beholders();
         you.update_fearmongers();
+        env.markers.clear_need_activate();
     }
     else
         canned_msg(MSG_NOTHING_HAPPENS);

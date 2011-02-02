@@ -176,7 +176,7 @@ public:
     map_colour_list colours;
 };
 
-typedef std::pair<unsigned long, int> map_weighted_fprop;
+typedef std::pair<feature_property_type, int> map_weighted_fprop;
 class map_fprop_list : public std::vector<map_weighted_fprop>
 {
 public:
@@ -198,12 +198,12 @@ public:
     {
     }
 
-    unsigned long get_property();
+    feature_property_type get_property();
 
 public:
     std::string key;
     bool fix;
-    unsigned long fixed_prop;
+    feature_property_type fixed_prop;
     map_fprop_list fprops;
 };
 
@@ -663,7 +663,7 @@ class mons_spec
 
     bool explicit_spells;
     std::vector<monster_spells> spells;
-    unsigned long extra_monster_flags;
+    uint64_t extra_monster_flags;
 
     CrawlHashTable props;
 
@@ -678,7 +678,7 @@ class mons_spec
           colour(BLACK), god(GOD_NO_GOD), god_gift(false), hd(0), hp(0),
           abjuration_duration(0), summon_type(0), items(), monname(""),
           non_actor_summoner(""), explicit_spells(false), spells(),
-          extra_monster_flags(0L), props()
+          extra_monster_flags(0), props()
     {
     }
 };

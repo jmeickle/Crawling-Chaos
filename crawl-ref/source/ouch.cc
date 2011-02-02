@@ -932,11 +932,11 @@ static void _xom_checks_damage(kill_method_type death_type,
             amusementvalue += 8;
 
         if (death_type != KILLED_BY_BEAM
-            && you.skills[SK_THROWING] <= (you.experience_level / 4))
+            && you.skill(SK_THROWING) <= (you.experience_level / 4))
         {
             amusementvalue += 2;
         }
-        else if (you.skills[SK_FIGHTING] <= (you.experience_level / 4))
+        else if (you.skill(SK_FIGHTING) <= (you.experience_level / 4))
             amusementvalue += 2;
 
         if (player_in_a_dangerous_place())
@@ -1320,6 +1320,10 @@ void ouch(int dam, int death_source, kill_method_type death_type,
     // The game's over.
     crawl_state.need_save       = false;
     crawl_state.updating_scores = true;
+
+#if TAG_MAJOR_VERSION == 32
+    note_montiers();
+#endif
 
     // Prevent bogus notes.
     activate_notes(false);

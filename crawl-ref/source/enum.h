@@ -81,8 +81,8 @@ enum ability_type
     ABIL_YRED_ANIMATE_REMAINS_OR_DEAD,
     // Xom, Vehumet = 90
     // Okawaru
-    ABIL_OKAWARU_MIGHT = 100,
-    ABIL_OKAWARU_HASTE,
+    ABIL_OKAWARU_HEROISM = 100,
+    ABIL_OKAWARU_FINESSE,
     // Makhleb
     ABIL_MAKHLEB_MINOR_DESTRUCTION = 110,
     ABIL_MAKHLEB_LESSER_SERVANT_OF_MAKHLEB,
@@ -782,6 +782,8 @@ enum command_type
     CMD_TARGET_WIZARD_HEAL_MONSTER,
     CMD_TARGET_WIZARD_HURT_MONSTER,
     CMD_TARGET_WIZARD_DEBUG_PORTAL,
+    CMD_TARGET_WIZARD_KILL_MONSTER,
+    CMD_TARGET_WIZARD_BANISH_MONSTER,
     CMD_TARGET_MOUSE_MOVE,
     CMD_TARGET_MOUSE_SELECT,
     CMD_TARGET_HELP,
@@ -1334,7 +1336,8 @@ enum duration_type
     DUR_SCRYING,
     DUR_TORNADO,
     DUR_LIQUEFYING,
-
+    DUR_HEROISM,
+    DUR_FINESSE,
     NUM_DURATIONS
 };
 
@@ -1408,7 +1411,12 @@ enum enchant_type
     ENCH_LIQUEFYING,
     ENCH_PERM_TORNADO,
     ENCH_FAKE_ABJURATION,
-
+    ENCH_DAZED,         // Dazed - less chance of acting each turn.
+    ENCH_MUTE,          // Permanently silenced.
+    ENCH_BLIND,         // Permanently blind (everything is invisible).
+    ENCH_DUMB,          // Permanently dumb (as in, 'struck dumb').
+    ENCH_MAD,           // Permanently mad.
+    ENCH_SILVER_CORONA, // Zin's silver light.
     // Update enchantment names in monster.cc when adding or removing
     // enchantments.
     NUM_ENCHANTMENTS
@@ -2319,6 +2327,7 @@ enum monster_type                      // (int) menv[].type
     MONS_SENSED_EASY,
     MONS_SENSED_TOUGH,
     MONS_SENSED_NASTY,
+    MONS_SALT_PILLAR,
     MONS_FOREST_WYRM,
     NUM_MONSTERS,                      // used for polymorph
 
@@ -2804,6 +2813,16 @@ enum orb_type
     ORB_ZOT,
 };
 
+enum recite_type
+{
+    RECITE_CHAOTIC,
+    RECITE_IMPURE,
+    RECITE_HERETIC,
+    RECITE_UNHOLY,
+    RECITE_ALLY,
+    NUM_RECITE_TYPES
+};
+
 enum size_part_type
 {
     PSIZE_BODY,         // entire body size -- used for EV/size of target
@@ -2958,6 +2977,7 @@ enum skill_type
     SK_SHIELDS,
     SK_TRAPS_DOORS,
     SK_UNARMED_COMBAT,
+    SK_LAST_MUNDANE = SK_UNARMED_COMBAT,
     SK_SPELLCASTING,
     SK_CONJURATIONS,
     SK_HEXES,
@@ -3573,22 +3593,20 @@ enum tile_flags
     TILE_FLAG_RAY_OOR    = 0x00080000,
     TILE_FLAG_OOR        = 0x00100000,
     TILE_FLAG_WATER      = 0x00200000,
-     TILE_FLAG_UNUSED1   = 0x00400000,
-    TILE_FLAG_NEW_STAIR  = 0x00800000,
-    TILE_FLAG_WAS_SECRET = 0x01000000,
-     TILE_FLAG_UNUSED2   = 0x02000000,
-
-    // Mutually exclusive
-     TILE_FLAG_UNUSED3   = 0x04000000,
-     TILE_FLAG_UNUSED4   = 0x10000000,
-     TILE_FLAG_UNUSED5   = 0x14000000,
-    TILE_FLAG_MISC_FLOOR = 0x14000000,
+    TILE_FLAG_NEW_STAIR  = 0x00400000,
+    TILE_FLAG_WAS_SECRET = 0x00800000,
 
     // Kraken tentacle overlays.
-    TILE_FLAG_KRAKEN_NW  = 0x08000000,
-    TILE_FLAG_KRAKEN_NE  = 0x20000000,
-    TILE_FLAG_KRAKEN_SE  = 0x40000000,
-    TILE_FLAG_KRAKEN_SW  = 0x80000000,
+    TILE_FLAG_KRAKEN_NW  = 0x01000000,
+    TILE_FLAG_KRAKEN_NE  = 0x02000000,
+    TILE_FLAG_KRAKEN_SE  = 0x04000000,
+    TILE_FLAG_KRAKEN_SW  = 0x08000000,
+
+    // Eldritch tentacle overlays.
+    TILE_FLAG_ELDRITCH_NW = 0x10000000,
+    TILE_FLAG_ELDRITCH_NE = 0x20000000,
+    TILE_FLAG_ELDRITCH_SE = 0x40000000,
+    TILE_FLAG_ELDRITCH_SW = 0x80000000,
 
     // General
     TILE_FLAG_MASK       = 0x000007FF,

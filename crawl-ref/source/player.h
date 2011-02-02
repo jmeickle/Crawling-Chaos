@@ -247,6 +247,10 @@ public:
   // be loaded again until the very end.
   std::vector<daction_type> dactions;
 
+#if TAG_MAJOR_VERSION == 32
+  int montiers[5]; // four monster tiers, plus corpse count
+#endif
+
 
   // Non-saved UI state:
   unsigned short prev_targ;
@@ -615,7 +619,7 @@ public:
     void shield_block_succeeded(actor *foe);
 
     bool wearing_light_armour(bool with_skill = false) const;
-    int  skill(skill_type skill, bool skill_bump = false) const;
+    int  skill(skill_type skill) const;
     int  traps_skill() const;
 
     bool do_shaft();

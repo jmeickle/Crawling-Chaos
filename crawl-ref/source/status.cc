@@ -29,7 +29,7 @@ static duration_def duration_data[] =
     { DUR_BERSERK, true,
       BLUE, "Berserk", "berserking", "You are possessed by a berserker rage." },
     { DUR_BREATH_WEAPON, false,
-      YELLOW, "BWpn", "short of breath", "You are short of breath." },
+      YELLOW, "Breath", "short of breath", "You are short of breath." },
     { DUR_BRILLIANCE, false,
       0, "", "brilliant", "You are brilliant." },
     { DUR_CONF, false,
@@ -121,6 +121,10 @@ static duration_def duration_data[] =
     { DUR_LIQUEFYING, false,
       YELLOW, "Liquid", "liquefying",
       "The ground has become liquefied beneath your feet." },
+    { DUR_HEROISM, false,
+      LIGHTBLUE, "Hero", "heroism", "You posess the skills of a mighty hero." },
+    { DUR_FINESSE, false,
+      LIGHTBLUE, "Finesse", "finesse", "Your blows are lightning fast." },
 };
 
 static int duration_index[NUM_DURATIONS];

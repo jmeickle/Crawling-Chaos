@@ -224,7 +224,7 @@ This spell tries to lower its target's metabolic rate, inducing hypothermic hibe
 %%%%
 Evaporate
 
-This spell heats a potion causing it to explode into a large cloud when thrown. The potion must be thrown immediately, as part of the spell, for this to work.
+This spell heats a potion to the point that it explodes when thrown. The resultant steam is then transmuted into a large cloud, the type of which varies from potion to potion. Of course, the volatile potion must be thrown immediately for the spell to work.
 %%%%
 Excruciating Wounds
 
@@ -318,7 +318,7 @@ This spell conjures forth a raging blizzard of ice, sleet and freezing gasses.
 %%%%
 Ignite Poison
 
-This spell attempts to convert all poison within the caster's view into liquid flame. It is very effective against poisonous creatures or those carrying poison potions. It is also an amazingly painful way to eliminate poison from one's own system.
+This spell attempts to convert all poison within the caster's view into liquid flame. It is very effective against poisonous creatures or those carrying poison potions. The caster and his gear are not affected.
 %%%%
 Insulation
 
@@ -334,7 +334,7 @@ This spell throws a crackling sphere of destructive energy.
 %%%%
 Leda's Liquefaction
 
-This spell liquefies the ground around the caster by shaking it rapidly, making it difficult to move through. Any attempt to move through the liquefied ground will be a very slow one.
+This spell liquefies the ground around the caster, making it difficult to move through. Any attempt to move through the liquefied ground will be a very slow one.
 %%%%
 Lee's Rapid Deconstruction
 

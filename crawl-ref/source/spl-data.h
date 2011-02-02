@@ -1123,7 +1123,7 @@ struct spell_desc
 
 {
     SPELL_FIRE_BRAND, "Fire Brand",
-     SPTYP_CHARMS | SPTYP_FIRE,
+     SPTYP_HEXES | SPTYP_FIRE,
      SPFLAG_HELPFUL | SPFLAG_BATTLE,
      2,
      200,
@@ -1136,7 +1136,7 @@ struct spell_desc
 
 {
     SPELL_FREEZING_AURA, "Freezing Aura",
-     SPTYP_CHARMS | SPTYP_ICE,
+     SPTYP_HEXES | SPTYP_ICE,
      SPFLAG_HELPFUL | SPFLAG_BATTLE,
      2,
      200,
@@ -1149,7 +1149,7 @@ struct spell_desc
 
 {
     SPELL_LETHAL_INFUSION, "Lethal Infusion",
-     SPTYP_CHARMS | SPTYP_NECROMANCY,
+     SPTYP_HEXES | SPTYP_NECROMANCY,
      SPFLAG_HELPFUL | SPFLAG_BATTLE,
      2,
      200,
@@ -1292,7 +1292,7 @@ struct spell_desc
 
 {
     SPELL_POISON_WEAPON, "Poison Weapon",
-     SPTYP_CHARMS | SPTYP_POISON,
+     SPTYP_HEXES | SPTYP_POISON,
      SPFLAG_HELPFUL | SPFLAG_BATTLE,
      3,
      0,
@@ -1747,7 +1747,7 @@ struct spell_desc
 
 {
     SPELL_WARP_BRAND, "Warp Weapon",
-     SPTYP_CHARMS | SPTYP_TRANSLOCATION,
+     SPTYP_HEXES | SPTYP_TRANSLOCATION,
      SPFLAG_HELPFUL | SPFLAG_BATTLE,
      5,     // this is high for a reason - Warp brands are very powerful.
      0,
@@ -1760,7 +1760,7 @@ struct spell_desc
 
 {
     SPELL_SILENCE, "Silence",
-     SPTYP_HEXES | SPTYP_CHARMS | SPTYP_AIR,
+     SPTYP_HEXES | SPTYP_AIR,
      SPFLAG_AREA,
      5,
      200,
@@ -1773,7 +1773,7 @@ struct spell_desc
 
 {
     SPELL_SHATTER, "Shatter",
-     SPTYP_TRANSMUTATION | SPTYP_EARTH,
+     SPTYP_EARTH,
      SPFLAG_AREA,
      9,
      200,
@@ -1851,7 +1851,7 @@ struct spell_desc
 
 {
     SPELL_FRAGMENTATION, "Lee's Rapid Deconstruction",
-     SPTYP_TRANSMUTATION | SPTYP_EARTH,
+     SPTYP_EARTH,
      SPFLAG_GRID,
      5,
      200,
@@ -1864,7 +1864,7 @@ struct spell_desc
 
 {
     SPELL_SANDBLAST, "Sandblast",
-     SPTYP_TRANSMUTATION | SPTYP_EARTH,
+     SPTYP_EARTH,
      SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF | SPFLAG_BATTLE,
      1,
      50,
@@ -1877,7 +1877,7 @@ struct spell_desc
 
 {
     SPELL_MAXWELLS_SILVER_HAMMER, "Maxwell's Silver Hammer",
-     SPTYP_TRANSMUTATION | SPTYP_EARTH,
+     SPTYP_HEXES | SPTYP_EARTH,
      SPFLAG_HELPFUL | SPFLAG_BATTLE,
      2,
      200,
@@ -1955,7 +1955,7 @@ struct spell_desc
 
 {
     SPELL_EXCRUCIATING_WOUNDS, "Excruciating Wounds",
-     SPTYP_CHARMS | SPTYP_NECROMANCY,
+     SPTYP_HEXES | SPTYP_NECROMANCY,
      SPFLAG_HELPFUL | SPFLAG_BATTLE,
      5,     // fairly high level - potentially one of the best brands
      200,
@@ -2856,9 +2856,9 @@ struct spell_desc
 
 {
     SPELL_LEDAS_LIQUEFACTION, "Leda's Liquefaction",
-     SPTYP_EARTH,
+     SPTYP_EARTH | SPTYP_TRANSMUTATION,
      SPFLAG_AREA,
-     6,
+     4,
      200,
      -1, -1,
      0,

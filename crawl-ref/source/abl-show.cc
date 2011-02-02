@@ -32,6 +32,7 @@
 #include "exercise.h"
 #include "food.h"
 #include "godabil.h"
+#include "godconduct.h"
 #include "items.h"
 #include "item_use.h"
 #include "it_use2.h"
@@ -195,8 +196,8 @@ ability_type god_abilities[MAX_NUM_GODS][MAX_GOD_ABILITIES] =
     { ABIL_NON_ABILITY, ABIL_NON_ABILITY, ABIL_NON_ABILITY, ABIL_NON_ABILITY,
       ABIL_NON_ABILITY },
     // Okawaru
-    { ABIL_OKAWARU_MIGHT, ABIL_NON_ABILITY, ABIL_NON_ABILITY, ABIL_NON_ABILITY,
-      ABIL_OKAWARU_HASTE },
+    { ABIL_OKAWARU_HEROISM, ABIL_NON_ABILITY, ABIL_NON_ABILITY,
+      ABIL_NON_ABILITY, ABIL_OKAWARU_FINESSE },
     // Makhleb
     { ABIL_NON_ABILITY, ABIL_MAKHLEB_MINOR_DESTRUCTION,
       ABIL_MAKHLEB_LESSER_SERVANT_OF_MAKHLEB, ABIL_MAKHLEB_MAJOR_DESTRUCTION,
@@ -306,7 +307,7 @@ static const ability_def Ability_List[] =
     // INVOCATIONS:
     // Zin
     { ABIL_ZIN_SUSTENANCE, "Sustenance", 0, 0, 0, 0, ABFLAG_PIETY },
-    { ABIL_ZIN_RECITE, "Recite", 3, 0, 0, 0, ABFLAG_DELAY },
+    { ABIL_ZIN_RECITE, "Recite", 0, 0, 0, 0, ABFLAG_BREATH | ABFLAG_DELAY },
     { ABIL_ZIN_VITALISATION, "Vitalisation", 0, 0, 100, 2, ABFLAG_CONF_OK },
     { ABIL_ZIN_IMPRISON, "Imprison", 5, 0, 125, 8, ABFLAG_NONE },
     { ABIL_ZIN_SANCTUARY, "Sanctuary", 7, 0, 150, 15, ABFLAG_NONE },
@@ -335,9 +336,8 @@ static const ability_def Ability_List[] =
       2, 0, 100, 0, ABFLAG_NONE },
 
     // Okawaru
-    { ABIL_OKAWARU_MIGHT, "Might", 2, 0, 50, 1, ABFLAG_NONE },
-    { ABIL_OKAWARU_HASTE, "Haste",
-      5, 0, 100, generic_cost::fixed(5), ABFLAG_NONE },
+    { ABIL_OKAWARU_HEROISM, "Heroism", 2, 0, 50, 1, ABFLAG_NONE },
+    { ABIL_OKAWARU_FINESSE, "Finesse", 5, 0, 100, 4, ABFLAG_NONE },
 
     // Makhleb
     { ABIL_MAKHLEB_MINOR_DESTRUCTION, "Minor Destruction",
@@ -884,7 +884,7 @@ const std::string make_detailed_cost_description(ability_type ability)
         ret << "nothing.";
 
     if (abil.flags & ABFLAG_BREATH)
-        ret << "\nIt is a breathing attack and needs some time between uses.";
+        ret << "\nYou must catch your breath between uses of this ability.";
 
     if (abil.flags & ABFLAG_DELAY)
         ret << "\nIt takes some time before being effective.";
@@ -1130,7 +1130,7 @@ static talent _get_talent(ability_type ability, bool check_confused)
 
     case ABIL_ZIN_RECITE:
     case ABIL_BEOGH_RECALL_ORCISH_FOLLOWERS:
-    case ABIL_OKAWARU_MIGHT:
+    case ABIL_OKAWARU_HEROISM:
     case ABIL_ELYVILON_LESSER_HEALING_SELF:
     case ABIL_ELYVILON_LESSER_HEALING_OTHERS:
     case ABIL_LUGONU_ABYSS_EXIT:
@@ -1220,13 +1220,13 @@ static talent _get_talent(ability_type ability, bool check_confused)
     case ABIL_FEDHAS_SPAWN_SPORES:
     case ABIL_YRED_DRAIN_LIFE:
     case ABIL_CHEIBRIADOS_SLOUCH:
+    case ABIL_OKAWARU_FINESSE:
         invoc = true;
         failure = 60 - (you.piety / 25) - (you.skills[SK_INVOCATIONS] * 4);
         break;
 
     case ABIL_TSO_CLEANSING_FLAME:
     case ABIL_ELYVILON_RESTORATION:
-    case ABIL_OKAWARU_HASTE:
     case ABIL_MAKHLEB_GREATER_SERVANT_OF_MAKHLEB:
     case ABIL_LUGONU_CORRUPT:
     case ABIL_FEDHAS_RAIN:
@@ -1455,13 +1455,16 @@ static bool _check_ability_possible(const ability_def& abil,
     {
     case ABIL_ZIN_RECITE:
     {
-        const int result = zin_check_recite_to_monsters();
-        if (result < 0)
+        if (!zin_check_able_to_recite())
+            return (false);
+
+        const int result = zin_check_recite_to_monsters(0);
+        if (result == -1)
         {
             mpr("There's no appreciative audience!");
             return (false);
         }
-        else if (result < 1)
+        else if (result == 0)
         {
             mpr("There's no-one here to preach to!");
             return (false);
@@ -2194,9 +2197,17 @@ static bool _do_ability(const ability_def& abil)
         break;
 
     case ABIL_ZIN_RECITE:
-        start_delay(DELAY_RECITE, 3, -1, you.hp);
+    {
+        recite_type prayertype;
+        if (zin_check_recite_to_monsters(&prayertype))
+            start_delay(DELAY_RECITE, 3, prayertype, you.hp);
+        else
+        {
+            mpr("That recitation seems somehow inappropriate.");
+            return (false);
+        }
         break;
-
+    }
     case ABIL_ZIN_VITALISATION:
         zin_vitalisation();
         break;
@@ -2213,18 +2224,13 @@ static bool _do_ability(const ability_def& abil)
             return (false);
         }
 
-        const int retval = zin_check_recite_to_single_monster(beam.target);
+        monster* mons = monster_at(beam.target);
 
-        if (retval <= 0)
+        if (mons == NULL || !you.can_see(mons))
         {
-            if (retval == 0)
-                mpr("There is no monster there to imprison!");
-            else
-                mpr("There's no appreciative subject!");
+            mpr("There is no monster there to imprison!");
             return (false);
         }
-
-        monster* mons = monster_at(beam.target);
 
         power = 3 + roll_dice(3, 10 * (3 + you.skills[SK_INVOCATIONS])
                                     / (3 + mons->hit_dice)) / 3;
@@ -2312,12 +2318,32 @@ static bool _do_ability(const ability_def& abil)
         inc_mp(1 + random2(you.skills[SK_INVOCATIONS] / 4 + 2), false);
         break;
 
-    case ABIL_OKAWARU_MIGHT:
-        potion_effect(POT_MIGHT, you.skills[SK_INVOCATIONS] * 8);
+    case ABIL_OKAWARU_HEROISM:
+        mprf(MSGCH_DURATION, you.duration[DUR_HEROISM]
+             ? "You feel more confident with your borrowed prowess."
+             : "You gain the combat prowess of a mighty hero.");
+
+        you.increase_duration(DUR_HEROISM,
+            35 + random2(you.skills[SK_INVOCATIONS] * 8), 80);
+        you.redraw_evasion      = true;
+        you.redraw_armour_class = true;
         break;
 
-    case ABIL_OKAWARU_HASTE:
-        potion_effect(POT_SPEED, you.skills[SK_INVOCATIONS] * 8);
+    case ABIL_OKAWARU_FINESSE:
+        if (stasis_blocks_effect(true, true, "%s emits a piercing whistle.",
+				 20, "%s makes your neck tingle."))
+        {
+            return (false);
+        }
+
+        mprf(MSGCH_DURATION, you.duration[DUR_FINESSE]
+             ? "Your hands get new energy."
+             : "You can now deal lightning-fast blows.");
+
+        you.increase_duration(DUR_FINESSE,
+            40 + random2(you.skills[SK_INVOCATIONS] * 8), 80);
+
+        did_god_conduct(DID_HASTY, 8); // Currently irrelevant.
         break;
 
     case ABIL_MAKHLEB_MINOR_DESTRUCTION:

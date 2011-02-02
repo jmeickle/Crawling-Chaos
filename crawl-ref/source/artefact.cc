@@ -1237,7 +1237,8 @@ void artefact_wpn_properties(const item_def &item,
                              artefact_known_props_t &known)
 {
     ASSERT(is_artefact(item));
-    ASSERT(item.props.exists(KNOWN_PROPS_KEY));
+    if (!item.props.exists(KNOWN_PROPS_KEY))
+        return;
 
     const CrawlStoreValue &_val = item.props[KNOWN_PROPS_KEY];
     ASSERT(_val.get_type() == SV_VEC);
@@ -1851,11 +1852,6 @@ static void _artefact_setup_prop_vectors(item_def &item)
     }
 }
 
-static void _artefact_set_name(item_def &item, const std::string &name)
-{
-    item.props[ARTEFACT_NAME_KEY].get_string() = name;
-}
-
 // If force_mundane is true, normally mundane items are forced to
 // nevertheless become artefacts.
 bool make_item_randart(item_def &item, bool force_mundane)
@@ -1918,7 +1914,7 @@ bool make_item_randart(item_def &item, bool force_mundane)
     if (item.props.exists(ARTEFACT_NAME_KEY))
         ASSERT(item.props[ARTEFACT_NAME_KEY].get_type() == SV_STR);
     else
-        _artefact_set_name(item, artefact_name(item, false));
+        set_artefact_name(item, artefact_name(item, false));
 
     // get artefact appearance
     if (item.props.exists(ARTEFACT_APPEAR_KEY))
@@ -2068,7 +2064,7 @@ void cheibriados_make_item_ponderous(item_def &item)
             _artefact_name_lookup(
                 item,
                 god_name(GOD_CHEIBRIADOS) + " ponderous");
-        _artefact_set_name(item, item_base_name(item) + " " + suffix);
+        set_artefact_name(item, item_base_name(item) + " " + suffix);
     }
     artefact_properties_t props;
     props.init(0);

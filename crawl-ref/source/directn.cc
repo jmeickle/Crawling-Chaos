@@ -1677,6 +1677,14 @@ void direction_chooser::handle_wizard_command(command_type key_command,
         flush_prev_message();
         break;
 
+    case CMD_TARGET_WIZARD_BANISH_MONSTER:
+        m->banish();
+        break;
+
+    case CMD_TARGET_WIZARD_KILL_MONSTER:
+        monster_die(m, KILL_YOU, NON_MONSTER);
+        break;
+
     default:
         break;
     }
@@ -2018,9 +2026,9 @@ std::string get_terse_square_desc(const coord_def &gc)
     {
         const monster& mons = *monster_at(gc);
 
-        if (mons_is_item_mimic(mons.type) && !mons_is_known_mimic(&mons))
+        if (mons_is_item_mimic(mons.type) && mons_is_unknown_mimic(&mons))
             desc = get_mimic_item(&mons).name(DESC_PLAIN);
-        else if (mons_is_feat_mimic(mons.type) && !mons_is_known_mimic(&mons))
+        else if (mons_is_feat_mimic(mons.type) && mons_is_unknown_mimic(&mons))
             desc = feature_description(gc, false, DESC_PLAIN, false);
         else
             desc = mons.full_name(DESC_PLAIN, true);
@@ -2058,23 +2066,30 @@ void get_square_desc(const coord_def &c, describe_info &inf,
 
     if (mons && mons->visible_to(&you))
     {
-        monster_info mi(mons);
-        // First priority: monsters.
-        if (examine_mons && !mons_is_unknown_mimic(mons))
+        if (mons_is_item_mimic(mons->type) && mons_is_unknown_mimic(mons))
+            get_item_desc(get_mimic_item(mons), inf, examine_mons);
+        else if (mons_is_feat_mimic(mons->type) && mons_is_unknown_mimic(mons))
+            get_feature_desc(c, inf);
+        else
         {
-            // If examine_mons is true (currently only for the Tiles
-            // mouse-over information), set monster's
-            // equipment/woundedness/enchantment description as title.
-            std::string desc         = get_monster_equipment_desc(mi) + ".\n";
-            const std::string wounds = mi.wounds_description_sentence();
-            if (!wounds.empty())
-                desc += wounds + "\n";
-            desc += _get_monster_desc(mi);
+            monster_info mi(mons);
+            // First priority: monsters.
+            if (examine_mons)
+            {
+                // If examine_mons is true (currently only for the Tiles
+                // mouse-over information), set monster's
+                // equipment/woundedness/enchantment description as title.
+                std::string desc         = get_monster_equipment_desc(mi) + ".\n";
+                const std::string wounds = mi.wounds_description_sentence();
+                if (!wounds.empty())
+                    desc += wounds + "\n";
+                desc += _get_monster_desc(mi);
 
-            inf.title = desc;
+                inf.title = desc;
+            }
+            bool temp = false;
+            get_monster_db_desc(mi, inf, temp);
         }
-        bool temp = false;
-        get_monster_db_desc(mi, inf, temp);
     }
     else if (oid != NON_ITEM)
     {
@@ -2204,11 +2219,8 @@ static bool _mons_is_valid_target(const monster* mon, int mode, int range)
     }
 
     // Unknown mimics don't count as monsters, either.
-    if (mons_is_mimic(mon->type)
-        && !mons_is_known_mimic(mon))
-    {
+    if (mons_is_unknown_mimic(mon))
         return (false);
-    }
 
     // Don't target submerged monsters.
     if (mode != TARG_HOSTILE_SUBMERGED && mon->submerged())
@@ -2686,7 +2698,7 @@ static void _describe_feature(const coord_def& where, bool oos)
     if (feature_mimic_at(where))
     {
         monster* mimic_mons = monster_at(where);
-        if (!mons_is_known_mimic(mimic_mons))
+        if (mons_is_unknown_mimic(mimic_mons))
             grid = get_mimic_feat(mimic_mons);
     }
 
@@ -3183,7 +3195,7 @@ std::string feature_description(const coord_def& where, bool covering,
     if (feature_mimic_at(where))
     {
         mimic_mons = monster_at(where);
-        if (!mons_is_known_mimic(mimic_mons))
+        if (mons_is_unknown_mimic(mimic_mons))
         {
             grid = get_mimic_feat(mimic_mons);
             mimic = true;
