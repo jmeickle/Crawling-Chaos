@@ -400,15 +400,48 @@ static void _print_stats_wp(int y)
 
         text = wpn.name(DESC_INVENTORY, true, false, true);
     }
-    else if (you.form == TRAN_BLADE_HANDS)
-    {
-        col = RED;
-        text = "Blade Hands";
-    }
     else
     {
         col = LIGHTGREY;
-        text = "Nothing wielded";
+        text = (you.has_claws(false) > 0) ? "Claws" : "Nothing wielded";
+        if (you.species == SP_CAT)
+            text = "Tooth and claw";
+
+        switch (you.form)
+        {
+            case TRAN_SPIDER:
+                col = LIGHTGREEN;
+                text = "Fangs (venom)";
+                break;
+            case TRAN_BLADE_HANDS:
+                col = RED;
+                text = "Blade " + blade_parts(true);
+                break;
+            case TRAN_STATUE:
+                col = LIGHTGREY;
+                text = (you.has_claws(false) > 0) ? "Stone claws" : "Stone fists";
+                break;
+            case TRAN_ICE_BEAST:
+                col = WHITE;
+                text = "Ice fists (freeze)";
+                break;
+            case TRAN_DRAGON:
+                col = GREEN;
+                text = "Tooth and claw";
+                break;
+            case TRAN_LICH:
+                col = MAGENTA;
+                text += " (drain)";
+                break;
+            case TRAN_BAT:
+            case TRAN_PIG:
+                col = LIGHTGREY;
+                text = "Teeth";
+                break;
+            case TRAN_NONE:
+            default:
+                break;
+        }
     }
     cgotoxy(1, y, GOTO_STAT);
     textcolor(Options.status_caption_colour);
@@ -494,7 +527,7 @@ static void _get_status_lights(std::vector<status_light>& out)
 #endif
 
     const int statuses[] = {
-        STATUS_BURDEN, STATUS_HUNGER, DUR_PRAYER, DUR_TELEPORT,
+        STATUS_BURDEN, STATUS_HUNGER, DUR_JELLY_PRAYER, DUR_TELEPORT,
         DUR_DEATHS_DOOR, DUR_QUAD_DAMAGE, DUR_DEFLECT_MISSILES,
         DUR_REPEL_MISSILES, STATUS_REGENERATION, DUR_BERSERK,
         DUR_RESIST_POISON, DUR_RESIST_COLD, DUR_RESIST_FIRE,
@@ -508,7 +541,7 @@ static void _get_status_lights(std::vector<status_light>& out)
         DUR_BREATH_WEAPON, DUR_EXHAUSTED, DUR_POWERED_BY_DEATH,
         DUR_TRANSFORMATION, DUR_AFRAID, DUR_MIRROR_DAMAGE, DUR_SCRYING,
         STATUS_CLINGING, DUR_TORNADO, DUR_LIQUEFYING, DUR_HEROISM,
-        DUR_FINESSE,
+        DUR_FINESSE, DUR_LIFESAVING,
     };
 
     status_info inf;
@@ -1826,7 +1859,7 @@ std::string _status_mut_abilities()
         DUR_TRANSFORMATION, DUR_PARALYSIS, DUR_PETRIFIED, DUR_SLEEP,
         STATUS_BURDEN,
         DUR_BREATH_WEAPON, STATUS_BEHELD, DUR_LIQUID_FLAMES, DUR_ICY_ARMOUR,
-        DUR_DEFLECT_MISSILES, DUR_REPEL_MISSILES, DUR_PRAYER,
+        DUR_DEFLECT_MISSILES, DUR_REPEL_MISSILES, DUR_JELLY_PRAYER,
         STATUS_REGENERATION, DUR_DEATHS_DOOR, DUR_STONEMAIL, DUR_STONESKIN,
         DUR_TELEPORT, DUR_DEATH_CHANNEL, DUR_PHASE_SHIFT, DUR_SILENCE,
         DUR_INVIS, DUR_CONF, DUR_EXHAUSTED, DUR_MIGHT, DUR_BRILLIANCE,
@@ -1836,6 +1869,7 @@ std::string _status_mut_abilities()
         STATUS_GLOW, STATUS_ROT, DUR_CONFUSING_TOUCH, DUR_SLIMIFY,
         DUR_SURE_BLADE, STATUS_NET, STATUS_SPEED, DUR_AFRAID,
         DUR_MIRROR_DAMAGE, DUR_SCRYING, DUR_TORNADO, DUR_HEROISM, DUR_FINESSE,
+        DUR_LIFESAVING,
     };
 
     status_info inf;

@@ -309,7 +309,7 @@ static const ability_def Ability_List[] =
     { ABIL_ZIN_SUSTENANCE, "Sustenance", 0, 0, 0, 0, ABFLAG_PIETY },
     { ABIL_ZIN_RECITE, "Recite", 0, 0, 0, 0, ABFLAG_BREATH | ABFLAG_DELAY },
     { ABIL_ZIN_VITALISATION, "Vitalisation", 0, 0, 100, 2, ABFLAG_CONF_OK },
-    { ABIL_ZIN_IMPRISON, "Imprison", 5, 0, 125, 8, ABFLAG_NONE },
+    { ABIL_ZIN_IMPRISON, "Imprison", 5, 0, 125, 4, ABFLAG_NONE },
     { ABIL_ZIN_SANCTUARY, "Sanctuary", 7, 0, 150, 15, ABFLAG_NONE },
     { ABIL_ZIN_CURE_ALL_MUTATIONS, "Cure All Mutations",
       0, 0, 0, 0, ABFLAG_NONE },
@@ -318,7 +318,7 @@ static const ability_def Ability_List[] =
     { ABIL_TSO_DIVINE_SHIELD, "Divine Shield", 3, 0, 50, 2, ABFLAG_NONE },
     { ABIL_TSO_CLEANSING_FLAME, "Cleansing Flame", 5, 0, 100, 2, ABFLAG_NONE },
     { ABIL_TSO_SUMMON_DIVINE_WARRIOR, "Summon Divine Warrior",
-      8, 0, 150, 4, ABFLAG_NONE },
+      8, 0, 150, 6, ABFLAG_NONE },
 
     // Kikubaaqudgha
     { ABIL_KIKU_RECEIVE_CORPSES, "Receive Corpses", 3, 0, 50, 2, ABFLAG_NONE },
@@ -345,9 +345,9 @@ static const ability_def Ability_List[] =
     { ABIL_MAKHLEB_LESSER_SERVANT_OF_MAKHLEB, "Lesser Servant of Makhleb",
       2, 0, 50, 1, ABFLAG_NONE },
     { ABIL_MAKHLEB_MAJOR_DESTRUCTION, "Major Destruction",
-      4, 0, 100, 2, ABFLAG_NONE },
+      4, 0, 100, 1, ABFLAG_NONE },
     { ABIL_MAKHLEB_GREATER_SERVANT_OF_MAKHLEB, "Greater Servant of Makhleb",
-      6, 0, 100, 3, ABFLAG_NONE },
+      6, 0, 100, 4, ABFLAG_NONE },
 
     // Sif Muna
     { ABIL_SIF_MUNA_CHANNEL_ENERGY, "Channel Energy",
@@ -363,7 +363,7 @@ static const ability_def Ability_List[] =
       0, 0, 100, generic_cost::range(5, 6), ABFLAG_NONE },
 
     // Elyvilon
-    { ABIL_ELYVILON_DESTROY_WEAPONS, "Destroy Weapons",
+    { ABIL_ELYVILON_LIFESAVING, "Divine Protection",
       0, 0, 0, 0, ABFLAG_NONE },
     { ABIL_ELYVILON_LESSER_HEALING_SELF, "Lesser Self-Healing",
       1, 0, 100, generic_cost::range(0, 1), ABFLAG_CONF_OK },
@@ -432,10 +432,6 @@ static const ability_def Ability_List[] =
       0, 0, 0, 10, ABFLAG_NONE },
     { ABIL_ASHENZARI_END_TRANSFER, "End Transfer Knowledge",
       0, 0, 0, 0, ABFLAG_NONE },
-
-    { ABIL_HARM_PROTECTION, "Protection From Harm", 0, 0, 0, 0, ABFLAG_NONE },
-    { ABIL_HARM_PROTECTION_II, "Reliable Protection From Harm",
-      0, 0, 0, 0, ABFLAG_PIETY },
 
     // // zot defence abilities
     { ABIL_MAKE_FUNGUS, "Make mushroom circle", 0, 0, 0, 0, ABFLAG_NONE, 10 },
@@ -1143,7 +1139,7 @@ static talent _get_talent(ability_type ability, bool check_confused)
 
     // These don't train anything.
     case ABIL_ZIN_CURE_ALL_MUTATIONS:
-    case ABIL_ELYVILON_DESTROY_WEAPONS:
+    case ABIL_ELYVILON_LIFESAVING:
     case ABIL_TROG_BURN_SPELLBOOKS:
     case ABIL_FEDHAS_FUNGAL_BLOOM:
     case ABIL_CHEIBRIADOS_PONDEROUSIFY:
@@ -2331,7 +2327,7 @@ static bool _do_ability(const ability_def& abil)
 
     case ABIL_OKAWARU_FINESSE:
         if (stasis_blocks_effect(true, true, "%s emits a piercing whistle.",
-				 20, "%s makes your neck tingle."))
+                                 20, "%s makes your neck tingle."))
         {
             return (false);
         }
@@ -2435,9 +2431,17 @@ static bool _do_ability(const ability_def& abil)
             return (false);
         break;
 
-    case ABIL_ELYVILON_DESTROY_WEAPONS:
-        if (!elyvilon_destroy_weapons())
-            return (false);
+    case ABIL_ELYVILON_LIFESAVING:
+        if (you.duration[DUR_LIFESAVING])
+            mpr("You renew your call for help.");
+        else
+        {
+            mprf("You beseech %s to protect your life.",
+                 god_name(you.religion).c_str());
+        }
+        // Might be a decrease, this is intentional (like Yred).
+        you.duration[DUR_LIFESAVING] = 9 * BASELINE_DELAY
+                     + random2avg(you.piety * BASELINE_DELAY, 2) / 10;
         break;
 
     case ABIL_ELYVILON_LESSER_HEALING_SELF:
@@ -2686,11 +2690,6 @@ static bool _do_ability(const ability_def& abil)
 
     case ABIL_JIYVA_CURE_BAD_MUTATION:
         jiyva_remove_bad_mutation();
-        break;
-
-    case ABIL_HARM_PROTECTION:
-    case ABIL_HARM_PROTECTION_II:
-        // Activated via prayer elsewhere.
         break;
 
     case ABIL_CHEIBRIADOS_PONDEROUSIFY:
@@ -3092,7 +3091,7 @@ std::vector<talent> your_talents(bool check_confused)
         && !you.attribute[ATTR_PERM_LEVITATION]
         && you.experience_level >= 5
         && (you.experience_level >= 15 || !you.airborne())
-        && !form_changed_physiology())
+        && (!form_changed_physiology() || you.form == TRAN_LICH))
     {
         // Kenku can fly, but only from the ground
         // (until level 15, when it becomes permanent until revoked).
@@ -3106,7 +3105,8 @@ std::vector<talent> your_talents(bool check_confused)
         _add_talent(talents, ABIL_FLY_II, check_confused);
     }
 
-    if (you.attribute[ATTR_PERM_LEVITATION] && !form_changed_physiology()
+    if (you.attribute[ATTR_PERM_LEVITATION]
+        && (!form_changed_physiology() || you.form == TRAN_LICH)
         && you.species == SP_KENKU && you.experience_level >= 5)
     {
         _add_talent(talents, ABIL_STOP_FLYING, check_confused);
@@ -3132,9 +3132,7 @@ std::vector<talent> your_talents(bool check_confused)
         _add_talent(talents, ABIL_TELEPORTATION, check_confused);
 
     // Religious abilities.
-    if (you.religion == GOD_ELYVILON)
-        _add_talent(talents, ABIL_ELYVILON_DESTROY_WEAPONS, check_confused);
-    else if (you.religion == GOD_TROG)
+    if (you.religion == GOD_TROG)
         _add_talent(talents, ABIL_TROG_BURN_SPELLBOOKS, check_confused);
     else if (you.religion == GOD_FEDHAS)
         _add_talent(talents, ABIL_FEDHAS_FUNGAL_BLOOM, check_confused);
@@ -3162,6 +3160,9 @@ std::vector<talent> your_talents(bool check_confused)
                     {
                         _add_talent(talents,
                                     ABIL_ELYVILON_LESSER_HEALING_SELF,
+                                    check_confused);
+                        _add_talent(talents,
+                                    ABIL_ELYVILON_LIFESAVING,
                                     check_confused);
                     }
                     else if (abil == ABIL_ELYVILON_GREATER_HEALING_OTHERS)
@@ -3358,6 +3359,7 @@ void set_god_ability_slots()
                 {
                     _set_god_ability_helper(ABIL_ELYVILON_LESSER_HEALING_SELF,
                                             'a' + num++);
+                    _set_god_ability_helper(ABIL_ELYVILON_LIFESAVING, 'p');
                 }
                 else if (god_abilities[you.religion][i]
                             == ABIL_ELYVILON_GREATER_HEALING_OTHERS)

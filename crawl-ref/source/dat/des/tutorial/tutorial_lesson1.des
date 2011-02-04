@@ -128,9 +128,9 @@ function tutorial_msg.autoexplore_announce ()
 end
 
 function tutorial_msg.tutorial_end ()
-	local text = "Congratulations! You've completed the first lesson!\n"
+        local text = "Congratulations! You've completed the first lesson!\n"
                  .. "To exit the tutorial, simply go up these stairs with "
-				 .. tutorial_get_cmd("CMD_GO_UPSTAIRS")
+                                 .. tutorial_get_cmd("CMD_GO_UPSTAIRS")
     if crawl.is_tiles() then
       text = text .. " or by <white>Shift-clicking</white> on your character"
     end
@@ -165,7 +165,7 @@ function tutorial_msg.shiftmove ()
 end
 
 function tutorial_msg.shiftmove2 ()
-    local text = "Run down this corridor with <white>Shift-3</white> or " .. tutorial_get_cmd("CMD_RUN_DOWN_RIGHT") .. "."
+    local text = "Run down this corridor with <white>Shift-Numpad3</white> or " .. tutorial_get_cmd("CMD_RUN_DOWN_RIGHT") .. "."
     return tutorial_message(text)
 end
 
@@ -176,7 +176,7 @@ function tutorial_msg.secret_door_glass ()
 end
 
 function tutorial_msg.shiftmove3 ()
-    local text = "Run down this corridor with <white>Shift-1</white> or " .. tutorial_get_cmd("CMD_RUN_DOWN_LEFT") .. "."
+    local text = "Run down this corridor with <white>Shift-Numpad1</white> or " .. tutorial_get_cmd("CMD_RUN_DOWN_LEFT") .. "."
     return tutorial_message(text)
 end
 
@@ -185,7 +185,7 @@ function tutorial_msg.water ()
 end
 
 function tutorial_msg.shiftmove4 ()
-    local text = "Run up this corridor with <white>Shift-7</white> or " .. tutorial_get_cmd("CMD_RUN_UP_LEFT") .. "."
+    local text = "Run up this corridor with <white>Shift-Numpad7</white> or " .. tutorial_get_cmd("CMD_RUN_UP_LEFT") .. "."
     return tutorial_message(text)
 end
 
@@ -269,10 +269,10 @@ MARKER:  F = lua:tutorial_msg.autoexplore()
 MARKER:  H = lua:tutorial_msg.exclusion()
 MARKER:  I = lua:tutorial_msg.autoexplore_announce()
 MARKER:  [ = lua:tutorial_msg.tutorial_end()
-MARKER:  { = lua:one_way_stair { dst  = "tutorial_basic1", \
+MARKER:  { = lua:one_way_stair { dst  = "tutorial_lesson1", \
                                  onclimb = "tutorial_msg.exit" }
 MARKER:  [ = lua:one_way_stair { desc = "exit from the tutorial", \
-                                 dst  = "tutorial_basic1", \
+                                 dst  = "tutorial_lesson1", \
                                  onclimb = "tutorial_msg.exit" }
 MARKER:  l = lua:fog_machine { cloud_type = "steam", pow_min = 10, \
              pow_max = 10, delay = 10, start_clouds = 1, size_min = 1, \

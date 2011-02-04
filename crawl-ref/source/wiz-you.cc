@@ -778,6 +778,7 @@ static const char* dur_names[] =
     "liquefying",
     "heroism",
     "finesse",
+    "lifesaving",
 };
 
 void wizard_edit_durations(void)
@@ -954,7 +955,7 @@ void wizard_get_god_gift (void)
         return;
     }
 
-    if (!do_god_gift(false, true))
+    if (!do_god_gift(true))
         mpr("Nothing happens.");
 }
 

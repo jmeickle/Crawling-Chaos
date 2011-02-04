@@ -2091,10 +2091,7 @@ static void _decrement_durations()
         remove_regen(you.attribute[ATTR_DIVINE_REGENERATION]);
     }
 
-    if (you.duration[DUR_PRAYER] > 1)
-        you.duration[DUR_PRAYER]--;
-    else if (you.duration[DUR_PRAYER] == 1)
-        end_prayer();
+    _decrement_a_duration(DUR_JELLY_PRAYER, delay, "Your prayer is over.");
 
     if (you.duration[DUR_DIVINE_SHIELD] > 0)
     {
@@ -2307,8 +2304,8 @@ static void _decrement_durations()
     if (_decrement_a_duration(DUR_HEROISM, delay,
                           "You feel like a meek peon again."))
     {
-	    you.redraw_evasion      = true;
-	    you.redraw_armour_class = true;
+            you.redraw_evasion      = true;
+            you.redraw_armour_class = true;
     }
     _decrement_a_duration(DUR_FINESSE, delay, "Your hands slow down.");
 
@@ -2578,6 +2575,9 @@ static void _decrement_durations()
     {
         you.xray_vision = false;
     }
+
+    _decrement_a_duration(DUR_LIFESAVING, delay,
+                          "Your divine protection fades away.");
 }
 
 static void _check_banished()

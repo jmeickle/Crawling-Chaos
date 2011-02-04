@@ -786,25 +786,6 @@ static bool _spell_is_utility_spell(spell_type spell_id)
                 SPTYP_CHARMS | SPTYP_TRANSLOCATION));
 }
 
-void maybe_identify_staff(item_def &item)
-{
-    if (item_type_known(item))
-        return;
-
-    if (player_spell_skills()
-        || item.sub_type == STAFF_POWER
-        || item.sub_type == STAFF_CHANNELING)
-    {
-        item_def& wpn = *you.weapon();
-        set_ident_type(wpn, ID_KNOWN_TYPE);
-        set_ident_flags(wpn, ISFLAG_IDENT_MASK);
-        mprf("You are wielding %s.", wpn.name(DESC_NOCAP_A).c_str());
-        more();
-
-        you.wield_change = true;
-    }
-}
-
 static void _spellcasting_side_effects(spell_type spell)
 {
     // If you are casting while a god is acting, then don't do conducts.
@@ -1586,6 +1567,13 @@ static spret_type _do_cast(spell_type spell, int powc,
     case SPELL_TUKIMAS_DANCE:
         // Temporarily turns a wielded weapon into a dancing weapon.
         cast_tukimas_dance(powc, god);
+        break;
+
+    case SPELL_TUKIMAS_DANCE_PARTY:
+        if (cast_tukimas_dance_party(&you, powc, god))
+            mpr("Haunting music fills the air, and weapons rise to join the dance!");
+        else
+            mpr("Strange music fills the air, but nothing else happens.");
         break;
 
     case SPELL_CONJURE_BALL_LIGHTNING:

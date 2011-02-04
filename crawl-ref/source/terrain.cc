@@ -695,6 +695,33 @@ bool feat_destroys_item(dungeon_feature_type feat, const item_def &item,
     }
 }
 
+// For checking whether items would be inaccessible when they wouldn't technically be 
+// destroyed - ignores Merfolk/Fedhas ability to access items in deep water.
+bool feat_virtually_destroys_item(dungeon_feature_type feat, const item_def &item,
+                                  bool noisy)
+{
+    switch (feat)
+    {
+    case DNGN_SHALLOW_WATER:
+        if (noisy)
+            mprf(MSGCH_SOUND, "You hear a splash.");
+        return (false);
+
+    case DNGN_DEEP_WATER:
+        if (noisy)
+        mprf(MSGCH_SOUND, "You hear a splash.");
+        return (true);
+
+    case DNGN_LAVA:
+        if (noisy)
+            mprf(MSGCH_SOUND, "You hear a sizzling splash.");
+        return (true);
+
+    default:
+        return (false);
+    }
+}
+
 static coord_def _dgn_find_nearest_square(
     const coord_def &pos,
     void *thing,
@@ -838,6 +865,17 @@ void dgn_move_entities_at(coord_def src, coord_def dst,
         if (monster* mon = monster_at(src))
         {
             mon->moveto(dst);
+            if (mon->type == MONS_ELDRITCH_TENTACLE)
+            {
+                if (mon->props.exists("base_position"))
+                {
+                    coord_def delta = dst - src;
+                    coord_def base_pos = mon->props["base_position"].get_coord();
+                    base_pos += delta;
+                    mon->props["base_position"].get_coord() = base_pos;
+                }
+
+            }
             mgrd(dst) = mgrd(src);
             mgrd(src) = NON_MONSTER;
         }
@@ -854,6 +892,11 @@ void dgn_move_entities_at(coord_def src, coord_def dst,
     // Move terrain colours and properties.
     env.pgrid(dst) = env.pgrid(src);
     env.grid_colours(dst) = env.grid_colours(src);
+#ifdef USE_TILE
+    env.tile_bk_fg(dst) = env.tile_bk_fg(src);
+    env.tile_bk_bg(dst) = env.tile_bk_bg(src);
+    env.tile_flv(dst) = env.tile_flv(src);
+#endif
 
     // Move vault masks.
     env.level_map_mask(dst) = env.level_map_mask(src);

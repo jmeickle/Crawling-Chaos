@@ -1052,7 +1052,7 @@ static void _place_player_corpse(bool explode)
 
     corpse.props[MONSTER_HIT_DICE].get_short() = you.experience_level;
     corpse.props[CORPSE_NAME_KEY] = you.your_name;
-    corpse.props[CORPSE_NAME_TYPE_KEY].get_int() = 0;
+    corpse.props[CORPSE_NAME_TYPE_KEY].get_int64() = 0;
     corpse.props["ev"].get_int() = player_evasion(static_cast<ev_ignore_type>(
                                    EV_IGNORE_HELPLESS | EV_IGNORE_PHASESHIFT));
     // mostly mutations here.  At least there's no need to handle armour.
@@ -1141,19 +1141,10 @@ void ouch(int dam, int death_source, kill_method_type death_type,
             dec_mp(you.magic_points);
         }
 
-        if (dam >= you.hp)
+        if (dam >= you.hp && god_protects_from_harm())
         {
-            if (harm_protection_type hpt = god_protects_from_harm(you.religion))
-            {
-                simple_god_message(" protects you from harm!");
-
-                if (you.duration[DUR_PRAYER]
-                    && hpt == HPT_RELIABLE_PRAYING_PLUS_ANYTIME)
-                {
-                    lose_piety(21 + random2(20));
-                }
-                return;
-            }
+            simple_god_message(" protects you from harm!");
+            return;
         }
 
         you.turn_damage += dam;

@@ -1730,7 +1730,7 @@ bool is_dumpable_artefact(const item_def &item, bool verbose)
 //
 //---------------------------------------------------------------
 std::string get_item_description(const item_def &item, bool verbose,
-                                  bool dump, bool noquote)
+                                 bool dump, bool noquote)
 {
     if (dump)
         noquote = true;
@@ -2166,7 +2166,7 @@ static std::string _get_feature_description_wide(int feat)
     return std::string();
 }
 
-void get_feature_desc(const coord_def &pos, describe_info &inf)
+void get_feature_desc(const coord_def &pos, describe_info &inf, bool noquote)
 {
     dungeon_feature_type feat = grd(pos);
     bool mimic = false;
@@ -2245,7 +2245,8 @@ void get_feature_desc(const coord_def &pos, describe_info &inf)
     if (!custom_desc)
         inf.body << _get_feature_description_wide(grd(pos));
 
-    inf.quote = getQuoteString(db_name);
+    if (!noquote)
+        inf.quote = getQuoteString(db_name);
 
     // Quotes don't care about custom descriptions.
     if (props.exists(QUOTE_KEY))
@@ -2260,7 +2261,7 @@ void get_feature_desc(const coord_def &pos, describe_info &inf)
 void describe_feature_wide(const coord_def& pos)
 {
     describe_info inf;
-    get_feature_desc(pos, inf);
+    get_feature_desc(pos, inf, crawl_state.game_is_hints_tutorial());
     print_description(inf);
 
     mouse_control mc(MOUSE_MODE_MORE);
@@ -3837,6 +3838,12 @@ static std::string _religion_help(god_type god)
         break;
     }
 
+    case GOD_ELYVILON:
+        result += "You can pray to destroy weapons on the ground in "
+                + apostrophise(god_name(god)) + " name. Inscribe them "
+                + "with !p, !* or =p to avoid sacrificing them accidentally.";
+        break;
+
     case GOD_LUGONU:
         if (!player_under_penance() && you.piety > 160
             && !you.num_total_gifts[god])
@@ -4297,31 +4304,28 @@ void describe_god(god_type which_god, bool give_title)
         // his life.
         bool have_any = false;
 
-        if (harm_protection_type hpt =
-                god_protects_from_harm(which_god, false))
+        if (god_can_protect_from_harm(which_god))
         {
             have_any = true;
 
-            int prayer_prot = 0;
+            int prot_chance = 10 + you.piety/10; // chance * 100
+            const char *when = "";
 
-            if (hpt == HPT_PRAYING || hpt == HPT_PRAYING_PLUS_ANYTIME
-                || hpt == HPT_RELIABLE_PRAYING_PLUS_ANYTIME)
+            switch (elyvilon_lifesaving())
             {
-                prayer_prot = 100 - 3000/you.piety;
+            case 1:
+                when = ", especially when called upon";
+                prot_chance += 100 - 3000/you.piety;
+                break;
+            case 2:
+                when = ", and always does so when called upon";
+                prot_chance = 100;
             }
-
-            int prot_chance = 10 + you.piety/10 + prayer_prot; // chance * 100
 
             const char *how = (prot_chance >= 85) ? "carefully" :
                               (prot_chance >= 55) ? "often" :
                               (prot_chance >= 25) ? "sometimes"
                                                   : "occasionally";
-            const char *when =
-                (hpt == HPT_PRAYING)              ? " during prayer" :
-                (hpt == HPT_PRAYING_PLUS_ANYTIME) ? ", especially during prayer" :
-                (hpt == HPT_RELIABLE_PRAYING_PLUS_ANYTIME)
-                                                  ? ", and always does so during prayer"
-                                                  : "";
 
             std::string buf = god_name(which_god);
             buf += " ";
@@ -4330,9 +4334,7 @@ void describe_god(god_type which_god, bool give_title)
             buf += when;
             buf += ".";
 
-            _print_final_god_abil_desc(which_god, buf,
-                (hpt == HPT_RELIABLE_PRAYING_PLUS_ANYTIME) ?
-                    ABIL_HARM_PROTECTION_II : ABIL_HARM_PROTECTION);
+            _print_final_god_abil_desc(which_god, buf, ABIL_NON_ABILITY);
         }
 
         if (which_god == GOD_ZIN)
@@ -4373,15 +4375,6 @@ void describe_god(god_type which_god, bool give_title)
                               + " to burn spellbooks in your surroundings.";
             _print_final_god_abil_desc(which_god, buf,
                                        ABIL_TROG_BURN_SPELLBOOKS);
-        }
-        else if (which_god == GOD_ELYVILON)
-        {
-            have_any = true;
-            std::string buf = "You can destroy weapons on the ground in "
-                              + apostrophise(god_name(which_god))
-                              + " name.";
-            _print_final_god_abil_desc(which_god, buf,
-                                       ABIL_ELYVILON_DESTROY_WEAPONS);
         }
         else if (which_god == GOD_JIYVA)
         {

@@ -405,7 +405,7 @@ static bool _reroll_random(newgame_def* ng)
     cprintf("\nDo you want to play this combination? (ynq) [y]");
     char c = getchm();
     if (key_is_escape(c) || tolower(c) == 'q')
-        end(0);
+        game_ended();
     return (tolower(c) == 'n');
 }
 
@@ -885,10 +885,11 @@ static void _prompt_species(newgame_def* ng, newgame_def* ng_choice,
             switch (keyn)
             {
             case 'X':
-            CASE_ESCAPE
                 cprintf("\nGoodbye!");
                 end(0);
                 return;
+            CASE_ESCAPE
+                    game_ended();
             case CK_BKSP:
                 ng_choice->species = SP_UNKNOWN;
                 return;
@@ -1251,10 +1252,11 @@ static void _prompt_job(newgame_def* ng, newgame_def* ng_choice,
             switch (keyn)
             {
             case 'X':
-            CASE_ESCAPE
                 cprintf("\nGoodbye!");
                 end(0);
                 return;
+            CASE_ESCAPE
+                game_ended();
             case CK_BKSP:
                 ng_choice->job = JOB_UNKNOWN;
                 return;
@@ -2942,8 +2944,8 @@ static void _construct_gamemode_map_menu(const mapref_vector& maps,
     //menu->attach_item(tmp);
     //tmp->set_visible(true);
 
-    // Only add tab entry if we have a previous wand choice
-    if (defaults.type == GAME_TYPE_SPRINT
+    // Only add tab entry if we have a previous map choice
+    if (crawl_state.game_is_sprint()
         && !defaults.map.empty() && _char_defined(defaults))
     {
         tmp = new TextItem();

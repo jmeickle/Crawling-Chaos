@@ -195,9 +195,9 @@ Animate Remains or Dead
 If you get this description, it is a bug.
 %%%%
 # Okawaru
-Might
+Heroism
 
-Temporarily increase all of your combat skills, including the ability to sneak around or avoid traps. 
+Temporarily increase all of your combat skills, including the ability to sneak around or avoid traps.
 %%%%
 Finesse
 
@@ -247,9 +247,11 @@ Brothers in Arms
 Summon huge angry allies to wreak havoc.
 %%%%
 # Elyvilon
-Destroy Weapons
+Divine Protection
 
-Destroy all weapons on the ground. In order to prevent a weapon from being accidentally destroyed, use the !D inscription.
+Beseech Elyvilon to save your life. If you would have died, The Healer may undo the killing blow. Especially pious individuals may be certain of this help, although in that case it costs piety -- if you would actually have died, as merely asking is free.
+
+Beware, killing others while asking for being spared yourself is a major sin!
 %%%%
 Lesser Healing
 
