@@ -348,7 +348,7 @@ enum beam_type                  // beam[].flavour
     BEAM_TORMENT_DAMAGE,          // Pseudo-beam for damage flavour.
     BEAM_FIRST_PSEUDO = BEAM_TORMENT_DAMAGE,
     BEAM_DEVOUR_FOOD,             // Pseudo-beam for harpies' devouring food.
-
+    BEAM_OVERRUN,                 // Pseudo-beam for overrun.
     NUM_BEAMS
 };
 
