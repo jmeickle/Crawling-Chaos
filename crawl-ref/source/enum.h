@@ -2565,11 +2565,8 @@ enum mon_spellbook_type
     MST_SERPENT_OF_HELL_DIS,
     MST_NERGALLE,
     MST_JORY,
-<<<<<<< HEAD
-    MST_FOREST_WYRM,
-=======
     MST_TUKIMA,
->>>>>>> ed61c0ed73549c844cb61ce255b92da57756ac67
+    MST_FOREST_WYRM,
 
     MST_GHOST, // special
     MST_TEST_SPAWNER,
@@ -3220,11 +3217,8 @@ enum spell_type
     SPELL_LEDAS_LIQUEFACTION,
     SPELL_HOMUNCULUS,
     SPELL_SUMMON_HYDRA,
-<<<<<<< HEAD
-    SPELL_PLANT_BREATH,
-=======
     SPELL_TUKIMAS_DANCE_PARTY,
->>>>>>> ed61c0ed73549c844cb61ce255b92da57756ac67
+    SPELL_PLANT_BREATH,
 
     NUM_SPELLS
 };
