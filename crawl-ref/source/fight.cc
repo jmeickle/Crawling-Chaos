@@ -5463,7 +5463,7 @@ bool melee_attack::do_trample(coord_def old_pos, coord_def new_pos)
 
         // don't trample into a monster - or do we want to cause a chain
         // reaction here?
-        if (!actor_at(new_pos))
+        if (!actor_at(new_pos) && defender->alive())
         {
             defender->move_to_pos(new_pos);
 
