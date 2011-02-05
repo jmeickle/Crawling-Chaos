@@ -4453,3 +4453,18 @@ const char* mons_class_name(monster_type mc)
 
     return get_monster_data(mc)->name;
 }
+
+bool mons_is_trampler(const monster* mons)
+{
+    int attack_number = 0;
+    const int nrounds = mons->has_hydra_multi_attack() ? mons->number : 4;
+    for (attack_number = 0; attack_number < nrounds; ++attack_number)
+    {
+        mon_attack_def attk = mons_attack_spec(mons, attack_number);
+
+        if (attk.type == AT_TRAMPLE || attk.flavour == AF_OVERRUN)
+            return(true);
+    }
+
+    return (false);
+}
