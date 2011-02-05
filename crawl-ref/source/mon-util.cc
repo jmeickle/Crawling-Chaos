@@ -1468,7 +1468,7 @@ bool mons_amphibious(const monster* mon)
 
 bool mons_class_flattens_trees(int mc)
 {
-    return (mc == MONS_LERNAEAN_HYDRA);
+    return (mc == MONS_LERNAEAN_HYDRA || mc == MONS_FOREST_WYRM);
 }
 
 bool mons_flattens_trees(const monster* mon)
