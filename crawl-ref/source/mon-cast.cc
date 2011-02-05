@@ -1528,6 +1528,39 @@ bool handle_mon_spell(monster* mons, bolt &beem)
                     continue;
                 }
 
+                // Forest wyrms shouldn't breathe if:
+                if (spell_cast == SPELL_PLANT_BREATH
+                    && mons->type == MONS_FOREST_WYRM)
+                {
+                    // they're adjacent:
+                    if (adjacent(foe->pos(), mons->pos()))
+                    {
+                        spell_cast = SPELL_NO_SPELL;
+                        continue;
+                    }
+
+                    // or if there's no room for plants:
+
+                    // The radius on this is 1, even though the
+                    // ability is radius 2. This gives more natural
+                    // behavior: it stops breathing if you're trapped.
+                    int spots = 0;
+                    for (radius_iterator ri(foe->pos(), 1); ri; ++ri)
+                    {
+                        // Wyrms will only breathe if they can see an empty
+                        // cell next to you that a toadstool can live in.
+                        if (cell_see_cell(*ri, mons->pos())
+                            && !actor_at(*ri)
+                            && monster_habitable_grid(MONS_TOADSTOOL, grd(*ri)))
+                            spots++;
+                    }
+                    // Won't breathe if no spots; only breathes half as often
+                    // if there's only one or two spots to fill.
+                    if (spots == 0 || spots < 2 && coinflip())
+                        spell_cast = SPELL_NO_SPELL;
+                    continue;
+                }
+
                 // beam-type spells requiring tracers
                 if (spell_needs_tracer(spell_cast))
                 {
@@ -3406,7 +3439,7 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
     case SPELL_PLANT_BREATH:
         for (radius_iterator ri(pbolt.target, 2); ri; ++ri)
         {
-            if (monster_at(*ri) == NULL && coinflip())
+            if (cell_see_cell(pbolt.target, *ri) && monster_at(*ri) == NULL && coinflip())
             {
                 const monster_type mon = static_cast<monster_type>(
                     random_choose_weighted(16, MONS_TOADSTOOL,
@@ -3414,10 +3447,10 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
                                            2, MONS_PLANT,
                                            1, MONS_BUSH,
                                            0));
-                create_monster(
+                place_monster(
                     mgen_data(mon, SAME_ATTITUDE(mons),
                               mons, 0, 0, *ri,
-                              MHITNOT, MG_FORCE_PLACE, god));
+                              MHITNOT, 0, god), 1);
             }
         }
         return;
