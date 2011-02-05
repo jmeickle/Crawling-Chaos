@@ -1554,9 +1554,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
                             && monster_habitable_grid(MONS_TOADSTOOL, grd(*ri)))
                             spots++;
                     }
-                    // Won't breathe if no spots; only breathes half as often
-                    // if there's only one or two spots to fill.
-                    if (spots == 0 || spots < 2 && coinflip())
+                    if (spots == 0)
                         spell_cast = SPELL_NO_SPELL;
                     continue;
                 }

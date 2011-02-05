@@ -1642,10 +1642,10 @@
     {  MST_FOREST_WYRM,
       {
        SPELL_PLANT_BREATH,
+       SPELL_PLANT_BREATH,
        SPELL_NO_SPELL,
-       SPELL_NO_SPELL,
-       SPELL_NO_SPELL,
-       SPELL_NO_SPELL,
+       SPELL_PLANT_BREATH,
+       SPELL_PLANT_BREATH,
        SPELL_NO_SPELL,
       }
     },
