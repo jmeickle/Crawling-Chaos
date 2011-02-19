@@ -2237,7 +2237,7 @@ std::string monster::conj_verb(const std::string &verb) const
     if (!verb.empty() && verb[0] == '!')
         return (verb.substr(1));
 
-    if (verb == "are")
+    if (verb == "are" && !mons_is_swarm(this))
         return ("is");
 
     if (verb == "snap closed at")
@@ -2249,7 +2249,10 @@ std::string monster::conj_verb(const std::string &verb) const
         return (verb + "s");
     }
 
-    return (pluralise(verb));
+    if (mons_is_swarm(this))
+        return verb;
+    else
+        return (pluralise(verb));
 }
 
 std::string monster::hand_name(bool plural, bool *can_plural) const
@@ -3603,6 +3606,10 @@ int monster::hurt(const actor *agent, int amount, beam_type flavour,
             monster_die(this, KILL_MISC, NON_MONSTER);
         else if (agent->atype() == ACT_PLAYER)
             monster_die(this, KILL_YOU, NON_MONSTER);
+        else if (agent->as_monster()->friendly() && mons_is_swarm(agent->as_monster()))
+            monster_die(this, KILL_MON, ANON_FRIENDLY_MONSTER);
+        else if (mons_is_swarm(agent->as_monster()))
+            monster_die(this, KILL_MISC, NON_MONSTER);
         else
             monster_die(this, KILL_MON, agent->mindex());
     }

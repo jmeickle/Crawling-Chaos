@@ -1443,6 +1443,19 @@ static spret_type _do_cast(spell_type spell, int powc,
         }
         break;
 
+    // Swarms
+
+    case SPELL_BREATHE_BEES:
+        if (!cast_big_c(powc, CLOUD_SWARM_BEES, &you, beam))
+            return SPRET_ABORT;
+        break;
+
+    case SPELL_SPARK_SPRAY:
+        beam.target = you.pos();
+        if (!cast_big_c(powc, CLOUD_SWARM_SPARKS, &you, beam))
+            return SPRET_ABORT;
+        break;
+
     // LOS spells
     case SPELL_SMITING:
         if (!cast_smiting(powc, beam.target))

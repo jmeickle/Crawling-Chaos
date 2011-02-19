@@ -68,6 +68,23 @@ bool is_harmless_cloud(cloud_type type);
 bool in_what_cloud (cloud_type type);
 cloud_type in_what_cloud();
 
+// Swarms!
+bool cloud_is_swarm(cloud_type type);
+bool mons_type_is_swarm(monster_type type);
+bool mons_is_swarm(monster* swarm);
+bool mons_is_swarm(const monster* swarm);
+monster_type swarm_which_monster(cloud_type type);
+std::string swarm_description(cloud_type type);
+monster* swarm_as_monster(cloud_struct& c);
+monster* swarm_as_monster(const cloud_struct& c);
+void oh_god_angry_bees_everywhere(cloud_struct& c);
+void swarm_handle_attack(const cloud_struct& c, actor* act);
+bool swarm_handle_movement(cloud_struct& c);
+bool swarm_cloud_valid_move(const coord_def p);
+bool swarm_mons_valid_move(monster* swarm, const coord_def p);
+bool swarm_mons_valid_move(monster_type type, const coord_def p);
+int swarm_generate_monster(monster_type mtype, coord_def p);
+
 // fog generator
 void place_fog_machine(fog_machine_type fm_type, cloud_type cl_type,
                        int x, int y, int size, int power);

@@ -2109,7 +2109,11 @@ void get_square_desc(const coord_def &c, describe_info &inf,
     const int cloudidx = env.cgrid(c);
     if (cloudidx != EMPTY_CLOUD)
     {
-        inf.prefix = "There is a cloud of " + cloud_name_at_index(cloudidx)
+        if (cloud_is_swarm(env.cloud[cloudidx].type))
+            inf.prefix = "There is a" + cloud_type_name(env.cloud[cloudidx].type, false)
+                     + " here.\n\n";
+        else
+            inf.prefix = "There is a cloud of " + cloud_name_at_index(cloudidx)
                      + " here.\n\n";
     }
 }
@@ -3681,8 +3685,12 @@ static void _print_cloud_desc(const coord_def where, bool &cloud_described)
     {
         const int cloud_inspected = env.cgrid(where);
 
-        mprf(MSGCH_EXAMINE, "There is a cloud of %s here.",
-             cloud_name_at_index(cloud_inspected).c_str());
+        if (cloud_is_swarm(env.cloud[cloud_inspected].type))
+            mprf(MSGCH_EXAMINE, "There is a %s here.",
+                 cloud_type_name(env.cloud[cloud_inspected].type, false).c_str());
+        else
+            mprf(MSGCH_EXAMINE, "There is a cloud of %s here.",
+                 cloud_name_at_index(cloud_inspected).c_str());
 
         cloud_described = true;
     }

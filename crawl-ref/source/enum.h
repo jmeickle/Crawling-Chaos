@@ -522,10 +522,20 @@ enum cloud_type
     CLOUD_MUTAGENIC,
     CLOUD_MAGIC_TRAIL,
     CLOUD_TORNADO,
+
+    // Swarms:
+    CLOUD_SWARM_BEES,
+    CLOUD_SWARM_BUTTERFLIES,
+    CLOUD_SWARM_SPARKS,
+    CLOUD_SWARM_SPIDERS,
     NUM_CLOUD_TYPES,
 
     CLOUD_OPAQUE_FIRST = CLOUD_BLACK_SMOKE,
     CLOUD_OPAQUE_LAST  = CLOUD_HOLY_FLAMES,
+
+    // Update these if any more swarms are added.
+    CLOUD_SWARM_FIRST = CLOUD_SWARM_BEES,
+    CLOUD_SWARM_LAST = CLOUD_SWARM_SPIDERS,
 
     CLOUD_RANDOM = 98,
     CLOUD_DEBUGGING,
@@ -2336,6 +2346,16 @@ enum monster_type                      // (int) menv[].type
     MONS_SALT_PILLAR,
     MONS_TERPSICHORE,
 
+    // Swarms:
+    MONS_SWARM_BEES,
+    MONS_SWARM_BUTTERFLIES,
+    MONS_SWARM_SPARKS,
+    MONS_SWARM_SPIDERS,
+
+    // Update these if any more swarms are added.
+    MONS_SWARM_FIRST = MONS_SWARM_BEES,
+    MONS_SWARM_LAST = MONS_SWARM_SPIDERS,
+
     NUM_MONSTERS,                      // used for polymorph
 
     // MONS_NO_MONSTER can get put in savefiles, so it shouldn't change
@@ -3221,7 +3241,8 @@ enum spell_type
     SPELL_HOMUNCULUS,
     SPELL_SUMMON_HYDRA,
     SPELL_TUKIMAS_DANCE_PARTY,
-
+    SPELL_BREATHE_BEES,
+    SPELL_SPARK_SPRAY,
     NUM_SPELLS
 };
 

@@ -2893,6 +2893,32 @@ struct spell_desc
 },
 
 {
+    SPELL_BREATHE_BEES, "Breathe Bees",
+     SPTYP_SUMMONING | SPTYP_TRANSMUTATION | SPTYP_POISON,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_GRID | SPFLAG_AREA,
+     3,
+     50,
+     6, 6,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_SPARK_SPRAY, "Spark Spray",
+     SPTYP_CONJURATION | SPTYP_AIR,
+     SPFLAG_AREA,
+     2,
+     100,
+     -1, -1,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
     SPELL_NO_SPELL, "nonexistent spell",
      0,
      SPFLAG_TESTING,

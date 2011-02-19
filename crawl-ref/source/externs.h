@@ -289,10 +289,11 @@ struct cloud_struct
     int           colour;
     std::string   name;
     std::string   tile;
+    int           swarm;
 
     cloud_struct() : pos(), type(CLOUD_NONE), decay(0), spread_rate(0),
                      whose(KC_OTHER), killer(KILL_NONE), colour(-1),
-                     name(""), tile("")
+                     name(""), tile(""), swarm(0)
     {
     }
 

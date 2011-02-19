@@ -4327,7 +4327,10 @@ bool melee_attack::mons_attack_mons()
 
     // If a hydra was attacking it may have switched targets and started
     // hitting the player. -cao
-    if (defender->atype() == ACT_PLAYER)
+
+    // Or, the attacker might be a swarm, which is best left unhandled
+    // by other code.
+    if (defender->atype() == ACT_PLAYER || mons_is_swarm(attacker->as_monster()))
         return (did_hit);
 
     if (perceived_attack
@@ -4654,10 +4657,11 @@ void melee_attack::mons_announce_dud_hit(const mon_attack_def &attk)
 {
     if (needs_message)
     {
-        mprf("%s %s %s but does no damage.",
+        mprf("%s %s %s but %s no damage.",
              atk_name(DESC_CAP_THE).c_str(),
              attacker->conj_verb(mons_attack_verb(attk)).c_str(),
-             mons_defender_name().c_str());
+             mons_defender_name().c_str(),
+             (mons_is_swarm(attacker->as_monster())) ? "do" : "does");
     }
 }
 
@@ -4684,15 +4688,18 @@ void melee_attack::mons_do_poison(const mon_attack_def &attk)
             {
                 if (attacker_visible)
                 {
-                    mprf("%s %s was poisonous!",
+                    mprf("%s %s%s %s poisonous!",
                          apostrophise(attacker->name(DESC_CAP_THE)).c_str(),
-                         mons_attack_verb(attk).c_str());
+                         mons_attack_verb(attk).c_str(),
+                         mons_is_swarm(attacker->as_monster()) ? "s" : "",
+                         mons_is_swarm(attacker->as_monster()) ? "were" : "was");
                 }
             }
             else
             {
-                mprf("%s poisons %s!",
+                mprf("%s %s %s!",
                      atk_name(DESC_CAP_THE).c_str(),
+                     mons_is_swarm(attacker->as_monster()) ? "poison" : "poisons",
                      mons_defender_name().c_str());
             }
         }
@@ -5502,6 +5509,9 @@ void melee_attack::mons_perform_attack_rounds()
 
         mon_attack_def attk = mons_attack_spec(attacker->as_monster(),
                                                attack_number);
+
+        const bool swarm_attack = mons_is_swarm(attacker->as_monster());
+
         if (attk.type == AT_WEAP_ONLY)
         {
             int weap = attacker->as_monster()->inv[MSLOT_WEAPON];
@@ -5619,7 +5629,7 @@ void melee_attack::mons_perform_attack_rounds()
         bool shield_blocked = false;
         bool this_round_hit = false;
 
-        if (attacker != defender)
+        if (attacker != defender && !swarm_attack)
         {
             if (attack_shield_blocked(true))
             {
@@ -5656,7 +5666,7 @@ void melee_attack::mons_perform_attack_rounds()
 
             ev_margin = test_melee_hit(to_hit, defender_evasion_help, r);
 
-            if (attacker == defender || ev_margin >= 0)
+            if (attacker == defender || ev_margin >= 0 || swarm_attack)
             {
                 // Will hit no matter what.
                 this_round_hit = true;
@@ -5736,12 +5746,13 @@ void melee_attack::mons_perform_attack_rounds()
                 dprf("ERROR: Non-zero damage after shield block!");
             mons_announce_hit(attk);
 
-            if (defender == &you)
+            if (defender == &you && !swarm_attack)
                 practise(EX_MONSTER_WILL_HIT);
 
             if (defender->can_bleed()
                 && !defender->is_summoned()
-                && !defender->submerged())
+                && !defender->submerged()
+                && !swarm_attack)
             {
                 int blood = _modify_blood_amount(damage_done,
                                                  attacker->damage_type());
@@ -6136,7 +6147,9 @@ bool monster_attack(monster* attacker, bool allow_unarmed)
     ASSERT(!crawl_state.game_is_arena());
 
     // Friendly and good neutral monsters won't attack unless confused.
-    if (attacker->wont_attack() && !mons_is_confused(attacker))
+    if (attacker->wont_attack()
+        && !mons_is_confused(attacker)
+        && !mons_is_swarm(attacker->as_monster()))
         return (false);
 
     // It's hard to attack from within a shell.
@@ -6144,8 +6157,9 @@ bool monster_attack(monster* attacker, bool allow_unarmed)
         return (false);
 
     // In case the monster hasn't noticed you, bumping into it will
-    // change that.
-    behaviour_event(attacker, ME_ALERT, MHITYOU);
+    // change that - though swarms are exempt.
+    if (!mons_is_swarm(attacker->as_monster()))
+        behaviour_event(attacker, ME_ALERT, MHITYOU);
     melee_attack attk(attacker, &you, allow_unarmed);
     attk.attack();
 

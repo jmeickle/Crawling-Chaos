@@ -135,9 +135,13 @@ static bool _check_moveto_cloud(const coord_def& p,
                 || ctype != env.cloud[ env.cgrid(you.pos()) ].type))
         {
             std::string prompt = make_stringf(
-                                    "Really %s into that cloud of %s?",
-                                    move_verb.c_str(),
-                                    cloud_name_at_index(cloud).c_str());
+                                    "Really %s into that ",
+                                    move_verb.c_str());
+
+            if (cloud_is_swarm(ctype))
+                prompt += cloud_type_name(ctype, false) + "?";
+            else
+                prompt += make_stringf("cloud of %s?", cloud_name_at_index(cloud).c_str());
 
             if (!yesno(prompt.c_str(), false, 'n'))
             {

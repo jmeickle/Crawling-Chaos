@@ -24,7 +24,10 @@
 #include "fprop.h"
 #include "godconduct.h"
 #include "los.h"
+#include "mgen_data.h"
+#include "mon-act.h"
 #include "mon-behv.h"
+#include "mon-place.h"
 #include "monster.h"
 #include "mapmark.h"
 #include "mutation.h"
@@ -113,6 +116,26 @@ static void _new_cloud(int cloud, cloud_type type, const coord_def& p,
     c.spread_rate = spread_rate;
     c.colour      = colour;
     c.name        = name;
+
+    if (cloud_is_swarm(type))
+    {
+        c.swarm = swarm_generate_monster(swarm_which_monster(type), p);
+
+        // For now, a hack to get attribution working.
+        // Later it would be better if we actually looked at c.source
+        // to e.g. set them as summons.
+        if (whose == KC_YOU || whose == KC_FRIENDLY)
+        {
+            swarm_as_monster(c)->attitude = ATT_FRIENDLY;
+            swarm_as_monster(c)->behaviour = BEH_FRIENDLY;
+        }
+        else if (whose == KC_OTHER)
+        {
+            swarm_as_monster(c)->attitude = ATT_HOSTILE;
+            swarm_as_monster(c)->behaviour = BEH_HOSTILE;
+        }
+    }
+
 #ifdef USE_TILE
     if (!tile.empty())
     {
@@ -265,9 +288,26 @@ static void _dissipate_cloud(int cloudidx, int dissipate)
         cloud.decay       -= _spread_cloud(cloud);
     }
 
+    if (cloud_is_swarm(cloud.type) && cloud.decay > 0)
+    {
+        oh_god_angry_bees_everywhere(cloud);
+        swarm_handle_movement(cloud);
+    }
+
     // Check for total dissipation and handle accordingly.
     if (cloud.decay < 1)
+    {
+        if (cloud_is_swarm(cloud.type))
+        {
+            monster* swarm = swarm_as_monster(cloud);
+            if (swarm->ground_level() && feat_is_watery(grd(cloud.pos)))
+                simple_monster_message(swarm, " drown.", MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
+            else if (swarm->ground_level() && grd(cloud.pos) == DNGN_LAVA)
+                simple_monster_message(swarm, " are incinerated.", MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
+        }
+
         delete_cloud(cloudidx);
+    }
 }
 
 void manage_clouds()
@@ -288,6 +328,11 @@ void manage_clouds()
         else if ((cloud.type == CLOUD_COLD || cloud.type == CLOUD_RAIN)
                  && grd(cloud.pos) == DNGN_LAVA)
             dissipate *= 4;
+        // Non-flying swarms die quickly in water or lava.
+        else if (cloud_is_swarm(cloud.type))
+            if (swarm_as_monster(cloud)->ground_level()
+                && (feat_is_watery(grd(cloud.pos)) || grd(cloud.pos) == DNGN_LAVA))
+                dissipate *= 40;
         // Ink cloud doesn't appear outside of water.
         else if (cloud.type == CLOUD_INK && !feat_is_watery(grd(cloud.pos)))
             dissipate *= 40;
@@ -356,6 +401,9 @@ void delete_cloud(int cloud)
     cloud_struct& c = env.cloud[cloud];
     if (c.type != CLOUD_NONE)
     {
+        if (cloud_is_swarm(c.type))
+            monster_die(swarm_as_monster(c), KILL_RESET, NON_MONSTER, true);
+
         cloud_type t = c.type;
         if (c.type == CLOUD_RAIN)
             _maybe_leave_water(c);
@@ -368,6 +416,7 @@ void delete_cloud(int cloud)
         c.colour      = -1;
         c.name        = "";
         c.tile        = "";
+        c.swarm       = 0;
 
         env.cgrid(c.pos) = EMPTY_CLOUD;
         _los_cloud_changed(c.pos, t);
@@ -394,6 +443,9 @@ void move_cloud(int cloud, const coord_def& newpos)
         env.cloud[cloud].pos = newpos;
         _los_cloud_changed(oldpos, env.cloud[cloud].type);
         _los_cloud_changed(newpos, env.cloud[cloud].type);
+
+        if (cloud_is_swarm(env.cloud[cloud].type))
+            swarm_as_monster(env.cloud[cloud])->moveto(newpos);
     }
 }
 
@@ -435,6 +487,13 @@ void swap_clouds(coord_def p1, coord_def p2)
     }
     env.cgrid(p1) = c2;
     env.cgrid(p2) = c1;
+
+    if (cloud_is_swarm(env.cloud[c1].type))
+        swarm_as_monster(env.cloud[c1])->moveto(p2);
+
+    if (cloud_is_swarm(env.cloud[c2].type))
+        swarm_as_monster(env.cloud[c2])->moveto(p1);
+
     if (affects_los)
     {
         invalidate_los_around(p1);
@@ -448,6 +507,12 @@ void check_place_cloud(cloud_type cl_type, const coord_def& p, int lifetime,
                        const actor *agent, int spread_rate, int colour,
                        std::string name, std::string tile)
 {
+    if (cloud_is_swarm(cl_type))
+    {
+        if (!swarm_mons_valid_move(swarm_which_monster(cl_type), p))
+            return;
+    }
+
     if (!in_bounds(p) || env.cgrid(p) != EMPTY_CLOUD)
         return;
 
@@ -705,6 +770,10 @@ int max_cloud_damage(cloud_type cl_type, int power)
 // plain damage and inventory destruction effects.
 bool cloud_has_negative_side_effects(cloud_type cloud)
 {
+    // Butterflies are the only harmless swarm for now.
+    if (cloud_is_swarm(cloud) && cloud != CLOUD_SWARM_BUTTERFLIES)
+        return true;
+
     switch (cloud)
     {
     case CLOUD_STINK:
@@ -1094,6 +1163,9 @@ int actor_apply_cloud(actor *act)
             mons->hurt(oppressor, final_damage, BEAM_MISSILE);
     }
 
+    if (cloud_is_swarm(cloud.type))
+        swarm_handle_attack(cloud, act);
+
     return final_damage;
 }
 
@@ -1156,6 +1228,7 @@ bool is_harmless_cloud(cloud_type type)
     case CLOUD_MAGIC_TRAIL:
     case CLOUD_GLOOM:
     case CLOUD_INK:
+    case CLOUD_SWARM_BUTTERFLIES:
     case CLOUD_DEBUGGING:
         return (true);
     default:
@@ -1205,7 +1278,7 @@ static const char *_terse_cloud_names[] =
     "purple smoke", "translocational energy", "fire",
     "steam", "gloom", "ink", "blessed fire", "foul pestilence", "thin mist",
     "seething chaos", "rain", "mutagenic fog", "magical condensation",
-    "raging winds",
+    "raging winds", "bees", "butterflies", "sparks", "spiders"
 };
 
 static const char *_verbose_cloud_names[] =
@@ -1217,6 +1290,8 @@ static const char *_verbose_cloud_names[] =
     "a cloud of scalding steam", "a thick gloom", "ink", "blessed fire",
     "a dark miasma", "thin mist", "seething chaos", "the rain",
     "a mutagenic fog", "magical condensation", "raging winds",
+    "swarm of bees", "flock of butterflies", "spray of sparks",
+    "mass of spiders"
 };
 
 std::string cloud_type_name(cloud_type type, bool terse)
@@ -1319,6 +1394,14 @@ void cloud_struct::announce_actor_engulfed(const actor *act,
                      act->name(DESC_CAP_THE).c_str(),
                      act->conj_verb("are").c_str());
         }
+        else if (cloud_is_swarm(type))
+        {
+            mprf("%s %s %s a %s.",
+                 act->name(DESC_CAP_THE).c_str(),
+                 act->conj_verb("are").c_str(),
+                 swarm_description(type).c_str(),
+                 cloud_name().c_str());
+        }
         else
         {
             mprf("%s %s in %s.",
@@ -1395,6 +1478,7 @@ int get_cloud_colour(int cloudno)
         break;
 
     case CLOUD_CHAOS:
+    case CLOUD_SWARM_BUTTERFLIES:
         which_colour = ETC_RANDOM;
         break;
 
@@ -1414,6 +1498,18 @@ int get_cloud_colour(int cloudno)
         which_colour = ETC_TORNADO;
         break;
 
+    case CLOUD_SWARM_BEES:
+        which_colour = YELLOW;
+        break;
+
+    case CLOUD_SWARM_SPARKS:
+        which_colour = LIGHTCYAN;
+        break;
+
+    case CLOUD_SWARM_SPIDERS:
+        which_colour = LIGHTMAGENTA;
+        break;
+
     default:
         which_colour = LIGHTGREY;
         break;
@@ -1430,6 +1526,262 @@ coord_def get_cloud_originator(const coord_def& pos)
     if (!agent)
         return coord_def();
     return agent->pos();
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Swarms!
+
+// Returns true if a passed cloud type is a swarm.
+bool cloud_is_swarm(cloud_type type)
+{
+    if (type >= CLOUD_SWARM_FIRST && type <= CLOUD_SWARM_LAST)
+        return true;
+    else
+        return false;
+}
+
+// Returns true if a passed monster type is a swarm.
+bool mons_type_is_swarm(monster_type type)
+{
+    if (type >= MONS_SWARM_FIRST && type <= MONS_SWARM_LAST)
+        return true;
+    else
+        return false;
+}
+
+// Returns true if a passed actual monster is a swarm monster.
+bool mons_is_swarm(monster* swarm)
+{
+    return mons_type_is_swarm(swarm->type);
+}
+
+// Returns true if a passed actual monster is a swarm monster (const version).
+bool mons_is_swarm(const monster* swarm)
+{
+    return mons_type_is_swarm(swarm->type);
+}
+
+// Returns the monster type (not the actual monster!)
+// appropriate to the cloud type passed in.
+monster_type swarm_which_monster(cloud_type type)
+{
+    switch (type)
+    {
+        case CLOUD_SWARM_BEES:
+            return MONS_SWARM_BEES;
+        case CLOUD_SWARM_BUTTERFLIES:
+            return MONS_SWARM_BUTTERFLIES;
+        case CLOUD_SWARM_SPARKS:
+            return MONS_SWARM_SPARKS;
+        case CLOUD_SWARM_SPIDERS:
+            return MONS_SWARM_SPIDERS;
+        default:
+            return MONS_NO_MONSTER;
+    }
+}
+
+// Returns the "engulfed" message appropriate to the
+// cloud type passed in.
+std::string swarm_description(cloud_type type)
+{
+    switch (type)
+    {
+        case CLOUD_SWARM_BUTTERFLIES:
+        case CLOUD_SWARM_SPARKS:
+        case CLOUD_SWARM_BEES:
+            return "surrounded by";
+        case CLOUD_SWARM_SPIDERS:
+            return "covered in";
+        default:
+            return "engulfed in";
+    }
+}
+
+// Returns a swarm's associated actual monster.
+monster* swarm_as_monster(cloud_struct& c)
+{
+    return monster_by_mid(c.swarm);
+}
+
+// Returns a swarm's associated actual monster (const version).
+monster* swarm_as_monster(const cloud_struct& c)
+{
+    return monster_by_mid(c.swarm);
+}
+
+// Finds a random target in LOS for the swarm to pursue.
+void oh_god_angry_bees_everywhere(cloud_struct& cloud)
+{
+    monster* swarm = swarm_as_monster(cloud);
+
+    // This should not happen!
+    ASSERT(swarm != NULL && swarm->alive());
+
+    // Confused swarms don't need a target.
+    if (mons_class_flag(swarm->type, M_CONFUSED) || swarm->confused())
+        return;
+
+    // Swarms look for a new (visible!) target each turn if
+    // there's nothing to attack in their current target.
+
+    // This means that running away from them is quite effective.
+    if (swarm->target != you.pos()
+        && monster_at(swarm->target) == NULL)
+    {
+        int valid = 0;
+        for (radius_iterator ri(swarm->pos(), LOS_RADIUS); ri; ++ri)
+            if (swarm_mons_valid_move(swarm, *ri)
+                && swarm_cloud_valid_move(*ri)
+                && (monster_at(*ri) != NULL
+                    || you.pos() == *ri)
+                && swarm->can_see(actor_at(*ri)))
+                if (one_chance_in(++valid))
+                    swarm->target = *ri;
+    }
+}
+
+// Performs a swarm's attack, which functions like a normal monster
+// attack and is based on their mon-data.h stats.
+void swarm_handle_attack(const cloud_struct& cloud, actor* act)
+{
+    monster_attack_actor(swarm_as_monster(cloud), act, true);
+}
+
+// Performs a swarm's movement. If they have a target, they will
+// move towards it... ish, because they're not smart. It helps if
+// the target is close and stationary.
+bool swarm_handle_movement(cloud_struct& c)
+{
+    monster* swarm = swarm_as_monster(c);
+
+    // Something is terribly wrong if this fails.
+    ASSERT(mons_is_swarm(swarm) && swarm->alive());
+
+    coord_def old_pos = swarm->pos();
+    coord_def new_pos = swarm->pos();
+    coord_def target = swarm->target;
+
+    // Alternate pathway for confused swarms.
+    // These attack normally, but don't have a target
+    // and move randomly.
+    if (mons_class_flag(swarm->type, M_CONFUSED) || swarm->confused())
+    {
+        int pfound = 0;
+        for (adjacent_iterator ai(swarm->pos(), false); ai; ++ai)
+            if (swarm_mons_valid_move(swarm, *ai)
+                && swarm_cloud_valid_move(*ai))
+                if (one_chance_in(++pfound))
+                    new_pos = *ai;
+    }
+    else
+    {
+        int distance = grid_distance(swarm->pos(), target);
+
+        // Swarm doesn't need to move - you're already in it.
+        if (distance == 0)
+            return false;
+
+        // The move must be valid for both the swarm and the cloud.
+        // After that, it checks distance. It'll move into the target
+        // square if it's adjacent; otherwise, it'll have a chance to
+        // declare an adacent square as valid based on distance.
+        int valid = 0;
+        for (adjacent_iterator ai(swarm->pos()); ai; ++ai)
+            if (swarm_mons_valid_move(swarm, *ai)
+                && swarm_cloud_valid_move(*ai))
+                if (grid_distance(*ai, target) == 0)
+                {
+                    new_pos = *ai;
+                    break;
+                }
+                else if (one_chance_in(grid_distance(*ai, target)))
+                    if (one_chance_in(++valid))
+                        new_pos = *ai;
+    }
+
+    // move_cloud_to handles the movement of both the cloud and swarm.
+    if (old_pos != new_pos)
+    {
+        move_cloud_to(old_pos, new_pos);
+        swarm->check_clinging();
+        if (swarm->is_wall_clinging())
+            simple_monster_message(swarm, " swarm over the walls.");
+        return true;
+    }
+    else
+        return false;
+}
+
+/**
+STUB: This function will handle a swarm that 'spreads' (splits in two).
+monster* swarm_split
+{
+}
+**/
+
+// Determines whether the cloud component of a swarm
+// can exist in the passed coord_def.
+bool swarm_cloud_valid_move(const coord_def p)
+{
+    if (!in_bounds(p) || env.cgrid(p) != EMPTY_CLOUD)
+        return false;
+    else
+        return true;
+}
+
+// Determines whether the monster component of a swarm
+// can exist in the passed coord_def.
+bool swarm_mons_valid_move(monster* swarm, const coord_def p)
+{
+    swarm->check_clinging();
+    const monster* const_swarm = swarm;
+
+    return ((monster_habitable_grid(const_swarm, grd(p))
+            || swarm->can_cling_to(p))
+            && swarm->can_pass_through(p)
+            && !is_sanctuary(p));
+}
+
+// Determines whether the monster component of a swarm
+// can exist in the passed coord_def, but uses monster_type,
+// so it can check for a not-yet-spawned swarm.
+
+bool swarm_mons_valid_move(monster_type type, const coord_def p)
+{
+    return (monster_habitable_grid(type, grd(p))
+            && mons_class_can_pass(type, grd(p))
+            && !is_sanctuary(p));
+}
+
+// Creates a new swarm monster of the passed type at the
+// passed location and returns its mid. This does *not* add it
+// to mgrd - instead, it goes in the mons_nowhere grid.
+int swarm_generate_monster(monster_type mtype, coord_def p) {
+
+    // Fail if we don't have a valid monster.
+    if (mtype == MONS_NO_MONSTER)
+        return (false);
+
+    // "get_free_nowhere" places the monster in limbo.
+    // This can fail if limbo is too full (?!).
+    monster* swarm = get_free_nowhere();
+    if (!swarm)
+        return (false);
+
+    mgen_data mg = mgen_data(mtype);
+
+    swarm->set_new_monster_id();
+    swarm->type         = mg.cls;
+    swarm->base_monster = mg.base_type;
+    swarm->number       = mg.number;
+
+    // Always use moveto when working with swarms.
+    // Using move_to_pos will put them into mgrd!
+    swarm->moveto(p);
+
+    define_monster(swarm);
+
+    return swarm->mid;
 }
 
 //////////////////////////////////////////////////////////////////////////
