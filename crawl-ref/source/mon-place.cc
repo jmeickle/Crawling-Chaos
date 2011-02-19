@@ -1360,6 +1360,17 @@ monster* get_free_monster()
     return (NULL);
 }
 
+monster* get_free_nowhere() {
+    for (int i = 0; i < MAX_CLOUDS; ++i)
+        if (env.mons_nowhere[i].type == MONS_NO_MONSTER)
+        {
+            env.mons_nowhere[i].reset();
+            return (&env.mons_nowhere[i]);
+        }
+
+    return (NULL);
+}
+
 void mons_add_blame(monster* mon, const std::string &blame_string)
 {
     const bool exists = mon->props.exists("blame");

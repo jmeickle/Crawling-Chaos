@@ -4405,9 +4405,15 @@ monster *monster_by_mid(mid_t m)
 {
     if (m == MID_ANON_FRIEND)
         return &menv[ANON_FRIENDLY_MONSTER];
+
     for (int i = 0; i < MAX_MONSTERS; i++)
         if (menv[i].mid == m && menv[i].alive())
             return &menv[i];
+
+    for (int i = 0; i < MAX_CLOUDS; i++)
+        if (env.mons_nowhere[i].mid == m && env.mons_nowhere[i].alive())
+            return &env.mons_nowhere[i];
+
     return 0;
 }
 

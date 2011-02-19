@@ -2078,6 +2078,7 @@ static void tag_construct_level(writer &th)
         marshallShort(th, env.cloud[i].colour);
         marshallString(th, env.cloud[i].name);
         marshallString(th, env.cloud[i].tile);
+        marshallInt(th, env.cloud[i].swarm);
     }
 
     // how many shops?
@@ -2515,6 +2516,34 @@ static void tag_construct_level_monsters(writer &th)
 #endif
         marshallMonster(th, m);
     }
+
+    // and what about nowhere monsters?
+    nm = _last_used_index(env.mons_nowhere, MAX_CLOUDS);
+    marshallShort(th, nm);
+
+    for (int i = 0; i < nm; i++)
+    {
+        monster& m(env.mons_nowhere[i]);
+
+#if defined(DEBUG) || defined(DEBUG_MONS_SCAN)
+        if (m.type != MONS_NO_MONSTER)
+        {
+            if (invalid_monster_type(m.type))
+            {
+                mprf(MSGCH_ERROR, "Marshalled monster #%d %s",
+                     i, m.name(DESC_PLAIN, true).c_str());
+            }
+            if (!in_bounds(m.pos()))
+            {
+                mprf(MSGCH_ERROR,
+                     "Marshalled monster #%d %s out of bounds at (%d, %d)",
+                     i, m.name(DESC_PLAIN, true).c_str(),
+                     m.pos().x, m.pos().y);
+            }
+        }
+#endif
+        marshallMonster(th, m);
+    }
 }
 
 void tag_construct_level_tiles(writer &th)
@@ -2688,6 +2717,7 @@ static void tag_read_level(reader &th)
         env.cloud[i].colour = unmarshallShort(th);
         env.cloud[i].name   = unmarshallString(th);
         env.cloud[i].tile   = unmarshallString(th);
+        env.cloud[i].swarm  = unmarshallInt(th);
         ASSERT(in_bounds(env.cloud[i].pos));
         env.cgrid(env.cloud[i].pos) = i;
         env.cloud_no++;
@@ -2908,6 +2938,9 @@ static void tag_read_level_monsters(reader &th)
     for (i = 0; i < MAX_MONSTERS; i++)
         menv[i].reset();
 
+    for (i = 0; i < MAX_CLOUDS; i++)
+        env.mons_nowhere[i].reset();
+
     // how many mons_alloc?
     count = unmarshallByte(th);
     ASSERT(count >= 0);
@@ -2951,6 +2984,35 @@ static void tag_read_level_monsters(reader &th)
                      menv[midx].name(DESC_PLAIN, true).c_str());
 #endif
             mgrd(m.pos()) = i;
+        }
+    }
+
+    // what about nowhere monsters?
+    count = unmarshallShort(th);
+    ASSERT(count >= 0 && count <= MAX_CLOUDS);
+
+    for (i = 0; i < count; i++)
+    {
+        monster& m = env.mons_nowhere[i];
+        unmarshallMonster(th, m);
+
+        // place monster
+        if (m.alive())
+        {
+#if defined(DEBUG) || defined(DEBUG_MONS_SCAN)
+            if (invalid_monster_type(m.type))
+            {
+                mprf(MSGCH_ERROR, "Unmarshalled monster #%d %s",
+                     i, m.name(DESC_PLAIN, true).c_str());
+            }
+            if (!in_bounds(m.pos()))
+            {
+                mprf(MSGCH_ERROR,
+                     "Unmarshalled monster #%d %s out of bounds at (%d, %d)",
+                     i, m.name(DESC_PLAIN, true).c_str(),
+                     m.pos().x, m.pos().y);
+            }
+#endif
         }
     }
 }

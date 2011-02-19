@@ -139,6 +139,7 @@ void get_vault_mon_list(std::vector<mons_spec> &list);
 void setup_vault_mon_list();
 
 monster* get_free_monster();
+monster* get_free_nowhere();
 
 bool can_place_on_trap(int mon_type, trap_type trap);
 bool mons_airborne(int mcls, int flies, bool paralysed);

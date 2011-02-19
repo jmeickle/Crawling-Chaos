@@ -22,7 +22,7 @@ struct crawl_environment
 
     FixedVector< item_def, MAX_ITEMS >       item;  // item list
     FixedVector< monster, MAX_MONSTERS+1 >   mons;  // monster list, plus anon
-
+    FixedVector< monster, MAX_CLOUDS+1 >     mons_nowhere; // monsters in limbo
     feature_grid                             grid;  // terrain grid
     FixedArray<terrain_property_t, GXM, GYM> pgrid; // terrain properties
     FixedArray< unsigned short, GXM, GYM >   mgrid; // monster grid
