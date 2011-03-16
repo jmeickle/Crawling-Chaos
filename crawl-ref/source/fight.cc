@@ -5345,9 +5345,7 @@ void melee_attack::mons_do_spines()
     if (body)
         evp = -property(*body, PARM_EVASION);
 
-    if (you.mutation[MUT_SPINY]
-        && attacker->alive()
-        && one_chance_in(evp + 1))
+    if (you.mutation[MUT_SPINY] && attacker->alive() && one_chance_in(evp + 1))
     {
         if (test_melee_hit(2 + 4 * mut, attacker->melee_evasion(defender), r)
             < 0)
@@ -5358,8 +5356,7 @@ void melee_attack::mons_do_spines()
         }
 
         int dmg = roll_dice(mut, 6);
-        int ac = random2(1+attacker->as_monster()->armour_class());
-
+        int ac = random2(1 + attacker->armour_class());
         int hurt = dmg - ac - evp;
 
         dprf("Spiny: dmg = %d ac = %d hurt = %d", dmg, ac, hurt);
@@ -5373,7 +5370,7 @@ void melee_attack::mons_do_spines()
                                    " is struck by your spines.");
         }
 
-        attacker->as_monster()->hurt(&you, hurt);
+        attacker->hurt(&you, hurt);
     }
 }
 
