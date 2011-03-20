@@ -15,6 +15,7 @@
 #include "env.h"
 #include "fight.h"
 #include "ghost.h"
+#include "itemname.h"
 #include "libutil.h"
 #include "message.h"
 #include "misc.h"
@@ -313,6 +314,8 @@ monster_info::monster_info(const monster* m, int milev)
     }
     else if (m->flags & MF_NAME_DEFINITE)
         mb |= ULL1 << MB_NAME_THE;
+    if (m->flags & MF_NAME_ZOMBIE)
+        mb |= ULL1 << MB_NAME_ZOMBIE;
 
     if (m->has_ench(ENCH_HELPLESS))
         mb |= ench_to_mb(*m, ENCH_HELPLESS);
@@ -480,6 +483,11 @@ monster_info::monster_info(const monster* m, int milev)
                 ok = mons_is_mimic(type);
             else if (attitude == ATT_FRIENDLY)
                 ok = true;
+            else if (m->props.exists("ash_id")
+                     && item_type_known(mitm[m->inv[i]]))
+            {
+                ok = true;
+            }
             else if (i == MSLOT_ALT_WEAPON)
                 ok = two_weapons;
             else if (i == MSLOT_MISSILE)
@@ -663,7 +671,7 @@ std::string monster_info::common_name(description_level_type desc) const
     if (is(MB_SUBMERGED))
         ss << "submerged ";
 
-    if (type == MONS_SPECTRAL_THING)
+    if (type == MONS_SPECTRAL_THING && !is(MB_NAME_ZOMBIE))
         ss << "spectral ";
 
     if (type == MONS_BALLISTOMYCETE)
@@ -693,15 +701,18 @@ std::string monster_info::common_name(description_level_type desc) const
     {
     case MONS_ZOMBIE_SMALL:
     case MONS_ZOMBIE_LARGE:
-        ss << " zombie";
+        if (!is(MB_NAME_ZOMBIE))
+            ss << " zombie";
         break;
     case MONS_SKELETON_SMALL:
     case MONS_SKELETON_LARGE:
-        ss << " skeleton";
+        if (!is(MB_NAME_ZOMBIE))
+            ss << " skeleton";
         break;
     case MONS_SIMULACRUM_SMALL:
     case MONS_SIMULACRUM_LARGE:
-        ss << " simulacrum";
+        if (!is(MB_NAME_ZOMBIE))
+            ss << " simulacrum";
         break;
     case MONS_SALT_PILLAR:
         ss << " shaped pillar of salt";
@@ -948,7 +959,7 @@ void monster_info::to_string(int count, std::string& desc,
         }
         else if (type == MONS_UGLY_THING || type == MONS_VERY_UGLY_THING
                 || type == MONS_DANCING_WEAPON || type == MONS_LABORATORY_RAT
-                || !mname.empty() || !fullname)
+                || !fullname)
         {
             out << pluralise(mons_type_name(type, DESC_PLAIN));
         }

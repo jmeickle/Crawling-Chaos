@@ -263,6 +263,11 @@ int get_spell_slot(spell_type spell)
     return -1;
 }
 
+int get_spell_letter(spell_type spell)
+{
+    return index_to_letter(get_spell_slot(spell));
+}
+
 spell_type get_spell_by_letter(char letter)
 {
     ASSERT(isaalpha(letter));
@@ -830,7 +835,8 @@ bool spell_direction(dist &spelld, bolt &pbolt,
                       int range,
                       bool needs_path, bool may_target_monster,
                       bool may_target_self, const char *target_prefix,
-                      const char* top_prompt, bool cancel_at_self)
+                      const char* top_prompt, bool cancel_at_self,
+                      targetter *hitfunc)
 {
     if (range < 1)
         range = (pbolt.range < 1) ? LOS_RADIUS : pbolt.range;
@@ -848,6 +854,7 @@ bool spell_direction(dist &spelld, bolt &pbolt,
         args.top_prompt = top_prompt;
     args.behaviour = NULL;
     args.cancel_at_self = cancel_at_self;
+    args.hitfunc = hitfunc;
 
     direction(spelld, args);
 
@@ -1285,6 +1292,13 @@ bool spell_is_useless(spell_type spell, bool transient)
     case SPELL_TUKIMAS_DANCE:
         if (you.species == SP_CAT)
             return (true);
+        break;
+    case SPELL_DARKNESS:
+        // mere corona is not enough, but divine light blocks it completely
+        if (transient && you.haloed())
+            return true;
+        if (you.religion == GOD_SHINING_ONE && player_under_penance())
+            return true;
         break;
     default:
         break; // quash unhandled constants warnings

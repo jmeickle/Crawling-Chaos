@@ -321,7 +321,7 @@ static bool _jewel_auto_id(const item_def& item)
 
     // Yay, such lists tend to get out of sync very fast...
     // Fortunately, this one doesn't have to be too accurate.
-    switch(item.sub_type)
+    switch (item.sub_type)
     {
     case RING_REGENERATION:
         return (player_mutation_level(MUT_SLOW_HEALING) < 3);
@@ -335,6 +335,9 @@ static bool _jewel_auto_id(const item_def& item)
         return (you.religion != GOD_NO_GOD);
     case RING_WIZARDRY:
         return !!player_spell_skills();
+    case AMU_THE_GOURMAND:
+        return (you.species != SP_MUMMY
+                && player_mutation_level(MUT_HERBIVOROUS) < 3);
     case RING_INVISIBILITY:
     case RING_TELEPORTATION:
     case RING_MAGICAL_POWER:
@@ -427,9 +430,36 @@ void ash_id_inventory()
     }
 }
 
+void ash_id_monster_equipment(monster* mon)
+{
+    if (you.religion != GOD_ASHENZARI)
+        return;
+
+    bool id = false;
+
+    for (unsigned int i = 0; i < MSLOT_LAST_VISIBLE_SLOT; ++i)
+    {
+        if (mon->inv[i] == NON_ITEM)
+            continue;
+
+        item_def &item = mitm[mon->inv[i]];
+        if (!item_is_branded(item))
+            continue;
+
+        else if (x_chance_in_y(you.bondage_level, 3))
+        {
+            set_ident_flags(item, ISFLAG_KNOW_TYPE);
+            id = true;
+        }
+    }
+
+    if (id)
+        mon->props["ash_id"] = true;
+}
+
 static bool is_ash_portal(dungeon_feature_type feat)
 {
-    switch(feat)
+    switch (feat)
     {
     case DNGN_ENTER_HELL:
     case DNGN_ENTER_LABYRINTH:
@@ -495,7 +525,7 @@ int ash_detect_portals(bool all)
 
 monster_type ash_monster_tier(const monster *mon)
 {
-    double factor = sqrt(exp_needed(you.experience_level + 1) / 30.0);
+    double factor = sqrt(exp_needed(you.experience_level) / 30.0);
     int tension = exper_value(mon) / (1 + factor);
 
     if (tension <= 0)

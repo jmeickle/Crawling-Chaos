@@ -38,6 +38,7 @@
 
 #include "abyss.h"
 #include "act-iter.h"
+#include "areas.h"
 #include "artefact.h"
 #include "chardump.h"
 #include "cloud.h"
@@ -92,6 +93,7 @@
 #include "terrain.h"
 #include "travel.h"
 #include "hints.h"
+#include "view.h"
 #include "viewgeom.h"
 
 #include <dirent.h>
@@ -1158,9 +1160,12 @@ static bool _grab_follower_at(const coord_def &pos)
          fmenv->name(DESC_CAP_THE, true).c_str(),
          dest.describe().c_str());
 #endif
+    bool could_see = you.can_see(fmenv);
     fmenv->set_transit(dest);
     fmenv->destroy_inventory();
     monster_cleanup(fmenv);
+    if (could_see)
+        view_update_at(pos);
     return (true);
 }
 
@@ -1640,6 +1645,8 @@ bool load(dungeon_feature_type stair_taken, load_mode_type load_mode,
 
         ash_detect_portals(player_in_mappable_area());
     }
+    // Initialize halos, etc.
+    invalidate_agrid(true);
 
     return just_created_level;
 }

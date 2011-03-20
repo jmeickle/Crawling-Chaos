@@ -17,7 +17,6 @@
 #include "delay.h"
 #include "env.h"
 #include "invent.h"
-#include "it_use2.h"
 #include "item_use.h"
 #include "itemprop.h"
 #include "items.h"
@@ -26,6 +25,7 @@
 #include "player-equip.h"
 #include "player-stats.h"
 #include "random.h"
+#include "religion.h"
 #include "skills2.h"
 #include "state.h"
 #include "stuff.h"
@@ -213,6 +213,7 @@ static bool _mutations_prevent_wearing(const item_def& item)
 
     if (is_hard_helmet(item)
         && (player_mutation_level(MUT_HORNS)
+            || player_mutation_level(MUT_ANTENNAE)
             || player_mutation_level(MUT_BEAK)))
     {
         return (true);
@@ -227,6 +228,10 @@ static bool _mutations_prevent_wearing(const item_def& item)
     }
 
     if (eqslot == EQ_GLOVES && player_mutation_level(MUT_CLAWS) >= 3)
+        return (true);
+
+    if (eqslot == EQ_HELMET && (player_mutation_level(MUT_HORNS) == 3
+        || player_mutation_level(MUT_ANTENNAE) == 3))
         return (true);
 
     return (false);
@@ -379,7 +384,7 @@ monster_type transform_mons()
     case TRAN_LICH:
         return MONS_LICH;
     case TRAN_BAT:
-        return you.species == SP_VAMPIRE ? MONS_VAMPIRE_BAT : MONS_MEGABAT;
+        return you.species == SP_VAMPIRE ? MONS_VAMPIRE_BAT : MONS_BAT;
     case TRAN_PIG:
         return MONS_HOG;
     case TRAN_BLADE_HANDS:
@@ -434,6 +439,13 @@ bool transform(int pow, transformation_type which_trans, bool force,
     bool was_in_water = you.in_water();
     const flight_type was_flying = you.flight_mode();
 
+    // Zin's protection.
+    if (!just_check && you.religion == GOD_ZIN
+        && x_chance_in_y(you.piety, MAX_PIETY) && which_trans != TRAN_NONE)
+    {
+        simple_god_message(" protects your body from unnatural transformation!");
+        return (false);
+    }
 
     if (!force && crawl_state.is_god_acting())
         force = true;
@@ -474,7 +486,7 @@ bool transform(int pow, transformation_type which_trans, bool force,
             if (just_check)
                 return (true);
 
-            if (which_trans==TRAN_PIG)
+            if (which_trans == TRAN_PIG)
                 mpr("You feel you'll be a pig longer.");
             else
                 mpr("You extend your transformation's duration.");
@@ -484,7 +496,7 @@ bool transform(int pow, transformation_type which_trans, bool force,
         }
         else
         {
-            if (!force && which_trans!=TRAN_PIG)
+            if (!force && which_trans != TRAN_PIG)
                 mpr("You cannot extend your transformation any further!");
             return (false);
         }
@@ -676,11 +688,11 @@ bool transform(int pow, transformation_type which_trans, bool force,
     switch (which_trans)
     {
     case TRAN_SPIDER:
-        you.check_clinging();
+        you.check_clinging(false);
         break;
 
     case TRAN_STATUE:
-        if (you.duration[DUR_STONEMAIL] || you.duration[DUR_STONESKIN])
+        if (you.duration[DUR_STONESKIN])
             mpr("Your new body merges with your stone armour.");
         break;
 
@@ -768,6 +780,7 @@ void untransform(bool skip_wielding, bool skip_move)
         mpr("Your transformation has ended.", MSGCH_DURATION);
         notify_stat_change(STAT_DEX, -5, true,
                      "losing the spider transformation");
+        you.check_clinging(false);
         break;
 
     case TRAN_BAT:
@@ -793,9 +806,6 @@ void untransform(bool skip_wielding, bool skip_move)
 
         // Note: if the core goes down, the combined effect soon disappears,
         // but the reverse isn't true. -- bwr
-        if (you.duration[DUR_STONEMAIL])
-            you.duration[DUR_STONEMAIL] = 1;
-
         if (you.duration[DUR_STONESKIN])
             you.duration[DUR_STONESKIN] = 1;
 
@@ -884,13 +894,6 @@ void untransform(bool skip_wielding, bool skip_move)
             you.hp = you.hp_max;
     }
     calc_hp();
-
-    if (you.is_wall_clinging())
-    {
-        mpr("You fall off the wall.");
-        you.clear_clinging();
-        move_player_to_grid(you.pos(), false, true);
-    }
 
     if (!skip_wielding)
         handle_interrupted_swap(true, false, true);
