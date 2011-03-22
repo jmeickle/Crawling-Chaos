@@ -171,6 +171,16 @@ void fixup_mutations()
         ASSERT(is_valid_mutation(MUT_TENTACLE_SPIKE));
         _seek_mutation(MUT_TENTACLE_SPIKE)->rarity = 10;
     }
+
+    // Lava orcs can't have icy scales; if they'd
+    // mutate them they instead mutate molten ones.
+    if (you.species == SP_LAVA_ORC)
+    {
+        ASSERT(is_valid_mutation(MUT_ICY_BLUE_SCALES));
+        _seek_mutation(MUT_ICY_BLUE_SCALES)->rarity = 0;
+        ASSERT(is_valid_mutation(MUT_MOLTEN_SCALES));
+        _seek_mutation(MUT_MOLTEN_SCALES)->rarity = 4;
+    }
 }
 
 mutation_activity_type mutation_activity_level(mutation_type mut)
