@@ -1,8 +1,7 @@
-/*
- *  File:       abyss.cc
- *  Summary:    Misc abyss specific functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc abyss specific functions.
+**/
 
 #include "AppHdr.h"
 
@@ -654,7 +653,7 @@ public:
 
 static void _abyss_lose_monster(monster& mons)
 {
-    if (mons.needs_transit())
+    if (mons.needs_abyss_transit())
         mons.set_transit(level_id(LEVEL_ABYSS));
 
     mons.destroy_inventory();
@@ -974,7 +973,7 @@ void abyss_area_shift(void)
 void save_abyss_uniques()
 {
     for (monster_iterator mi; mi; ++mi)
-        if (mi->needs_transit())
+        if (mi->needs_abyss_transit())
             mi->set_transit(level_id(LEVEL_ABYSS));
 }
 
@@ -1105,7 +1104,7 @@ static void _initialise_level_corrupt_seeds(int power)
 static bool _spawn_corrupted_servant_near(const coord_def &pos)
 {
     const beh_type beh =
-        one_chance_in(2 + you.skills[SK_INVOCATIONS] / 4) ? BEH_HOSTILE
+        one_chance_in(2 + you.skill(SK_INVOCATIONS) / 4) ? BEH_HOSTILE
         : BEH_NEUTRAL;
 
     // [ds] No longer summon hostiles -- don't create the monster if

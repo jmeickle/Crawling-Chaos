@@ -1,8 +1,7 @@
-/*
- *  File:       mon-stuff.cc
- *  Summary:    Misc monster related functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc monster related functions.
+**/
 
 #include "AppHdr.h"
 #include "mon-stuff.h"
@@ -174,7 +173,7 @@ const item_def *give_mimic_item(monster* mimic)
     return (&mitm[mimic->inv[MSLOT_MISCELLANY]]);
 }
 
-const item_def &get_mimic_item(const monster* mimic)
+item_def &get_mimic_item(const monster* mimic)
 {
     ASSERT(mimic != NULL && mons_is_item_mimic(mimic->type));
 
@@ -1788,7 +1787,7 @@ int monster_die(monster* mons, killer_type killer,
                 killer = KILL_RESET;
         }
 
-        if (was_banished && !summoned_it && !hard_reset)
+        if (was_banished && !summoned_it && !hard_reset && mons->has_ench(ENCH_ABJ))
         {
             if (is_unrandom_artefact(mitm[w_idx]))
                 set_unique_item_status(mitm[w_idx], UNIQ_LOST_IN_ABYSS);
@@ -2307,7 +2306,7 @@ int monster_die(monster* mons, killer_type killer,
 
             // KILL_RESET monsters no longer lose their whole inventory, only
             // items they were generated with.
-            if (mons->pacified() || !mons->needs_transit())
+            if (mons->pacified() || !mons->needs_abyss_transit())
             {
                 // A banished monster that doesn't go on the transit list
                 // loses all items.

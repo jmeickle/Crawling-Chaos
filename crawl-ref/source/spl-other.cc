@@ -1,8 +1,8 @@
-/*
- *  File:     spl-other.cc
- *  Summary:  Non-enchantment spells that didn't fit anywhere else.
- *            Mostly Transmutations.
- */
+/**
+ * @file
+ * @brief Non-enchantment spells that didn't fit anywhere else.
+ *           Mostly Transmutations.
+**/
 
 #include "AppHdr.h"
 
@@ -257,7 +257,7 @@ static bool _feat_is_passwallable(dungeon_feature_type feat)
 
 bool cast_passwall(const coord_def& delta, int pow)
 {
-    int shallow = 1 + (you.skills[SK_EARTH_MAGIC] / 8);
+    int shallow = 1 + (you.skill(SK_EARTH_MAGIC) / 8);
     int range = shallow + random2(pow) / 25;
     int maxrange = shallow + pow / 25;
 

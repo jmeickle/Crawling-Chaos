@@ -1,8 +1,7 @@
-/*
- *  File:       religion.cc
- *  Summary:    Misc religion related functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc religion related functions.
+**/
 
 #include "AppHdr.h"
 
@@ -325,7 +324,7 @@ const char* god_gain_power_messages[NUM_GODS][MAX_GOD_ABILITIES] =
       "step out of the time flow"
     },
     // Ashenzari
-    { "",
+    { "Ashenzari supports your low skills.",
       "The more cursed you are, the more Ashenzari helps you learn.",
       "Ashenzari keeps your vision and mind clear.",
       "scry through walls",
@@ -1073,7 +1072,7 @@ static monster_type _yred_servants[] =
     MONS_MUMMY, MONS_WIGHT, MONS_FLYING_SKULL, MONS_WRAITH,
     MONS_ROTTING_HULK, MONS_FREEZING_WRAITH, MONS_PHANTASMAL_WARRIOR,
     MONS_FLAMING_CORPSE, MONS_FLAYED_GHOST, MONS_SKELETAL_WARRIOR,
-    MONS_EIDOLON, MONS_GHOUL, MONS_DEATH_COB, MONS_BONE_DRAGON
+    MONS_GHOUL, MONS_DEATH_COB, MONS_BONE_DRAGON
 };
 
 #define MIN_YRED_SERVANT_THRESHOLD 3
@@ -1104,6 +1103,8 @@ int yred_random_servants(unsigned int threshold, bool force_hostile)
     int created = 0;
     if (force_hostile)
     {
+        mg.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
+
         for (; how_many > 0; --how_many)
         {
             if (create_monster(mg) != -1)
@@ -2179,8 +2180,8 @@ bool do_god_gift(bool forced)
                             gift = BOOK_CALLINGS;
                         else if (!you.had_book[BOOK_SUMMONINGS])
                             gift = BOOK_SUMMONINGS;
-                        else if (!you.had_book[BOOK_DEMONOLOGY])
-                            gift = BOOK_DEMONOLOGY; // Summoning books.
+                        else if (!you.had_book[BOOK_GRAND_GRIMOIRE])
+                            gift = BOOK_GRAND_GRIMOIRE; // Summoning books.
                     }
                 }
             }
@@ -2423,6 +2424,9 @@ static void _erase_between(std::string& s,
 
 std::string adjust_abil_message(const char *pmsg, bool allow_upgrades)
 {
+    if (crawl_state.game_is_zotdef() && strstr(pmsg, "Abyss"))
+        return "";
+
     std::string pm = pmsg;
 
     // Message portions in [] sections are ability upgrades.
@@ -2462,6 +2466,8 @@ static bool _abil_chg_message(const char *pmsg, const char *youcanmsg,
     you.piety = piety_breakpoint(breakpoint);
 
     std::string pm = adjust_abil_message(pmsg);
+    if (pm.empty())
+        return false;
 
     you.piety = old_piety;
 

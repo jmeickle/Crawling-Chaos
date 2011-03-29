@@ -1,8 +1,7 @@
-/*
- *  File:       newgame.cc
- *  Summary:    Functions used when starting a new game.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Functions used when starting a new game.
+**/
 
 #include "AppHdr.h"
 
@@ -1349,6 +1348,7 @@ static void _prompt_job(newgame_def* ng, newgame_def* ng_choice,
                 }
                 else
                 {
+                    selection.at(0)->select(false);
                     continue;
                 }
             }

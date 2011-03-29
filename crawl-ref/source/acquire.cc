@@ -1,7 +1,7 @@
-/*
- *  File:       acquire.cc
- *  Summary:    Acquirement and Trog/Oka/Sif gifts.
- */
+/**
+ * @file
+ * @brief Acquirement and Trog/Oka/Sif gifts.
+**/
 
 #include "AppHdr.h"
 
@@ -894,6 +894,10 @@ static bool _skill_useless_with_god(int skill)
         return (skill == SK_NECROMANCY);
     case GOD_XOM:
     case GOD_NEMELEX_XOBEH:
+    case GOD_KIKUBAAQUDGHA:
+    case GOD_VEHUMET:
+    case GOD_ASHENZARI:
+    case GOD_NO_GOD:
         return (skill == SK_INVOCATIONS);
     default:
         return (false);
@@ -1052,7 +1056,7 @@ static bool _do_book_acquirement(item_def &book, int agent)
 
             int skl = you.skills[sk];
 
-            if (skl == 27 || you.species == SP_DEMIGOD && sk == SK_INVOCATIONS)
+            if (skl == 27 || is_useless_skill(sk))
             {
                 weights[sk] = 0;
                 continue;

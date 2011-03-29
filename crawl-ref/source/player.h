@@ -1,8 +1,7 @@
-/*
- *  File:       player.cc
- *  Summary:    Player related functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Player related functions.
+**/
 
 
 #ifndef PLAYER_H
@@ -275,7 +274,6 @@ public:
   bool xray_vision;
   int bondage_level;  // how much an Ash worshipper is into bondage
 
-
   // Volatile (same-turn) state:
   bool turn_is_over; // flag signaling that player has performed a timed action
 
@@ -341,6 +339,10 @@ public:
 
   // The last spell cast by the player.
   spell_type last_cast_spell;
+
+  // Has the player already been warned about an expiring effect?
+  bool lev_expire_warning;
+  bool form_expire_warning;
 
 protected:
     FixedVector<PlaceInfo, NUM_BRANCHES>             branch_info;
@@ -727,6 +729,7 @@ int carrying_capacity(burden_state_type bs = BS_OVERLOADED);
 
 int player_energy(void);
 
+int player_raw_body_armour_evasion_penalty();
 int player_adjusted_shield_evasion_penalty(int scale);
 int player_adjusted_body_armour_evasion_penalty(int scale);
 int player_armour_shield_spell_penalty();
@@ -917,4 +920,5 @@ bool is_feat_dangerous(dungeon_feature_type feat, bool permanently = false);
 void run_macro(const char *macroname = NULL);
 
 int count_worn_ego(int which_ego);
+bool need_expiration_warning(duration_type dur);
 #endif

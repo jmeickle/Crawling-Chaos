@@ -129,7 +129,7 @@
     SPELL_CAUSE_FEAR,
     SPELL_DEFLECT_MISSILES,
     SPELL_HASTE,
-    SPELL_TUKIMAS_BALL,
+    SPELL_NO_SPELL,
     SPELL_NO_SPELL,
 },
 
@@ -361,7 +361,7 @@
     SPELL_LIGHTNING_BOLT,
     SPELL_FIREBALL,
     SPELL_HASTE,
-    SPELL_NO_SPELL,
+    SPELL_INVISIBILITY,
     SPELL_NO_SPELL,
 },
 
@@ -372,8 +372,8 @@
     SPELL_VENOM_BOLT,
     SPELL_POISONOUS_CLOUD,
     SPELL_IRON_SHOT,
-    SPELL_INVISIBILITY,
     SPELL_MASS_CONFUSION,
+    SPELL_IOOD,
 },
 
 {   // Book of Cantrips
@@ -475,7 +475,7 @@
     SPELL_NO_SPELL,
 },
 
-{   // Book of Demonology - Vehumet special
+{   // Grand Grimoire - Vehumet special
     SPELL_DEMONIC_HORDE,
     SPELL_HAUNT,
     SPELL_SUMMON_GREATER_DEMON,

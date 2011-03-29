@@ -641,7 +641,9 @@ static tileidx_t _tileidx_monster_zombified(const monster* mon)
         z_tile = TILEP_MONS_ZOMBIE_NAGA;
         break;
     case MON_SHAPE_QUADRUPED_WINGED:
-        if (mons_genus(subtype) == MONS_DRAGON)
+    case MON_SHAPE_QUADRUPED:
+        if (mons_genus(subtype) == MONS_DRAGON
+            || mons_genus(subtype) == MONS_WYVERN)
         {
             if (_is_skeleton(z_type))
                 return TILEP_MONS_SKELETON_DRAGON;
@@ -649,9 +651,7 @@ static tileidx_t _tileidx_monster_zombified(const monster* mon)
             z_tile = TILEP_MONS_ZOMBIE_DRAGON;
             break;
         }
-        // else fall-through
-    case MON_SHAPE_QUADRUPED:
-        if (mons_genus(subtype) == MONS_HYDRA)
+        else if (mons_genus(subtype) == MONS_HYDRA)
         {
             if (_is_skeleton(z_type))
             {
@@ -1634,6 +1634,8 @@ static tileidx_t _tileidx_monster_base(int type, bool in_water, int colour,
         return TILEP_MONS_BALRUG;
     case MONS_CACODEMON:
         return TILEP_MONS_CACODEMON;
+    case MONS_IGNACIO:
+        return TILEP_MONS_IGNACIO;
 
     // non-living creatures
     // golems ('8')
@@ -2179,6 +2181,7 @@ static tileidx_t _tileidx_tentacle(const monster *mon)
             no_head_connect = (head->type == MONS_KRAKEN
                                || head->type == MONS_ZOMBIE_LARGE
                                || head->type == MONS_SPECTRAL_THING
+                               || head->type == MONS_SIMULACRUM_LARGE
                                || _tentacle_pos_unknown(head, mon->pos()));
         }
 
@@ -3908,7 +3911,7 @@ tileidx_t tileidx_item(const item_def &item)
         if (item_is_rod(item))
         {
             if (id[IDTYPE_STAVES][type] == ID_KNOWN_TYPE
-                ||  (item.flags & ISFLAG_KNOW_TYPE))
+                || (item.flags & ISFLAG_KNOW_TYPE))
             {
                 return TILE_ROD_ID_FIRST + type - STAFF_SMITING;
             }
@@ -3919,13 +3922,12 @@ tileidx_t tileidx_item(const item_def &item)
         else
         {
             if (id[IDTYPE_STAVES][type] == ID_KNOWN_TYPE
-                ||  (item.flags & ISFLAG_KNOW_TYPE))
+                || (item.flags & ISFLAG_KNOW_TYPE))
             {
                 return TILE_STAFF_ID_FIRST + type;
             }
 
-            int orig_spec = you.item_description[IDESC_STAVES][item.sub_type];
-            int desc = (orig_spec/ NDSC_STAVE_PRI) % NDSC_STAVE_SEC;
+            int desc = (special/ NDSC_STAVE_PRI) % NDSC_STAVE_SEC;
             return TILE_STAFF_OFFSET + desc;
         }
 

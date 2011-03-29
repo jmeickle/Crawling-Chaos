@@ -1,8 +1,7 @@
-/*
- *  File:       direct.cc
- *  Summary:    Functions used when picking squares.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Functions used when picking squares.
+**/
 
 #include "AppHdr.h"
 
@@ -1930,10 +1929,21 @@ bool direction_chooser::do_main_loop()
     case CMD_TARGET_MOUSE_MOVE: tiles_update_target(); break;
 #endif
 
+    case CMD_TARGET_CYCLE_BACK:
+        if (restricts != DIR_TARGET_OBJECT)
+        {
+            monster_cycle(-1);
+            break;
+        } // else fall-through
     case CMD_TARGET_OBJ_CYCLE_BACK:    object_cycle(-1);  break;
+
+    case CMD_TARGET_CYCLE_FORWARD:
+        if (restricts != DIR_TARGET_OBJECT)
+        {
+            monster_cycle(1);
+            break;
+        } // else fall-through
     case CMD_TARGET_OBJ_CYCLE_FORWARD: object_cycle(1);  break;
-    case CMD_TARGET_CYCLE_BACK:        monster_cycle(-1); break;
-    case CMD_TARGET_CYCLE_FORWARD:     monster_cycle(1); break;
 
     case CMD_TARGET_CANCEL:
         loop_done = true;
@@ -2395,6 +2405,9 @@ static bool _find_monster(const coord_def& where, int mode, bool need_path,
 
     // No monster or outside LOS.
     if (mon == NULL || !cell_see_cell(you.pos(), where, LOS_DEFAULT))
+        return (false);
+
+    if (mons_is_unknown_mimic(mon))
         return (false);
 
     // Monster in LOS but only via glass walls, so no direct path.
@@ -3464,6 +3477,9 @@ static std::vector<std::string> _get_monster_desc_vector(const monster_info& mi)
     if (mi.is(MB_SUMMONED))
         descs.push_back("summoned");
 
+    if (mi.is(MB_PERM_SUMMON))
+        descs.push_back("durably summoned");
+
     if (mi.is(MB_HALOED))
         descs.push_back("haloed");
 
@@ -3528,6 +3544,9 @@ static std::string _get_monster_desc(const monster_info& mi)
 
     if (mi.is(MB_SUMMONED))
         text += pronoun + " has been summoned.\n";
+
+    if (mi.is(MB_PERM_SUMMON))
+        text += pronoun + " has been summoned but will not time out.\n";
 
     if (mi.is(MB_HALOED))
         text += pronoun + " is illuminated by a divine halo.\n";
@@ -3615,6 +3634,13 @@ std::string get_monster_equipment_desc(const monster_info& mi,
                 str += "summoned";
             }
 
+            if (mi.is(MB_PERM_SUMMON))
+            {
+                if (!str.empty())
+                    str += ", ";
+                str += "durably summoned";
+            }
+
             if (mi.type == MONS_DANCING_WEAPON
                 || mi.type == MONS_PANDEMONIUM_DEMON
                 || mi.type == MONS_PLAYER_GHOST
@@ -3666,6 +3692,7 @@ std::string get_monster_equipment_desc(const monster_info& mi,
         item_def* mon_shd = mi.inv[MSLOT_SHIELD].get();
         item_def* mon_qvr = mi.inv[MSLOT_MISSILE].get();
         item_def* mon_alt = mi.inv[MSLOT_ALT_WEAPON].get();
+        item_def* mon_wnd = mi.inv[MSLOT_WAND].get();
 
         if (level == DESC_IDENTIFIED)
         {
@@ -3679,6 +3706,9 @@ std::string get_monster_equipment_desc(const monster_info& mi,
                 mon_alt = 0;
         }
 
+        const bool mon_has_wand = mi.props.exists("wand_known");
+        const bool mon_carry = mon_alt || mon_has_wand;
+
         // _describe_monster_weapon already took care of this
         if (mi.two_weapons)
             mon_alt = 0;
@@ -3688,7 +3718,7 @@ std::string get_monster_equipment_desc(const monster_info& mi,
         if (mon_arm)
         {
             if (found_sth)
-                desc += (!mon_shd && !mon_qvr && !mon_alt) ? " and" : ",";
+                desc += (!mon_shd && !mon_qvr && !mon_carry) ? " and" : ",";
             else
                 found_sth = true;
 
@@ -3699,7 +3729,7 @@ std::string get_monster_equipment_desc(const monster_info& mi,
         if (mon_shd)
         {
             if (found_sth)
-                desc += (!mon_qvr && !mon_alt) ? " and" : ",";
+                desc += (!mon_qvr && !mon_carry) ? " and" : ",";
             else
                 found_sth = true;
 
@@ -3710,7 +3740,7 @@ std::string get_monster_equipment_desc(const monster_info& mi,
         if (mon_qvr)
         {
             if (found_sth)
-                desc += !mon_alt ? " and" : ",";
+                desc += !mon_carry ? " and" : ",";
             else
                 found_sth = true;
 
@@ -3718,13 +3748,27 @@ std::string get_monster_equipment_desc(const monster_info& mi,
             desc += mon_qvr->name(DESC_NOCAP_A);
         }
 
-        if (mon_alt)
+        if (mon_carry)
         {
             if (found_sth)
                 desc += " and";
 
             desc += " carrying ";
-            desc += mon_alt->name(DESC_NOCAP_A);
+
+            if (mon_alt)
+            {
+                desc += mon_alt->name(DESC_NOCAP_A);
+                if (mon_has_wand)
+                    desc += " and ";
+            }
+
+            if (mon_has_wand)
+            {
+                if (mi.props["wand_known"])
+                    desc += mon_wnd->name(DESC_NOCAP_A);
+                else
+                    desc += "a wand";
+            }
         }
     }
 

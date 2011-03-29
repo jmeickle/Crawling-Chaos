@@ -1,8 +1,7 @@
-/*
- *  File:       player.cc
- *  Summary:    Player related functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Player related functions.
+**/
 
 #include "AppHdr.h"
 
@@ -301,6 +300,14 @@ void moveto_location_effects(dungeon_feature_type old_feat,
         // If true, we were shifted and so we're done.
         if (fall_into_a_pool(entry, allow_shift, new_grid))
             return;
+    }
+
+    if (is_feat_dangerous(new_grid, true))
+    {
+        if (need_expiration_warning(DUR_LEVITATION))
+            mpr("Careful! You are losing your buoyancy.", MSGCH_DANGER);
+        if (need_expiration_warning(DUR_TRANSFORMATION))
+            mpr("Careful! Your transformation is almost over.", MSGCH_DANGER);
     }
 
     if (you.ground_level())
@@ -686,9 +693,7 @@ bool you_can_wear(int eq, bool special_armour)
 bool player_has_feet()
 {
     if (you.species == SP_NAGA || you.species == SP_CAT || you.fishtail)
-    {
         return (false);
-    }
 
     if (player_mutation_level(MUT_HOOVES) >= 3
         || player_mutation_level(MUT_TALONS) >= 3)
@@ -816,6 +821,9 @@ bool you_tran_can_wear(int eq, bool check_mutation)
 
 bool player_weapon_wielded()
 {
+    if (you.melded[EQ_WEAPON])
+        return (false);
+
     const int wpn = you.equip[EQ_WEAPON];
 
     if (wpn == -1)
@@ -2648,7 +2656,7 @@ void forget_map(int chance_forgotten, bool force)
 }
 
 void gain_exp(unsigned int exp_gained, unsigned int* actual_gain,
-               unsigned int* actual_avail_gain)
+              unsigned int* actual_avail_gain)
 {
     if (crawl_state.game_is_arena())
         return;
@@ -3054,7 +3062,7 @@ void level_change(bool skip_attribute_increase)
                 break;
 
             case SP_OGRE:
-                hp_adjust++;
+                hp_adjust += 2;
 
                 if (!(you.experience_level % 3))
                     modify_stat(STAT_STR, 1, false, "level gain");
@@ -4032,10 +4040,10 @@ static int _species_exp_mod(species_type species)
         case SP_HIGH_ELF:
         case SP_VAMPIRE:
         case SP_TROLL:
-        case SP_CAT:
         case SP_DEMONSPAWN:
             return 15;
         case SP_DEMIGOD:
+        case SP_CAT:
             return 16;
         default:
             return 0;
@@ -4536,7 +4544,7 @@ int get_real_hp(bool trans, bool rotted)
     hitp  = (you.base_hp - 5000) + (you.base_hp2 - 5000);
     // Important: we shouldn't add Heroism boosts here.
     hitp += (you.experience_level * you.skills[SK_FIGHTING]) /
-            (you.species == SP_CAT ? 7 : 5);
+            (you.species == SP_CAT ? 8 : 5);
 
     // Being berserk makes you resistant to damage. I don't know why.
     if (trans && you.berserk())
@@ -5183,6 +5191,7 @@ void levitate_player(int pow)
          "You feel %s buoyant.", standing ? "very" : "more");
 
     you.increase_duration(DUR_LEVITATION, 25 + random2(pow), 100);
+    you.lev_expire_warning = false;
 
     if (standing)
         float_player(false);
@@ -5334,10 +5343,11 @@ void player::init()
     duration.init(0);
     rotting         = 0;
     berserk_penalty = 0;
-
     attribute.init(0);
     quiver.init(ENDOFPACK);
     sacrifice_value.init(0);
+    lev_expire_warning = false;
+    form_expire_warning = false;
 
     is_undead       = US_ALIVE;
 
@@ -5756,6 +5766,8 @@ int player::skill(skill_type sk) const
 {
     if (you.duration[DUR_HEROISM] && sk <= SK_LAST_MUNDANE)
         return std::min(skills[sk] + 5, 27);
+//    else if (you.religion == GOD_ASHENZARI)
+//        return ash_skill_boost(sk);
 
     return skills[sk];
 }
@@ -5820,10 +5832,10 @@ int player::armour_class() const
     AC += scan_artefacts(ARTP_AC) * 100;
 
     if (duration[DUR_ICY_ARMOUR])
-        AC += 400 + 100 * skills[SK_ICE_MAGIC] / 3;         // max 13
+        AC += 400 + 100 * skill(SK_ICE_MAGIC) / 3;         // max 13
 
     if (duration[DUR_STONESKIN])
-        AC += 200 + 100 * skills[SK_EARTH_MAGIC] / 5;       // max 7
+        AC += 200 + 100 * skill(SK_EARTH_MAGIC) / 5;       // max 7
 
     if (mutation[MUT_ICEMAIL])
         AC += 100 * player_icemail_armour_class();
@@ -5839,7 +5851,7 @@ int player::armour_class() const
         // Note: Even though necromutation is a high level spell, it does
         // allow the character full armour (so the bonus is low). -- bwr
         if (form == TRAN_LICH)
-            AC += (300 + 100 * skills[SK_NECROMANCY] / 6);   // max 7
+            AC += (300 + 100 * skill(SK_NECROMANCY) / 6);   // max 7
 
         //jmf: only give:
         if (player_genus(GENPC_DRACONIAN))
@@ -5873,25 +5885,25 @@ int player::armour_class() const
             break;
 
         case TRAN_SPIDER: // low level (small bonus), also gets EV
-            AC += (200 + 100 * skills[SK_POISON_MAGIC] / 6); // max 6
+            AC += (200 + 100 * skill(SK_POISON_MAGIC) / 6); // max 6
             break;
 
         case TRAN_ICE_BEAST:
-            AC += (500 + 100 * (skills[SK_ICE_MAGIC] + 1) / 4); // max 12
+            AC += (500 + 100 * (skill(SK_ICE_MAGIC) + 1) / 4); // max 12
 
             if (duration[DUR_ICY_ARMOUR])
-                AC += (100 + 100 * skills[SK_ICE_MAGIC] / 4);   // max +7
+                AC += (100 + 100 * skill(SK_ICE_MAGIC) / 4);   // max +7
             break;
 
         case TRAN_DRAGON: // Draconians handled above
-            AC += (700 + 100 * skills[SK_FIRE_MAGIC] / 3); // max 16
+            AC += (700 + 100 * skill(SK_FIRE_MAGIC) / 3); // max 16
             break;
 
         case TRAN_STATUE: // main ability is armour (high bonus)
-            AC += (1700 + 100 * skills[SK_EARTH_MAGIC] / 2);    // max 30
+            AC += (1700 + 100 * skill(SK_EARTH_MAGIC) / 2);    // max 30
 
             if (duration[DUR_STONESKIN])
-                AC += (100 + 100 * skills[SK_EARTH_MAGIC] / 4); // max +7
+                AC += (100 + 100 * skill(SK_EARTH_MAGIC) / 4); // max +7
             break;
 
         default:
@@ -7074,4 +7086,34 @@ void player::goto_place(const level_id &lid)
         where_are_you = static_cast<branch_type>(lid.branch);
         absdepth0 = absdungeon_depth(lid.branch, lid.depth);
     }
+}
+
+/*
+ * Check if the player is about to die from levitation/form expiration.
+ *
+ * Check whether the player is on a cell which would be deadly if not for some
+ * temporary condition, and if such condition is expiring. In that case, we
+ * give a strong warning to the player. The actual message printing is done
+ * by the caller.
+ *
+ * @param dur the duration to check for dangerous expiration.
+ * @return whether the player is in immediate danger.
+ */
+bool need_expiration_warning(duration_type dur)
+{
+    if (!is_feat_dangerous(env.grid(you.pos()), true) || !dur_expiring(dur))
+        return false;
+
+    if (dur == DUR_LEVITATION && !you.lev_expire_warning)
+    {
+        you.lev_expire_warning = true;
+        return true;
+    }
+    else if (dur == DUR_TRANSFORMATION && !you.form_expire_warning
+             && (!you.airborne() || form_can_fly()))
+    {
+        you.form_expire_warning = true;
+        return true;
+    }
+    return false;
 }

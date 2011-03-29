@@ -1,8 +1,7 @@
-/*
- *  File:       initfile.cc
- *  Summary:    Simple reading of an init file and system variables
- *  Written by: David Loewenstern
- */
+/**
+ * @file
+ * @brief Simple reading of an init file and system variables
+**/
 
 #include "AppHdr.h"
 
@@ -515,7 +514,7 @@ void game_options::set_default_activity_interrupts()
         "interrupt_multidrop = interrupt_armour_on, teleport, stat",
         "interrupt_macro = interrupt_multidrop",
         "interrupt_travel = interrupt_butcher, statue, hungry, "
-                            "burden, hit_monster",
+                            "burden, hit_monster, sense_monster",
         "interrupt_run = interrupt_travel, message",
         "interrupt_rest = interrupt_run, full_hp, full_mp",
 
@@ -739,7 +738,7 @@ void game_options::reset_options()
     default_friendly_pickup = FRIENDLY_PICKUP_FRIEND;
 
     show_gold_turns = false;
-    show_real_turns = false;
+    show_game_turns = false;
     show_beam       = true;
 
     game = newgame_def();
@@ -862,7 +861,7 @@ void game_options::reset_options()
     stash_tracking         = STM_ALL;
 
     explore_stop           = (ES_ITEM | ES_STAIR | ES_PORTAL | ES_SHOP
-                              | ES_ALTAR | ES_GREEDY_PICKUP
+                              | ES_ALTAR | ES_GREEDY_PICKUP_SMART
                               | ES_GREEDY_VISITED_ITEM_STACK);
 
     // The prompt conditions will be combined into explore_stop after
@@ -875,6 +874,7 @@ void game_options::reset_options()
     explore_greedy         = true;
 
     explore_improved       = false;
+    travel_key_stop        = true;
     trap_prompt            = true;
 
     target_unshifted_dirs  = false;
@@ -2443,7 +2443,7 @@ void game_options::read_option_line(const std::string &str, bool runscript)
 #endif
 #endif
     else BOOL_OPTION(show_gold_turns);
-    else BOOL_OPTION(show_real_turns);
+    else BOOL_OPTION(show_game_turns);
 #ifndef USE_TILE
     else BOOL_OPTION(show_beam);
 #endif
@@ -2937,6 +2937,7 @@ void game_options::read_option_line(const std::string &str, bool runscript)
     }
     else BOOL_OPTION(explore_greedy);
     else BOOL_OPTION(explore_improved);
+    else BOOL_OPTION(travel_key_stop);
     else BOOL_OPTION(trap_prompt);
     else if (key == "stash_filter")
     {

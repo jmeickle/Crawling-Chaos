@@ -1,7 +1,7 @@
-/*
- * File:     player-act.cc
- * Summary:  Implementing the actor interface for player.
- */
+/**
+ * @file
+ * @brief Implementing the actor interface for player.
+**/
 
 #include "AppHdr.h"
 
@@ -267,6 +267,9 @@ const item_def *player::slot_item(equipment_type eq, bool include_melded) const
 // Returns the item in the player's weapon slot.
 item_def *player::weapon(int /* which_attack */)
 {
+    if (you.melded[EQ_WEAPON])
+        return (NULL);
+
     return (slot_item(EQ_WEAPON, false));
 }
 

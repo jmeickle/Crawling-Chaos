@@ -1,8 +1,7 @@
-/*
- *  File:       itemprop.h
- *  Summary:    Misc functions.
- *  Written by: Brent Ross
- */
+/**
+ * @file
+ * @brief Misc functions.
+**/
 
 #include "AppHdr.h"
 
@@ -2786,7 +2785,7 @@ equipment_type get_item_slot(const item_def& item)
 
 equipment_type get_item_slot(object_class_type type, int sub_type)
 {
-    switch(type)
+    switch (type)
     {
     case OBJ_WEAPONS:
     case OBJ_STAVES:

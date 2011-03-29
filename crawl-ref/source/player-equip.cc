@@ -599,9 +599,9 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs)
                     break;
 
                 case SPWPN_PAIN:
-                    if (you.skills[SK_NECROMANCY] == 0)
+                    if (you.skill(SK_NECROMANCY) == 0)
                         mpr("You have a feeling of ineptitude.");
-                    else if (you.skills[SK_NECROMANCY] <= 4)
+                    else if (you.skill(SK_NECROMANCY) <= 4)
                         mpr("Pain shudders through your arm!");
                     else
                         mpr("A searing pain shoots up your arm!");
@@ -679,6 +679,7 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs)
 
 static void _unequip_weapon_effect(item_def& item, bool showMsgs)
 {
+    you.wield_change = true;
     you.m_quiver->on_weapon_changed();
 
     // Call this first, so that the unrandart func can set showMsgs to
@@ -881,7 +882,7 @@ static void _equip_armour_effect(item_def& arm, bool unmeld)
             break;
 
         case SPARM_ARCHMAGI:
-            if (!you.skills[SK_SPELLCASTING])
+            if (!you.skill(SK_SPELLCASTING))
                 mpr("You feel strangely lacking in power.");
             else
                 mpr("You feel powerful.");
@@ -936,6 +937,9 @@ static void _equip_armour_effect(item_def& arm, bool unmeld)
 
     if (get_item_slot(arm) == EQ_SHIELD)
         warn_shield_penalties();
+
+    if (get_item_slot(arm) == EQ_BODY_ARMOUR)
+        warn_armour_penalties();
 
     you.redraw_armour_class = true;
     you.redraw_evasion = true;

@@ -1,8 +1,7 @@
-/*
- *  File:       terrain.cc
- *  Summary:    Terrain related functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Terrain related functions.
+**/
 
 #include "AppHdr.h"
 
@@ -153,7 +152,8 @@ bool feat_sealable_portal(dungeon_feature_type feat)
 
 bool feat_is_portal(dungeon_feature_type feat)
 {
-    return (feat == DNGN_ENTER_PORTAL_VAULT || feat == DNGN_EXIT_PORTAL_VAULT);
+    return (feat == DNGN_ENTER_PORTAL_VAULT || feat == DNGN_EXIT_PORTAL_VAULT
+            || feat == DNGN_TEMP_PORTAL);
 }
 
 // Returns true if the given dungeon feature is a stair, i.e., a level

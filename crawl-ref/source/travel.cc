@@ -1,9 +1,8 @@
-/*
- *  File:       travel.cc
- *  Summary:    Travel stuff
- *  Written by: Darshan Shaligram
- *
- *  Known issues:
+/**
+ * @file
+ * @brief Travel stuff
+**/
+/* Known issues:
  *   Hardcoded dungeon features all over the place - this thing is a devil to
  *   refactor.
  */
@@ -28,6 +27,7 @@
 #include "exclude.h"
 #include "fight.h"
 #include "godabil.h"
+#include "godpassive.h"
 #include "itemname.h"
 #include "itemprop.h"
 #include "items.h"
@@ -918,7 +918,7 @@ command_type travel()
 
     command_type result = CMD_NO_CMD;
 
-    if (kbhit())
+    if (Options.travel_key_stop && kbhit())
     {
         mprf("Key pressed, stopping %s.", you.running.runmode_name().c_str());
         stop_running();
@@ -2347,8 +2347,11 @@ bool travel_kill_monster(monster_type mons)
         return (false);
 
     // Don't auto-kill things with berserkitis or *rage.
-    if (player_mutation_level(MUT_BERSERK) || scan_artefacts(ARTP_ANGRY))
+    if ((player_mutation_level(MUT_BERSERK) || scan_artefacts(ARTP_ANGRY))
+        && !wearing_amulet(AMU_STASIS, false) && !player_mental_clarity(false))
+    {
         return (false);
+    }
 
     return (true);
 }
@@ -4443,6 +4446,8 @@ bool check_for_interesting_features()
     for (radius_iterator ri(you.get_los()); ri; ++ri)
     {
         const coord_def p(*ri);
+        ash_id_item(p);
+
         if (!env.map_shadow(p).seen() && env.map_knowledge(p).seen())
             _check_interesting_square(p, discoveries);
     }

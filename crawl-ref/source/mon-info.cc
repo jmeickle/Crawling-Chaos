@@ -1,9 +1,9 @@
-/*
- * File:     mon-info.cc
- * Summary:  Monster information that may be passed to the user.
+/**
+ * @file
+ * @brief Monster information that may be passed to the user.
  *
  * Used to fill the monster pane and to pass monster info to Lua.
- */
+**/
 
 #include "AppHdr.h"
 
@@ -120,8 +120,6 @@ static uint64_t ench_to_mb(const monster& mons, enchant_type ench)
         return ULL1 << MB_WITHDRAWN;
     case ENCH_ATTACHED:
         return ULL1 << MB_ATTACHED;
-    case ENCH_HELPLESS:
-        return ULL1 << MB_HELPLESS;
     case ENCH_BLEED:
         return ULL1 << MB_BLEEDING;
     case ENCH_DAZED:
@@ -148,6 +146,14 @@ static bool _blocked_ray(const coord_def &where,
         return (true);
     *feat = ray_blocker(you.pos(), where);
     return (true);
+}
+
+static bool _is_public_key(std::string key)
+{
+    if (key == "helpless" || key == "wand_known")
+        return true;
+    else
+        return false;
 }
 
 monster_info::monster_info(monster_type p_type, monster_type p_base_type)
@@ -204,6 +210,8 @@ monster_info::monster_info(monster_type p_type, monster_type p_base_type)
 
     if (base_type == MONS_NO_MONSTER)
         base_type = type;
+
+    props.clear();
 }
 
 monster_info::monster_info(const monster* m, int milev)
@@ -240,8 +248,18 @@ monster_info::monster_info(const monster* m, int milev)
         type = m->type;
     }
 
+    props.clear();
+
     if (type_known)
     {
+        if (!m->props.empty())
+        {
+            CrawlHashTable::hash_map_type::const_iterator i = m->props.begin();
+            for (; i != m->props.end(); i++)
+                if (_is_public_key(i->first))
+                    props[i->first] = i->second;
+        }
+
         draco_type =
             mons_genus(type) == MONS_DRACONIAN ? ::draco_subspecies(m) : type;
 
@@ -269,6 +287,9 @@ monster_info::monster_info(const monster* m, int milev)
 
         if (m->is_summoned())
             mb |= ULL1 << MB_SUMMONED;
+
+        if (testbits(m->flags, MF_HARD_RESET) && testbits(m->flags, MF_NO_REWARD))
+            mb |= ULL1 << MB_PERM_SUMMON;
 
         if (mons_is_known_mimic(m) && mons_genus(type) == MONS_DOOR_MIMIC)
             mimic_feature = get_mimic_feat(m);
@@ -316,9 +337,6 @@ monster_info::monster_info(const monster* m, int milev)
         mb |= ULL1 << MB_NAME_THE;
     if (m->flags & MF_NAME_ZOMBIE)
         mb |= ULL1 << MB_NAME_ZOMBIE;
-
-    if (m->has_ench(ENCH_HELPLESS))
-        mb |= ench_to_mb(*m, ENCH_HELPLESS);
 
     if (milev <= MILEV_NAME)
     {
@@ -483,6 +501,8 @@ monster_info::monster_info(const monster* m, int milev)
                 ok = mons_is_mimic(type);
             else if (attitude == ATT_FRIENDLY)
                 ok = true;
+            else if (i == MSLOT_WAND)
+                ok = props.exists("wand_known") && props["wand_known"];
             else if (m->props.exists("ash_id")
                      && item_type_known(mitm[m->inv[i]]))
             {
@@ -665,7 +685,7 @@ std::string monster_info::common_name(description_level_type desc) const
 {
     std::ostringstream ss;
 
-    if (is(MB_HELPLESS))
+    if (props.exists("helpless"))
         ss << "helpless ";
 
     if (is(MB_SUBMERGED))

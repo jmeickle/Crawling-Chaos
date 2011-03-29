@@ -1,8 +1,7 @@
-/*
- *  File:       main.cc
- *  Summary:    Main entry point, event loop, and some initialization functions
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Main entry point, event loop, and some initialization functions
+**/
 
 #include "AppHdr.h"
 
@@ -379,9 +378,6 @@ static void _launch_game()
 
     _god_greeting_message(game_start);
 
-    // Warn player about their weapon, if unsuitable.
-    wield_warning(false);
-
     if (!crawl_state.game_is_tutorial())
         mpr("Press <w>?</w> for a list of commands and other information.");
 
@@ -593,6 +589,7 @@ static void _do_wizard_command(int wiz_command, bool silent_fail)
     case CONTROL('H'): wizard_set_hunger_state(); break;
     case CONTROL('I'): debug_item_statistics(); break;
     case CONTROL('L'): wizard_set_xl(); break;
+    case CONTROL('R'): wizard_recreate_level(); break;
     case CONTROL('T'): debug_terp_dlua(); break;
     case CONTROL('V'): wizard_toggle_xray_vision(); break;
     case CONTROL('X'): debug_xom_effects(); break;
@@ -1337,11 +1334,20 @@ static void _go_upstairs()
     if (_marker_vetoes_stair())
         return;
 
+    if (you.burden_state == BS_OVERLOADED && !feat_is_escape_hatch(ygrd)
+        && !feat_is_gate(ygrd))
+    {
+        mpr("You are carrying too much to climb upwards.");
+        return;
+    }
+
     if (you.duration[DUR_MISLED])
     {
         mpr("Away from their source, illusions no longer mislead you.", MSGCH_DURATION);
         you.duration[DUR_MISLED] = 0;
     }
+
+    you.clear_clinging();
 
     tag_followers(); // Only those beside us right now can follow.
     start_delay(DELAY_ASCENDING_STAIRS,
@@ -1417,6 +1423,8 @@ static void _go_downstairs()
         mpr("Away from their source, illusions no longer mislead you.", MSGCH_DURATION);
         you.duration[DUR_MISLED] = 0;
     }
+
+    you.clear_clinging();
 
     if (shaft)
     {
@@ -2004,7 +2012,12 @@ static bool _decrement_a_duration(duration_type dur, int delay,
     if (you.duration[dur] <= midpoint && old_dur > midpoint)
     {
         if (midmsg)
-            mpr(midmsg, chan);
+        {
+            if (need_expiration_warning(dur))
+                mprf(MSGCH_DANGER, "Careful! %s", midmsg);
+            else
+                mpr(midmsg, chan);
+        }
         you.duration[dur] -= midloss * BASELINE_DELAY;
     }
 
@@ -2480,7 +2493,7 @@ static void _decrement_durations()
             if (_decrement_a_duration(DUR_LEVITATION, delay,
                                       0,
                                       random2(6),
-                                      "You are starting to lose your buoyancy!"))
+                                      "You are starting to lose your buoyancy."))
             {
                 land_player();
             }

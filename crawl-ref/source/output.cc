@@ -1,8 +1,7 @@
-/*
- *  File:       output.cc
- *  Summary:    Functions used to print player related info.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Functions used to print player related info.
+**/
 
 #include "AppHdr.h"
 
@@ -204,7 +203,7 @@ void update_turn_count()
 
     // Show the turn count starting from 1. You can still quit on turn 0.
     textcolor(HUD_VALUE_COLOUR);
-    if (Options.show_real_turns)
+    if (Options.show_game_turns)
     {
        cprintf("%.1f (%.1f)%s", you.elapsed_time / 10.0,
                (you.elapsed_time - you.elapsed_time_at_last_input) / 10.0,
@@ -1300,7 +1299,7 @@ static void _print_overview_screen_equip(column_composer& cols,
             equip_chars.push_back(equip_char);
         }
         else if (e_order[i] == EQ_WEAPON
-                 && you.skills[SK_UNARMED_COMBAT])
+                 && you.skill(SK_UNARMED_COMBAT))
         {
             snprintf(buf, sizeof buf, "%s  - Unarmed", slot);
         }

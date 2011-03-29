@@ -17,6 +17,8 @@ enum tag_minor_version
     TAG_MINOR_MFLAGS64,            // Extend mon.flags to 64 bits.
     TAG_MINOR_ENCH_MID,            // Store sources of monster enchantments.
     TAG_MINOR_CLOUD_BUG,           // Shim to recover bugged saves.
+    TAG_MINOR_MINFO_PROP,          // Add a props hash to monster_info.
+    TAG_MINOR_MON_INV_ORDER,       // Change the order of the monster's inventory.
 
     NUM_TAG_MINORS,
     TAG_MINOR_VERSION = NUM_TAG_MINORS - 1

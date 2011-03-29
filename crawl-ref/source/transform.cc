@@ -1,8 +1,7 @@
-/*
- *  File:       transform.cc
- *  Summary:    Misc function related to player transformations.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc function related to player transformations.
+**/
 
 #include "AppHdr.h"
 
@@ -143,7 +142,7 @@ static std::set<equipment_type>
 _init_equipment_removal(transformation_type form)
 {
     std::set<equipment_type> result;
-    if (!form_can_wield(form) && you.weapon())
+    if (!form_can_wield(form) && you.weapon() || you.melded[EQ_WEAPON])
         result.insert(EQ_WEAPON);
 
     // Liches can't wield holy weapons.
@@ -175,7 +174,14 @@ static void _remove_equipment(const std::set<equipment_type>& removed,
         if (equip == NULL)
             continue;
 
-        bool unequip = (e == EQ_WEAPON || !meld);
+        bool unequip = !meld;
+        if (!unequip && e == EQ_WEAPON)
+        {
+            if (you.form == TRAN_NONE || form_can_wield(you.form))
+                unequip = true;
+            if (equip->base_type != OBJ_WEAPONS && equip->base_type != OBJ_STAVES)
+                unequip = true;
+        }
 
         mprf("%s %s%s %s", equip->name(DESC_CAP_YOUR).c_str(),
              unequip ? "fall" : "meld",
@@ -243,6 +249,17 @@ static void _unmeld_equipment_slot(equipment_type e)
 
     if (item.base_type == OBJ_JEWELLERY)
         unmeld_slot(e);
+    else if (e == EQ_WEAPON)
+    {
+        if (you.slot_item(EQ_SHIELD)
+            && is_shield_incompatible(item, you.slot_item(EQ_SHIELD)))
+        {
+            mpr(item.name(DESC_CAP_YOUR) + " is pushed off your body!");
+            unequip_item(e);
+        }
+        else
+            unmeld_slot(e);
+    }
     else
     {
         // In case the player was mutated during the transformation,
@@ -276,7 +293,7 @@ static void _unmeld_equipment(const std::set<equipment_type>& melded)
     for (iter = melded.begin(); iter != melded.end(); ++iter)
     {
         const equipment_type e = *iter;
-        if (e == EQ_WEAPON || you.equip[e] == -1)
+        if (you.equip[e] == -1)
             continue;
 
         _unmeld_equipment_slot(e);
@@ -491,6 +508,7 @@ bool transform(int pow, transformation_type which_trans, bool force,
             else
                 mpr("You extend your transformation's duration.");
             you.increase_duration(DUR_TRANSFORMATION, random2(pow), 100);
+            you.form_expire_warning = false;
 
             return (true);
         }
@@ -658,13 +676,12 @@ bool transform(int pow, transformation_type which_trans, bool force,
     // Give the transformation message.
     mpr(msg);
 
-    _remove_equipment(rem_stuff);
-
     // Update your status.
     you.form = which_trans;
     you.set_duration(DUR_TRANSFORMATION, dur);
     update_player_symbol();
 
+    _remove_equipment(rem_stuff);
     burden_change();
 
     if (str)

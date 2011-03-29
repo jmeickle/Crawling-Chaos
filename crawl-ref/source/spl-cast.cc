@@ -1,8 +1,7 @@
-/*
- *  File:       spl-cast.cc
- *  Summary:    Spell casting and miscast functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Spell casting and miscast functions.
+**/
 
 #include "AppHdr.h"
 
@@ -448,13 +447,13 @@ int calc_spell_power(spell_type spell, bool apply_intel, bool fail_rate_check,
     if (rod) {
         // This is only the average of the power. It's used for display and
         // calculating range. The real power is randomized in staff_spell()
-        power = (5 + you.skills[SK_EVOCATIONS] * 2);
+        power = (5 + you.skill(SK_EVOCATIONS) * 2);
     }
     else
     {
         // When checking failure rates, wizardry is handled after the various
         // stepping calulations.
-        power = (you.skills[SK_SPELLCASTING] / 2)
+        power = (you.skill(SK_SPELLCASTING) / 2)
                      + (fail_rate_check? 0 : player_mag_abil(false));
         int enhanced = 0;
 
@@ -470,7 +469,7 @@ int calc_spell_power(spell_type spell, bool apply_intel, bool fail_rate_check,
             {
                 unsigned int bit = (1 << ndx);
                 if (disciplines & bit)
-                    power += (you.skills[spell_type2skill(bit)] * 2) / skillcount;
+                    power += (you.skill(spell_type2skill(bit)) * 2) / skillcount;
             }
         }
 
@@ -1011,6 +1010,12 @@ static bool _spellcasting_aborted(spell_type spell,
         mpr("The dungeon can only cope with one malign gateway at a time!");
         return (true);
     }
+    if (spell == SPELL_BERSERKER_RAGE && (!you.can_go_berserk(true)
+                                          || !berserk_check_wielded_weapon()))
+    {
+        return (true);
+    }
+
 
     return (false);
 }
@@ -1773,9 +1778,6 @@ static spret_type _do_cast(spell_type spell, int powc,
 
     // General enhancement.
     case SPELL_BERSERKER_RAGE:
-        if (!berserk_check_wielded_weapon())
-           return (SPRET_ABORT);
-
         cast_berserk();
         break;
 
@@ -1976,9 +1978,7 @@ const char* failure_rate_to_string(int fail)
 {
     return (fail == 100) ? "Useless"   : // 0% success chance
            (fail > 77)   ? "Terrible"  : // 0-5%
-           (fail > 71)   ? "Cruddy"    : // 5-10%
-           (fail > 64)   ? "Bad"       : // 10-20%
-           (fail > 59)   ? "Very Poor" : // 20-30%
+           (fail > 59)   ? "Bad" :       // 5-30%
            (fail > 50)   ? "Poor"      : // 30-50%
            (fail > 40)   ? "Fair"      : // 50-70%
            (fail > 35)   ? "Good"      : // 70-80%

@@ -1,8 +1,7 @@
-/*
- *  File:       stuff.cc
- *  Summary:    Misc stuff.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc stuff.
+**/
 
 #include "AppHdr.h"
 
@@ -237,6 +236,8 @@ static bool _tag_follower_at(const coord_def &pos, bool &real_follower)
     fmenv->patrol_point.reset();
     fmenv->travel_path.clear();
     fmenv->travel_target = MTRAV_NONE;
+
+    fmenv->clear_clinging();
 
     dprf("%s is marked for following.",
          fmenv->name(DESC_CAP_THE, true).c_str());

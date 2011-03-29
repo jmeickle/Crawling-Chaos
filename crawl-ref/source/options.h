@@ -94,7 +94,7 @@ public:
     int         default_friendly_pickup;
 
     bool        show_gold_turns; // Show gold and turns in HUD.
-    bool        show_real_turns; // Show real turns instead of actions.
+    bool        show_game_turns; // Show game turns instead of player turns.
     bool        show_beam;       // Show targeting beam by default.
 
     uint32_t    autopickups;     // items to autopickup
@@ -251,6 +251,8 @@ public:
 
     // Some experimental improvements to explore
     bool        explore_improved;
+
+    bool        travel_key_stop;   // Travel stops on keypress.
 
     std::vector<sound_mapping> sound_mappings;
     std::vector<colour_mapping> menu_colour_mappings;

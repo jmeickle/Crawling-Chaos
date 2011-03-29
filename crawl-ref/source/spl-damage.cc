@@ -1,8 +1,8 @@
-/*
- *  File:     spl-damage.cc
- *  Summary:  Damage-dealing spells not already handled elsewhere.
- *            Other targeted spells are covered in spl-zap.cc.
- */
+/**
+ * @file
+ * @brief Damage-dealing spells not already handled elsewhere.
+ *           Other targeted spells are covered in spl-zap.cc.
+**/
 
 #include "AppHdr.h"
 
@@ -228,16 +228,6 @@ void cast_chain_lightning(int pow, const actor *caster)
                 && _lightning_los(source, you.pos()))
             {
                 target = you.pos();
-            }
-        }
-
-        if (caster == &you)
-        {
-            monster* mons = monster_at(target);
-            if (mons)
-            {
-                if (stop_attack_prompt(mons, false, you.pos()))
-                    return;
             }
         }
 
@@ -930,7 +920,7 @@ void cast_shatter(int pow)
         mpr("The dungeon rumbles!", MSGCH_SOUND);
     }
 
-    int rad = 3 + (you.skills[SK_EARTH_MAGIC] / 5);
+    int rad = 3 + (you.skill(SK_EARTH_MAGIC) / 5);
 
     apply_area_within_radius(_shatter_items, you.pos(), pow, rad, 0);
     apply_area_within_radius(_shatter_monsters, you.pos(), pow, rad, 0);

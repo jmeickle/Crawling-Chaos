@@ -1,8 +1,7 @@
-/*
- *  File:       tags.cc
- *  Summary:    Auxilary functions to make savefile versioning simpler.
- *  Written by: Gordon Lipford
- */
+/**
+ * @file
+ * @brief Auxilary functions to make savefile versioning simpler.
+**/
 
 /*
    The marshalling and unmarshalling of data is done in big endian and
@@ -2462,6 +2461,8 @@ void marshallMonsterInfo(writer &th, const monster_info& mi)
     marshallString(th, mi.quote);
     marshallUnsigned(th, mi.fly);
     marshallUnsigned(th, mi.mimic_feature);
+
+    mi.props.write(th);
 }
 
 void unmarshallMonsterInfo(reader &th, monster_info& mi)
@@ -2480,6 +2481,15 @@ void unmarshallMonsterInfo(reader &th, monster_info& mi)
     mi.quote = unmarshallString(th);
     unmarshallUnsigned(th, mi.fly);
     unmarshallUnsigned(th, mi.mimic_feature);
+
+#if TAG_MAJOR_VERSION == 32
+    if (th.getMinorVersion() >= TAG_MINOR_MINFO_PROP)
+#endif
+        mi.props.read(th);
+#if TAG_MAJOR_VERSION == 32
+    else
+        mi.props.clear();
+#endif
 }
 
 static void tag_construct_level_monsters(writer &th)
@@ -2872,6 +2882,18 @@ void unmarshallMonster(reader &th, monster& m)
     m.colour         = unmarshallShort(th);
 
     for (int j = 0; j < NUM_MONSTER_SLOTS; j++)
+#if TAG_MAJOR_VERSION == 32
+        if (th.getMinorVersion() < TAG_MINOR_MON_INV_ORDER)
+        {
+            if (j == MSLOT_WAND || j == MSLOT_MISCELLANY)
+                m.inv[j + 1] = unmarshallShort(th);
+            else if (j == MSLOT_POTION)
+                m.inv[MSLOT_WAND] = unmarshallShort(th);
+            else
+                m.inv[j] = unmarshallShort(th);
+        }
+        else
+#endif
         m.inv[j] = unmarshallShort(th);
 
     unmarshallSpells(th, m.spells);

@@ -1,8 +1,7 @@
-/*
- *  File:       monster.cc
- *  Summary:    Monsters class methods
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Monsters class methods
+**/
 
 #include "AppHdr.h"
 
@@ -1225,6 +1224,9 @@ bool monster::drop_item(int eslot, int near)
         }
     }
 
+    if (props.exists("wand_known") && near && pitem->base_type == OBJ_WANDS)
+        props.erase("wand_known");
+
     inv[eslot] = NON_ITEM;
     return (true);
 }
@@ -1890,7 +1892,14 @@ bool monster::pickup_wand(item_def &item, int near)
             return (false);
     }
 
-    return (pickup(item, MSLOT_WAND, near));
+    if (pickup(item, MSLOT_WAND, near))
+    {
+        if (near)
+            props["wand_known"] = item_type_known(item);
+        return true;
+    }
+    else
+        return false;
 }
 
 bool monster::pickup_scroll(item_def &item, int near)
@@ -3694,19 +3703,20 @@ void monster::pandemon_init()
     ev              = ghost->ev;
     flags           = MF_INTERESTING;
     // Don't make greased-lightning Pandemonium demons in the dungeon
-    // max speed = 17).  Demons in Pandemonium can be up to speed 20,
-    // possibly with haste.
+    // max speed = 17). Demons in Pandemonium can be up to speed 20,
+    // possibly with haste. Non-caster demons are likely to be fast.
     if (you.level_type == LEVEL_DUNGEON)
-        speed = (one_chance_in(3) ? 10 : 7 + roll_dice(2, 5));
+        speed = (!ghost->spellcaster ? 11 + roll_dice(2, 3) :
+                 one_chance_in(3) ? 10 :
+                 7 + roll_dice(2, 5));
     else
-        speed = (one_chance_in(3) ? 10 : 8 + roll_dice(2, 6));
+        speed = (!ghost->spellcaster ? 12 + roll_dice(2, 4) :
+                 one_chance_in(3) ? 10 :
+                 8 + roll_dice(2, 6));
 
     speed_increment = 70;
 
-    if (you.char_direction == GDT_ASCENDING && you.level_type == LEVEL_DUNGEON)
-        colour = LIGHTRED;
-    else
-        colour = ghost->colour;
+    colour = ghost->colour;
 
     load_ghost_spells();
 }
@@ -3907,14 +3917,14 @@ bool monster::is_patrolling() const
     return (!patrol_point.origin());
 }
 
-bool monster::needs_transit() const
+bool monster::needs_abyss_transit() const
 {
     return ((mons_is_unique(type)
                 || (flags & MF_BANISHED)
                 || you.level_type == LEVEL_DUNGEON
                    && hit_dice > 8 + random2(25)
                    && mons_can_use_stairs(this))
-            && !is_summoned());
+            && !has_ench(ENCH_ABJ));
 }
 
 void monster::set_transit(const level_id &dest)
@@ -6531,7 +6541,9 @@ reach_type monster::reach_range() const
 
 bool monster::can_cling_to_walls() const
 {
-    return mons_genus(type) == MONS_SPIDER;
+    return (mons_genus(type) == MONS_SPIDER || type == MONS_GIANT_GECKO
+            || type == MONS_GIANT_COCKROACH || type == MONS_GIANT_MITE
+            || type == MONS_DEMONIC_CRAWLER);
 }
 
 /////////////////////////////////////////////////////////////////////////

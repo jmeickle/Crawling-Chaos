@@ -1,8 +1,7 @@
-/*
- *  File:       fight.cc
- *  Summary:    Functions used during combat.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Functions used during combat.
+**/
 
 #include "AppHdr.h"
 
@@ -867,7 +866,8 @@ bool melee_attack::player_attack()
                 make_stringf("You %s %s.", attack_verb.c_str(),
                              defender->name(DESC_NOCAP_THE).c_str());
         }
-        defender->as_monster()->del_ench(ENCH_HELPLESS);
+        if (defender->props.exists("helpless"))
+            defender->props.erase("helpless");
 
         damage_done = defender->hurt(&you, damage_done,
                                      special_damage_flavour, false);
@@ -1199,7 +1199,7 @@ bool melee_attack::player_aux_test_hit()
     if (!auto_hit && to_hit >= evasion && helpful_evasion > evasion
         && defender_visible)
     {
-        defender->as_monster()->add_ench(ENCH_HELPLESS);
+        defender->props["helpless"] = true;
     }
 
     if (to_hit >= evasion || auto_hit)
@@ -1383,7 +1383,8 @@ bool melee_attack::player_aux_apply(unarmed_attack_type atk)
              defender->name(DESC_NOCAP_THE).c_str(),
              you.can_see(defender) ? ", but do no damage" : "");
     }
-    defender->as_monster()->del_ench(ENCH_HELPLESS);
+    if (defender->props.exists("helpless"))
+        defender->props.erase("helpless");
 
     if (defender->as_monster()->hit_points < 1)
     {
@@ -1525,7 +1526,7 @@ int melee_attack::player_hits_monster()
         || defender->as_monster()->petrifying()
             && !one_chance_in(2 + you.skill(SK_STABBING)))
     {
-        defender->as_monster()->add_ench(ENCH_HELPLESS);
+        defender->props["helpless"] = true;
         return (1);
     }
 
@@ -1658,7 +1659,7 @@ int melee_attack::player_apply_weapon_bonuses(int damage)
             damage += random2(3);
 
         if (get_weapon_brand(*weapon) == SPWPN_SPEED)
-            damage = div_rand_round(damage * 4, 5);
+            damage = div_rand_round(damage * 9, 10);
     }
 
     return (damage);
@@ -2057,9 +2058,6 @@ bool melee_attack::player_monattk_hit_effects(bool mondied)
             dprf("Vampiric healing: damage %d, healed %d",
                  damage_done, heal);
             inc_hp(heal, false);
-
-            if (you.hunger_state != HS_ENGORGED)
-                lessen_hunger(30 + random2avg(59, 2), false);
 
             did_god_conduct(DID_NECROMANCY, 2);
         }
@@ -3425,6 +3423,8 @@ bool melee_attack::apply_damage_brand()
         else
             hp_boost = 1 + random2(damage_done);
 
+        dprf("Vampiric healing: damage %d, healed %d",
+             damage_done, hp_boost);
         attacker->heal(hp_boost);
 
         attacker->god_conduct(DID_NECROMANCY, 2);
@@ -4511,7 +4511,7 @@ int melee_attack::mons_calc_damage(const mon_attack_def &attk)
     }
 
     if (weapon && get_weapon_brand(*weapon) == SPWPN_SPEED)
-        damage = div_rand_round(damage * 4, 5);
+        damage = div_rand_round(damage * 9, 10);
 
     // If the defender is asleep, the attacker gets a stab.
     if (defender && defender->asleep())

@@ -1,8 +1,7 @@
-/*
- *  File:       items.cc
- *  Summary:    Misc (mostly) inventory related functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc (mostly) inventory related functions.
+**/
 
 #include "AppHdr.h"
 
@@ -1520,6 +1519,9 @@ static void _got_item(item_def& item, int quant)
     seen_item(item);
     shopping_list.cull_identical_items(item);
 
+    if (item.props.exists("needs_autopickup"))
+        item.props.erase("needs_autopickup");
+
     if (!item_is_rune(item))
         return;
 
@@ -1729,6 +1731,7 @@ int move_item_to_player(int obj, int quant_got, bool quiet,
         item.slot = index_to_letter(item.link);
 
     ash_id_item(item);
+
     note_inscribe_item(item);
 
     item.quantity = quant_got;
@@ -1822,6 +1825,9 @@ bool move_item_to_grid(int *const obj, const coord_def& p, bool silent)
 
         return (true);
     }
+
+    if (you.religion == GOD_ASHENZARI && you.see_cell(p))
+        ash_id_item(item);
 
     // If it's a stackable type...
     if (is_stackable_item(item))
@@ -2083,7 +2089,7 @@ bool drop_item(int item_dropped, int quant_drop)
 
     if (item_dropped == you.equip[EQ_WEAPON]
         && you.inv[item_dropped].base_type == OBJ_WEAPONS
-        && you.inv[item_dropped] .cursed())
+        && you.inv[item_dropped].cursed())
     {
         mpr("That object is stuck to you!");
         return (false);
@@ -2467,6 +2473,9 @@ bool item_needs_autopickup(const item_def &item)
 {
     if (item_is_stationary(item))
         return (false);
+
+    if (item.props.exists("needs_autopickup"))
+        return (true);
 
     if (item.inscription.find("=g") != std::string::npos)
         return (true);
@@ -3399,7 +3408,7 @@ static void _rune_or_deck_from_specs(const char* specs, item_def &item)
 {
     if (strstr(specs, "rune"))
         _rune_from_specs(specs, item);
-    else if (strstr(specs, "deck"))
+    else if (strstr(specs, "deck") || strstr(specs, "card"))
         _deck_from_specs(specs, item);
 }
 

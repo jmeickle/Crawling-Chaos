@@ -1,8 +1,7 @@
-/*
- *  File:       describe.cc
- *  Summary:    Functions used to print information about various game objects.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Functions used to print information about various game objects.
+**/
 
 #include "AppHdr.h"
 
@@ -815,8 +814,10 @@ static std::string _describe_weapon(const item_def &item, bool verbose)
                 "injury to most foes and up to double damage against "
                 "particularly susceptible opponents.";
             if (get_vorpal_type(item) & (DVORP_SLICING | DVORP_CHOPPING))
+            {
                 description += " Big, fiery blades are also staple armaments "
                     "of hydra-hunters.";
+            }
             break;
         case SPWPN_FREEZING:
             description += "It has been specially enchanted to freeze "
@@ -831,13 +832,17 @@ static std::string _describe_weapon(const item_def &item, bool verbose)
             break;
         case SPWPN_ELECTROCUTION:
             if (is_range_weapon(item))
+            {
                 description += "It charges the ammunition it shoots with "
                     "electricity; occasionally upon a hit, such missiles "
                     "may discharge and cause terrible harm.";
+            }
             else
+            {
                 description += "Occasionally, upon striking a foe, it will "
                     "discharge some electrical energy and cause terrible "
                     "harm.";
+            }
             break;
         case SPWPN_ORC_SLAYING:
             description += "It is especially effective against all of "
@@ -866,8 +871,8 @@ static std::string _describe_weapon(const item_def &item, bool verbose)
                 "life of those it strikes.";
             break;
         case SPWPN_SPEED:
-            description += "Attacks with this weapon take half as long "
-                "as usual, albeit are slightly weaker.";
+            description += "Attacks with this weapon take half as long, "
+                "but cause less damage.";
             break;
         case SPWPN_VORPAL:
             if (is_range_weapon(item))
@@ -2502,7 +2507,7 @@ static command_type _get_action(int key, std::vector<command_type> actions)
     if (act_key_init)
     {
         act_key[CMD_WIELD_WEAPON]       = 'w';
-        act_key[CMD_WEAPON_SWAP]        = 'u'; //unwield
+        act_key[CMD_UNWIELD_WEAPON]     = 'u';
         act_key[CMD_QUIVER_ITEM]        = 'q';
         act_key[CMD_WEAR_ARMOUR]        = 'w';
         act_key[CMD_REMOVE_ARMOUR]      = 't';
@@ -2563,7 +2568,7 @@ static bool _actions_prompt(item_def &item, bool allow_inscribe)
                 break;
 
         if (item_is_equipped(item))
-            actions.push_back(CMD_WEAPON_SWAP); // no unwield command
+            actions.push_back(CMD_UNWIELD_WEAPON);
         else
         {
             actions.push_back(CMD_WIELD_WEAPON);
@@ -2622,7 +2627,7 @@ static bool _actions_prompt(item_def &item, bool allow_inscribe)
     if (act_str_init)
     {
         act_str[CMD_WIELD_WEAPON]       = "(w)ield";
-        act_str[CMD_WEAPON_SWAP]        = "(u)nwield";
+        act_str[CMD_UNWIELD_WEAPON]     = "(u)nwield";
         act_str[CMD_QUIVER_ITEM]        = "(q)uiver";
         act_str[CMD_WEAR_ARMOUR]        = "(w)ear";
         act_str[CMD_REMOVE_ARMOUR]      = "(t)ake off";
@@ -2661,7 +2666,7 @@ static bool _actions_prompt(item_def &item, bool allow_inscribe)
         redraw_screen();
         wield_weapon(true, slot);
         return false;
-    case CMD_WEAPON_SWAP:
+    case CMD_UNWIELD_WEAPON:
         redraw_screen();
         wield_weapon(true, SLOT_BARE_HANDS);
         return false;
@@ -3525,6 +3530,14 @@ void get_monster_db_desc(const monster_info& mi, describe_info &inf,
         inf.body << "\n" << "This monster has been summoned, and is thus only "
                        "temporary. Killing it yields no experience, nutrition "
                        "or items.\n";
+    }
+
+    if (mi.is(MB_PERM_SUMMON))
+    {
+        inf.body << "\n" << "This monster has been summoned in a durable "
+                       "way, and only partially exists. Killing it yields no "
+                       "experience, nutrition or items. You cannot easily "
+                       "abjure it, though.\n";
     }
 
     if (!inf.quote.empty())

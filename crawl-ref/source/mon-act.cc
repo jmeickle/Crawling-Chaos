@@ -1,8 +1,7 @@
-/*
- *  File:       mon-act.cc
- *  Summary:    Monsters doing stuff (monsters acting).
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Monsters doing stuff (monsters acting).
+**/
 
 #include "AppHdr.h"
 #include "mon-act.h"
@@ -1087,6 +1086,7 @@ static bool _handle_rod(monster *mons, bolt &beem)
         break;
 
     case SPELL_CALL_IMP:
+    case SPELL_CAUSE_FEAR:
     case SPELL_SUMMON_DEMON:
     case SPELL_SUMMON_SWARM:
         _rod_fired_pre(mons, nice_spell);
@@ -1305,9 +1305,15 @@ static bool _handle_wand(monster* mons, bolt &beem)
         if (was_visible)
         {
             if (niceWand || !beem.is_enchantment() || beem.obvious_effect)
+            {
                 set_ident_type(OBJ_WANDS, wand_type, ID_KNOWN_TYPE);
+                mons->props["wand_known"] = true;
+            }
             else
+            {
                 set_ident_type(OBJ_WANDS, wand_type, ID_MON_TRIED_TYPE);
+                mons->props["wand_known"] = false;
+            }
 
             // Increment zap count.
             if (wand.plus2 >= 0)
@@ -1667,7 +1673,7 @@ static bool _mons_throw(monster* mons, struct bolt &pbolt, int msl)
     }
 
     if (speed_brand)
-        pbolt.damage.size = div_rand_round(pbolt.damage.size * 4, 5);
+        pbolt.damage.size = div_rand_round(pbolt.damage.size * 9, 10);
 
     scale_dice(pbolt.damage);
 

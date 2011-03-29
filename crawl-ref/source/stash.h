@@ -1,8 +1,7 @@
-/*
- *  File:       stash.h
- *  Summary:    Classes tracking player stashes
- *  Written by: Darshan Shaligram
- */
+/**
+ * @file
+ * @brief Classes tracking player stashes
+**/
 
 #ifndef STASH_H
 #define STASH_H
@@ -94,6 +93,7 @@ public:
 
 private:
     void _update_corpses(int rot_time);
+    void _update_identification();
     void add_item(const item_def &item, bool add_to_front = false);
 
 private:
@@ -300,6 +300,7 @@ public:
  private:
     int _num_enabled_stashes() const;
     void _update_corpses(int rot_time);
+    void _update_identification();
 
  private:
     typedef std::map<int, Stash>  stashes_t;
@@ -351,6 +352,7 @@ public:
     };
 
     void update_corpses();
+    void update_identification();
 
     void update_visible_stashes(StashTracker::stash_update_mode = ST_PASSIVE);
 
