@@ -1978,6 +1978,9 @@ int player_spec_cold()
         sc += player_equip(EQ_RINGS, RING_ICE);
     }
 
+    if (you.species == SP_LAVA_ORC && !temperature_effect(LORC_EARTH_BOOST))
+        sc--;
+
     return sc;
 }
 
