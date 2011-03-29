@@ -4688,7 +4688,7 @@ void temperature_changed(bool inc_temp) {
     int old_temp = you.temperature + 1;
 
     if (inc_temp)
-        old_temp += 2;
+        old_temp -= 2;
 
     // Stoneskin stuff.
     if (inc_temp && !temperature_effect(LORC_STONESKIN) && you.duration[DUR_STONESKIN] > 0)
