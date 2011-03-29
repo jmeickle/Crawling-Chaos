@@ -1622,6 +1622,10 @@ int player_res_cold(bool calc_unid, bool temp, bool items)
             else if (you.hunger_state < HS_SATIATED)
                 rc++;
         }
+
+        if (you.species == SP_LAVA_ORC)
+            if (temperature_effect(LORC_COLD_VULN))
+                rc--;
     }
 
     // All effects negated by magical suppression should go in here.
@@ -1951,6 +1955,9 @@ int player_spec_fire()
         sf += player_equip(EQ_RINGS, RING_FIRE);
     }
 
+    if (you.species == SP_LAVA_ORC && temperature_effect(LORC_FIRE_BOOST))
+        sf++;
+
     if (you.duration[DUR_FIRE_SHIELD])
         sf++;
 
@@ -1984,6 +1991,9 @@ int player_spec_earth()
         // Staves
         se += player_equip(EQ_STAFF, STAFF_EARTH);
     }
+
+    if (you.species == SP_LAVA_ORC && temperature_effect(LORC_EARTH_BOOST))
+        se++;
 
     return se;
 }
@@ -5673,7 +5683,7 @@ void player::init()
     lives = 0;
     deaths = 0;
 
-    temperature = 0;
+    temperature = 1; // 1 is min; 15 is max.
 
     xray_vision = false;
 
