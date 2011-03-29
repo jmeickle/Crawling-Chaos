@@ -498,6 +498,10 @@ static int _spell_enhancement(unsigned int typeflags)
 
     enhanced += augmentation_amount();
 
+    if (you.species == SP_LAVA_ORC && temperature_effect(LORC_LAVA_BOOST)
+        && typeflags & SPTYP_FIRE && typeflags & SPTYP_EARTH)
+        enhanced++;
+
     // These are used in an exponential way, so we'll limit them a bit. -- bwr
     if (enhanced > 3)
         enhanced = 3;
