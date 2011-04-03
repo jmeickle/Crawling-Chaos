@@ -374,11 +374,11 @@ static void _leaving_level_now()
     if (you.level_type_name_abbrev != oldname_abbrev)
         newname_abbrev = you.level_type_name_abbrev;
 
-    if (newname_abbrev.length() > MAX_NOTE_PLACE_LEN)
+    if (strwidth(newname_abbrev) > MAX_NOTE_PLACE_LEN)
     {
         mprf(MSGCH_ERROR, "'%s' is too long for a portal vault name "
                           "abbreviation, truncating");
-        newname_abbrev = newname_abbrev.substr(0, MAX_NOTE_PLACE_LEN);
+        newname_abbrev = chop_string(newname_abbrev, MAX_NOTE_PLACE_LEN, false);
     }
 
     you.level_type_origin = "";
@@ -413,17 +413,18 @@ static void _leaving_level_now()
 
     if (!you.level_type_name.empty() && you.level_type_name_abbrev.empty())
     {
-        if (you.level_type_name.length() <= MAX_NOTE_PLACE_LEN)
+        if (strwidth(you.level_type_name) <= MAX_NOTE_PLACE_LEN)
             you.level_type_name_abbrev = you.level_type_name;
-        else if (you.level_type_tag.length() <= MAX_NOTE_PLACE_LEN)
+        else if (strwidth(you.level_type_tag) <= MAX_NOTE_PLACE_LEN)
             you.level_type_name_abbrev = spaced_tag;
         else
         {
             const std::string shorter =
-                you.level_type_name.length() < you.level_type_tag.length() ?
+                strwidth(you.level_type_name) < strwidth(you.level_type_tag) ?
                     you.level_type_name : spaced_tag;
 
-            you.level_type_name_abbrev = shorter.substr(0, MAX_NOTE_PLACE_LEN);
+            you.level_type_name_abbrev = chop_string(shorter,
+                                         MAX_NOTE_PLACE_LEN, false);
         }
     }
 
@@ -626,14 +627,6 @@ void up_stairs(dungeon_feature_type force_stair,
         return;
     }
 
-    if (you.burden_state == BS_OVERLOADED && !feat_is_escape_hatch(stair_find)
-        && !feat_is_gate(stair_find))
-    {
-        mpr("You are carrying too much to climb upwards.");
-        you.turn_is_over = true;
-        return;
-    }
-
     const level_id destination_override(_stair_destination_override());
     const bool leaving_dungeon =
         level_id::current() == level_id(BRANCH_MAIN_DUNGEON, 1)
@@ -646,7 +639,7 @@ void up_stairs(dungeon_feature_type force_stair,
 
         if (!stay && crawl_state.game_is_hints())
         {
-            if (!yesno("Are you *sure*?  Doing so will end the game!", false,
+            if (!yesno("Are you *sure*? Doing so will end the game!", false,
                        'n'))
             {
                 stay = true;
@@ -871,6 +864,13 @@ int runes_in_pack(std::vector<int> &runes)
     }
 
     return num_runes;
+}
+
+static bool _is_portal_exit(dungeon_feature_type stair)
+{
+    return stair == DNGN_EXIT_HELL
+        || stair == DNGN_EXIT_ABYSS
+        || stair == DNGN_EXIT_PORTAL_VAULT;
 }
 
 void down_stairs(dungeon_feature_type force_stair,
@@ -1110,12 +1110,10 @@ void down_stairs(dungeon_feature_type force_stair,
 
     // When going downstairs into a special level, delete any previous
     // instances of it.
-    if (you.level_type != LEVEL_DUNGEON)
+    if (you.level_type != LEVEL_DUNGEON && !_is_portal_exit(stair_find))
     {
         std::string lname = level_id::current().describe();
-#ifdef DEBUG_DIAGNOSTICS
-        mprf(MSGCH_DIAGNOSTICS, "Deleting: %s", lname.c_str());
-#endif
+        dprf("Deleting: %s", lname.c_str());
         you.save->delete_chunk(lname);
     }
 

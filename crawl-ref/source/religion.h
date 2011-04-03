@@ -1,8 +1,7 @@
-/*
- *  File:       religion.h
- *  Summary:    Misc religion related functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc religion related functions.
+**/
 
 
 #ifndef RELIGION_H
@@ -108,6 +107,7 @@ int get_tension(god_type god = you.religion);
 int get_monster_tension(const monster* mons, god_type god = you.religion);
 
 bool do_god_gift(bool forced = false);
+bool do_zin_sustenance();
 
 std::vector<god_type> temple_god_list();
 std::vector<god_type> nontemple_god_list();

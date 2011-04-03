@@ -1,8 +1,7 @@
-/*
- *  File:       wiz-fsim.cc
- *  Summary:    Fight simualtion wizard functions.
- *  Written by: Linley Henzell and Jesse Jones
- */
+/**
+ * @file
+ * @brief Fight simualtion wizard functions.
+**/
 
 #include "AppHdr.h"
 
@@ -17,7 +16,6 @@
 #include "itemprop.h"
 #include "items.h"
 #include "item_use.h"
-#include "it_use2.h"
 #include "libutil.h"
 #include "message.h"
 #include "mon-place.h"
@@ -27,6 +25,7 @@
 #include "mon-util.h"
 #include "options.h"
 #include "player.h"
+#include "player-equip.h"
 #include "skills2.h"
 #include "species.h"
 
@@ -43,6 +42,7 @@ static int _create_fsim_monster(int mtype, int hp)
         return (mi);
 
     monster* mon = &menv[mi];
+    // the monster is never saved, and thus we might allow any 31 bit value
     mon->hit_points = mon->max_hit_points = hp;
     return (mi);
 }
@@ -380,7 +380,7 @@ static bool _fsim_mon_hit_you(FILE *ostat, int mindex, int)
         fflush(ostat);
         // Not checking in the combat loop itself; that would be more responsive
         // for the user, but slow down the sim with all the calls to kbhit().
-        if (kbhit() && getch() == 27)
+        if (kbhit() && getchk() == 27)
         {
             mprf("Canceling simulation\n");
             return (false);
@@ -400,7 +400,7 @@ static bool _fsim_mon_hit_you(FILE *ostat, int mindex, int)
         fflush(ostat);
         // Not checking in the combat loop itself; that would be more responsive
         // for the user, but slow down the sim with all the calls to kbhit().
-        if (kbhit() && getch() == 27)
+        if (kbhit() && getchk() == 27)
         {
             mprf("Canceling simulation\n");
             return (false);
@@ -428,7 +428,7 @@ static bool _fsim_you_hit_mon(FILE *ostat, int mindex, int missile_slot)
         fflush(ostat);
         // Not checking in the combat loop itself; that would be more responsive
         // for the user, but slow down the sim with all the calls to kbhit().
-        if (kbhit() && getch() == 27)
+        if (kbhit() && getchk() == 27)
         {
             mprf("Canceling simulation\n");
             return (false);

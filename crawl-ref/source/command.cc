@@ -1,8 +1,7 @@
-/*
- *  File:       command.cc
- *  Summary:    Misc commands.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc commands.
+**/
 
 #include "AppHdr.h"
 
@@ -34,6 +33,7 @@
 #include "macro.h"
 #include "menu.h"
 #include "message.h"
+#include "mon-place.h"
 #include "mon-stuff.h"
 #include "mon-util.h"
 #include "ouch.h"
@@ -49,6 +49,7 @@
 #include "state.h"
 #include "stuff.h"
 #include "env.h"
+#include "syscalls.h"
 #include "terrain.h"
 #ifdef USE_TILE
 #include "tilepick.h"
@@ -94,10 +95,6 @@ static const char *features[] = {
 #ifdef DGL_MILESTONES
     "Milestones",
 #endif
-
-#ifdef UNICODE_GLYPHS
-    "Unicode glyphs",
-#endif
 };
 
 static std::string _get_version_information(void)
@@ -131,7 +128,7 @@ static void _add_file_to_scroller(FILE* fp, formatted_scroller& m,
 static std::string _get_version_changes(void)
 {
     // Attempts to print "Highlights" of the latest version.
-    FILE* fp = fopen(datafile_path("changelog.txt", false).c_str(), "r");
+    FILE* fp = fopen_u(datafile_path("changelog.txt", false).c_str(), "r");
     if (!fp)
         return "";
 
@@ -227,7 +224,7 @@ static void _print_version(void)
 
     std::string fname = "key_changes.txt";
     // Read in information about changes in comparison to the latest version.
-    FILE* fp = fopen(datafile_path(fname, false).c_str(), "r");
+    FILE* fp = fopen_u(datafile_path(fname, false).c_str(), "r");
 
 #if defined(TARGET_OS_DOS)
     if (!fp)
@@ -242,7 +239,7 @@ static void _print_version(void)
             mprf(MSGCH_DIAGNOSTICS,
                  "Attempting to open file '%s'", fname.c_str());
  #endif
-            fp = fopen(datafile_path(fname, false).c_str(), "r");
+            fp = fopen_u(datafile_path(fname, false).c_str(), "r");
         }
     }
 #endif
@@ -1198,7 +1195,7 @@ static void _append_non_item(std::string &desc, std::string key)
     }
     else
     {
-        desc += "\nOdd, this spell can't be found anywhere.  Please "
+        desc += "\nOdd, this spell can't be found anywhere. Please "
                 "file a bug report.";
     }
 
@@ -1211,7 +1208,7 @@ static void _append_non_item(std::string &desc, std::string key)
         if (flags & (SPFLAG_TESTING | SPFLAG_MONSTER))
         {
             desc += "\n\nYou aren't in wizard mode, so you shouldn't be "
-                    "seeing this entry.  Please file a bug report.";
+                    "seeing this entry. Please file a bug report.";
         }
     }
 }
@@ -1309,7 +1306,8 @@ static bool _append_books(std::string &desc, item_def &item, std::string key)
 }
 
 // Does not wait for keypress; the caller must do that if necessary.
-static void _do_description(std::string key, std::string type,
+// Returns true if we need to wait for keypress.
+static bool _do_description(std::string key, std::string type,
                             std::string footer = "")
 {
     describe_info inf;
@@ -1354,8 +1352,8 @@ static void _do_description(std::string key, std::string type,
             && !mons_class_is_zombified(mon_num) && !mons_is_mimic(mon_num))
         {
             monster_info mi(mon_num);
-            describe_monsters(mi, true);
-            return;
+            describe_monsters(mi, true, footer);
+            return (false);
         }
         else
         {
@@ -1427,6 +1425,7 @@ static void _do_description(std::string key, std::string type,
     inf.title  = key;
 
     print_description(inf);
+    return (true);
 }
 
 // Reads all questions from database/FAQ.txt, outputs them in the form of
@@ -1696,8 +1695,8 @@ static void _find_description(bool *again, std::string *error_inout)
     }
     else if (key_list.size() == 1)
     {
-        _do_description(key_list[0], type);
-        wait_for_keypress();
+        if (_do_description(key_list[0], type))
+            wait_for_keypress();
         return;
     }
 
@@ -1705,9 +1704,12 @@ static void _find_description(bool *again, std::string *error_inout)
     {
         std::string footer = "This entry is an exact match for '";
         footer += regex;
-        footer += "'.  To see non-exact matches, press space.";
+        footer += "'. To see non-exact matches, press space.";
 
         _do_description(regex, type, footer);
+        // FIXME: This results in an *additional* getchm(). We might have
+        // to check for this eventuality way over in describe.cc and
+        // _print_toggle_message. (jpeg)
         if (getchm() != ' ')
             return;
     }
@@ -1748,11 +1750,24 @@ static void _find_description(bool *again, std::string *error_inout)
             if (mons_is_mimic(m_type))
                 continue;
 
+            // No proper monster, and causes crashes in Tiles.
+            if (mons_is_tentacle_segment(m_type))
+                continue;
+
             // NOTE: Initializing the demon_ghost part of (very) ugly
             // things and player ghosts is taken care of in define_monster().
             fake_mon.type = m_type;
             fake_mon.props["fake"] = true;
-            define_monster(&fake_mon);
+            // HACK: Set an arbitrary humanoid monster as base type.
+            if (mons_class_is_zombified(m_type))
+            {
+                monster_type base_type = MONS_GOBLIN;
+                if (zombie_class_size(m_type) == Z_BIG)
+                    base_type = MONS_HILL_GIANT;
+                define_zombie(&fake_mon, base_type, m_type);
+            }
+            else
+                define_monster(&fake_mon);
 
             // FIXME: This doesn't generate proper draconian monsters.
             monster_list.push_back(fake_mon);
@@ -1833,8 +1848,8 @@ static void _find_description(bool *again, std::string *error_inout)
             else
                 key = *((std::string*) sel[0]->data);
 
-            _do_description(key, type);
-            wait_for_keypress();
+            if (_do_description(key, type))
+                wait_for_keypress();
         }
     }
 }
@@ -1854,6 +1869,8 @@ static void _keyhelp_query_descriptions()
     while (again);
 
     viewwindow();
+    if (!error.empty())
+        mpr(error);
 }
 
 static int _keyhelp_keyfilter(int ch)
@@ -2035,7 +2052,7 @@ static int _show_keyhelp_menu(const std::vector<formatted_string> &lines,
         {
             // Attempt to open this file, skip it if unsuccessful.
             std::string fname = canonicalise_file_separator(help_files[i].name);
-            FILE* fp = fopen(datafile_path(fname, false).c_str(), "r");
+            FILE* fp = fopen_u(datafile_path(fname, false).c_str(), "r");
 
 #if defined(TARGET_OS_DOS)
             if (!fp)
@@ -2050,7 +2067,7 @@ static int _show_keyhelp_menu(const std::vector<formatted_string> &lines,
                     mprf(MSGCH_DIAGNOSTICS,
                          "Attempting to open file '%s'", fname.c_str());
  #endif
-                    fp = fopen(datafile_path(fname, false).c_str(), "r");
+                    fp = fopen_u(datafile_path(fname, false).c_str(), "r");
                 }
             }
 #endif
@@ -2142,7 +2159,7 @@ static void _add_command(column_composer &cols, const int column,
     if (strcmp(command_name.c_str(), "<") == 0)
         command_name += "<";
 
-    const int cmd_len = command_name.length();
+    const int cmd_len = strwidth(command_name);
     std::string line = "<w>" + command_name + "</w>";
     for (unsigned int i = cmd_len; i < space_to_colon; ++i)
         line += " ";
@@ -2486,73 +2503,159 @@ static void _add_formatted_keyhelp(column_composer &cols)
 
 static void _add_formatted_hints_help(column_composer &cols)
 {
+    // First column.
     cols.add_formatted(
-            0, "<h>Item types (and common commands)\n",
+            0,
+            "<h>Movement:\n"
+            "To move in a direction or to attack, \n"
+            "use the numpad (try Numlock off and \n"
+            "on) or vi keys:\n",
+            false, true, _cmdhelp_textfilter);
+
+    _add_insert_commands(cols, 0, "                 <w>7 8 9      % % %",
+                         CMD_MOVE_UP_LEFT, CMD_MOVE_UP, CMD_MOVE_UP_RIGHT, 0);
+    _add_insert_commands(cols, 0, "                  \\|/        \\|/", 0);
+    _add_insert_commands(cols, 0, "                 <w>4</w>-<w>5</w>-<w>6</w>      <w>%</w>-<w>%</w>-<w>%</w>",
+                         CMD_MOVE_LEFT, CMD_MOVE_NOWHERE, CMD_MOVE_RIGHT, 0);
+    _add_insert_commands(cols, 0, "                  /|\\        /|\\", 0);
+    _add_insert_commands(cols, 0, "                 <w>1 2 3      % % %",
+                         CMD_MOVE_DOWN_LEFT, CMD_MOVE_DOWN, CMD_MOVE_DOWN_RIGHT, 0);
+
+    cols.add_formatted(0, " ", false, true, _cmdhelp_textfilter);
+    cols.add_formatted(0, "<w>Shift-Dir.</w> runs into one direction",
+                       false, true, _cmdhelp_textfilter);
+    _add_insert_commands(cols, 0, "<w>%</w> or <w>%</w> : ascend/descend the stairs",
+                         CMD_GO_UPSTAIRS, CMD_GO_DOWNSTAIRS, 0);
+    _add_command(cols, 0, CMD_EXPLORE, "autoexplore", 2);
+
+    cols.add_formatted(
+            0,
+            "<h>Rest/Search:\n",
             true, true, _cmdhelp_textfilter);
 
-    _add_insert_commands(cols, 0, "<cyan>)</cyan> : hand weapons (<w>%</w>ield)",
+    _add_command(cols, 0, CMD_SEARCH, "wait a turn; searches adjacent", 2);
+    cols.add_formatted(
+            0,
+            "    squares (also <w>numpad-5</w>, <w>.</w>, <w>Del</w>)\n",
+            false, true, _cmdhelp_textfilter);
+
+    _add_command(cols, 0, CMD_REST, "rest and long search; stops when", 2);
+    cols.add_formatted(
+            0,
+            "    Health or Magic become full,\n"
+            "    something is detected, or after\n"
+            "    100 turns over (<w>Shift-numpad-5</w>)\n",
+            false, true, _cmdhelp_textfilter);
+
+    cols.add_formatted(
+            0,
+            "\n<h>Attacking monsters\n"
+            "Walking into a monster will attack it\n"
+            "with the wielded weapon or barehanded.",
+            false, true, _cmdhelp_textfilter);
+
+    cols.add_formatted(
+            0,
+            "\n<h>Ranged combat and magic\n",
+            false, true, _cmdhelp_textfilter);
+
+    _add_insert_commands(cols, 0, "<w>%</w> to throw/fire missiles",
+                         CMD_FIRE, 0);
+    _add_insert_commands(cols, 0, "<w>%</w>/<w>%</w> to cast spells "
+                                  "(<w>%?/%</w> lists spells)",
+                         CMD_CAST_SPELL, CMD_FORCE_CAST_SPELL, CMD_CAST_SPELL,
+                         CMD_DISPLAY_SPELLS, 0);
+    _add_command(cols, 0, CMD_MEMORISE_SPELL, "Memorise a new spell", 2);
+    _add_command(cols, 0, CMD_READ, "read a book to forget a spell", 2);
+
+    // Second column.
+    cols.add_formatted(
+            1, "<h>Item types (and common commands)\n",
+            false, true, _cmdhelp_textfilter);
+
+    _add_insert_commands(cols, 1,
+#ifndef USE_TILE
+                         "<cyan>)</cyan> : "
+#endif
+                         "hand weapons (<w>%</w>ield)",
                          CMD_WIELD_WEAPON, 0);
-    _add_insert_commands(cols, 0, "<brown>(</brown> : missiles (<w>%</w>uiver, "
-                                  "<w>%</w>ire, <w>%</w>/<w>%</w> cycle)",
+    _add_insert_commands(cols, 1,
+#ifndef USE_TILE
+                         "<brown>(</brown> : "
+#endif
+                         "missiles (<w>%</w>uiver, <w>%</w>ire, <w>%</w>/<w>%</w> cycle)",
                          CMD_QUIVER_ITEM, CMD_FIRE, CMD_CYCLE_QUIVER_FORWARD,
                          CMD_CYCLE_QUIVER_BACKWARD, 0);
-    _add_insert_commands(cols, 0, "<cyan>[</cyan> : armour (<w>%</w>ear and <w>%</w>ake off)",
+    _add_insert_commands(cols, 1,
+#ifndef USE_TILE
+                         "<cyan>[</cyan> : "
+#endif
+                         "armour (<w>%</w>ear and <w>%</w>ake off)",
                          CMD_WEAR_ARMOUR, CMD_REMOVE_ARMOUR, 0);
-    _add_insert_commands(cols, 0, "<brown>percent</brown> : corpses and food "
-                                  "(<w>%</w>hop up and <w>%</w>at)",
+    _add_insert_commands(cols, 1,
+#ifndef USE_TILE
+                         "<brown>percent</brown> : "
+#endif
+                         "corpses and food (<w>%</w>hop up and <w>%</w>at)",
                          CMD_BUTCHER, CMD_EAT, 0);
-    _add_insert_commands(cols, 0, "<w>?</w> : scrolls (<w>%</w>ead)",
+    _add_insert_commands(cols, 1,
+#ifndef USE_TILE
+                         "<w>?</w> : "
+#endif
+                         "scrolls (<w>%</w>ead)",
                          CMD_READ, 0);
-    _add_insert_commands(cols, 0, "<magenta>!</magenta> : potions (<w>%</w>uaff)",
+    _add_insert_commands(cols, 1,
+#ifndef USE_TILE
+                         "<magenta>!</magenta> : "
+#endif
+                         "potions (<w>%</w>uaff)",
                          CMD_QUAFF, 0);
-    _add_insert_commands(cols, 0, "<blue>=</blue> : rings (<w>%</w>ut on and <w>%</w>emove)",
+    _add_insert_commands(cols, 1,
+#ifndef USE_TILE
+                         "<blue>=</blue> : "
+#endif
+                         "rings (<w>%</w>ut on and <w>%</w>emove)",
                          CMD_WEAR_JEWELLERY, CMD_REMOVE_JEWELLERY, 0);
-    _add_insert_commands(cols, 0, "<red>\"</red> : amulets (<w>%</w>ut on and <w>%</w>emove)",
+    _add_insert_commands(cols, 1,
+#ifndef USE_TILE
+                         "<red>\"</red> : "
+#endif
+                         "amulets (<w>%</w>ut on and <w>%</w>emove)",
                          CMD_WEAR_JEWELLERY, CMD_REMOVE_JEWELLERY, 0);
-    _add_insert_commands(cols, 0, "<lightgrey>/</lightgrey> : wands (e<w>%</w>oke)",
+    _add_insert_commands(cols, 1,
+#ifndef USE_TILE
+                         "<lightgrey>/</lightgrey> : "
+#endif
+                         "wands (e<w>%</w>oke)",
                          CMD_EVOKE, 0);
 
-    std::string item_types = "<lightcyan>";
+    std::string item_types =
+#ifndef USE_TILE
+                  "<lightcyan>";
     item_types += stringize_glyph(get_item_symbol(SHOW_ITEM_BOOK));
     item_types +=
-        "</lightcyan> : books (<w>%</w>ead, <w>%</w>emorise, <w>%</w>ap, <w>%</w>ap)";
-    _add_insert_commands(cols, 0, item_types,
+        "</lightcyan> : "
+#endif
+        "books (<w>%</w>ead, <w>%</w>emorise, <w>%</w>ap, <w>%</w>ap)";
+    _add_insert_commands(cols, 1, item_types,
                          CMD_READ, CMD_MEMORISE_SPELL, CMD_CAST_SPELL,
                          CMD_FORCE_CAST_SPELL, 0);
 
-    item_types = "<brown>";
+    item_types =
+#ifndef USE_TILE
+                  "<brown>";
     item_types += stringize_glyph(get_item_symbol(SHOW_ITEM_STAVE));
     item_types +=
-        "</brown> : staves and rods (<w>%</w>ield and e<w>%</w>oke)";
-    _add_insert_commands(cols, 0, item_types,
+        "</brown> : "
+#endif
+        "staves and rods (<w>%</w>ield and e<w>%</w>oke)";
+    _add_insert_commands(cols, 1, item_types,
                          CMD_WIELD_WEAPON, CMD_EVOKE_WIELDED, 0);
 
-    cols.add_formatted(
-            0,
-            "<h>Movement and attacking\n"
-            "Use the <w>numpad</w> for movement (try both\n"
-            "Numlock on and off). You can also use\n",
-            true, true, _cmdhelp_textfilter);
-
-    _add_insert_commands(cols, 0, "     <w>%%%%</w> : left, down, up, right and",
-                         CMD_MOVE_LEFT, CMD_MOVE_DOWN, CMD_MOVE_UP,
-                         CMD_MOVE_RIGHT, 0);
-    _add_insert_commands(cols, 0, "     <w>%%%%</w> : diagonal movement.",
-                         CMD_MOVE_UP_LEFT, CMD_MOVE_UP_RIGHT, CMD_MOVE_DOWN_LEFT,
-                         CMD_MOVE_DOWN_RIGHT, 0);
-
-    cols.add_formatted(
-            0,
-            "Walking into a monster will attack it\n"
-            "with the wielded weapon or barehanded.\n"
-            "For ranged attacks use either\n",
-            false, true, _cmdhelp_textfilter);
-
-    _add_insert_commands(cols, 0, "<w>%</w> to launch missiles (like arrows)",
-                         CMD_FIRE, 0);
-    _add_insert_commands(cols, 0, "<w>%</w>/<w>%</w> to cast spells "
-                                  "(<w>%?</w> lists spells).",
-                         CMD_CAST_SPELL, CMD_FORCE_CAST_SPELL, CMD_CAST_SPELL, 0);
+    cols.add_formatted(1, " ", false, true, _cmdhelp_textfilter);
+    _add_command(cols, 1, CMD_DISPLAY_INVENTORY, "list inventory (select item to view it)", 2);
+    _add_command(cols, 1, CMD_PICKUP, "pick up item from ground (also <w>g</w>)", 2);
+    _add_command(cols, 1, CMD_DROP, "drop item", 2);
 
     cols.add_formatted(
             1,
@@ -2560,29 +2663,21 @@ static void _add_formatted_hints_help(column_composer &cols)
             true, true, _cmdhelp_textfilter);
 
     _add_command(cols, 1, CMD_SAVE_GAME_NOW, "Save the game and exit", 2);
-    cols.add_formatted(1, " ", false, true, _cmdhelp_textfilter);
-    _add_command(cols, 1, CMD_SEARCH, "search for one turn (also <w>.</w> and <w>Del</w>)", 2);
-    _add_command(cols, 1, CMD_REST, "rest full/search longer (<w>Shift-Num 5</w>)", 2);
-    _add_command(cols, 1, CMD_DISPLAY_INVENTORY, "list inventory (select item to view it)", 2);
-    _add_command(cols, 1, CMD_PICKUP, "pick up item from ground (also <w>g</w>)", 2);
-    _add_command(cols, 1, CMD_DROP, "drop item", 2);
-    _add_insert_commands(cols, 0, "<w>%</w> or <w>%</w> : ascend/descend the stairs",
-                         CMD_GO_UPSTAIRS, CMD_GO_DOWNSTAIRS, 0);
-    cols.add_formatted(1, " ", false, true, _cmdhelp_textfilter);
     _add_command(cols, 1, CMD_REPLAY_MESSAGES, "show previous messages", 2);
+    _add_command(cols, 1, CMD_USE_ABILITY, "use an ability", 2);
+    _add_command(cols, 1, CMD_RESISTS_SCREEN, "show character overview", 2);
+    _add_command(cols, 1, CMD_DISPLAY_RELIGION, "show religion overview", 2);
     _add_command(cols, 1, CMD_DISPLAY_MAP, "show map of the whole level", 2);
-    _add_command(cols, 1, CMD_FULL_VIEW, "list monsters, items, features in sight", 2);
+    _add_command(cols, 1, CMD_DISPLAY_OVERMAP, "show dungeon overview", 2);
 
     cols.add_formatted(
             1,
-            "<h>Targeting (for spells and missiles)\n"
-            "Use <w>+</w> (or <w>=</w>) and <w>-</w> to cycle between\n"
-            "hostile monsters. <w>Enter</w> or <w>.</w> or <w>Del</w>\n"
-            "all fire at the selected target.\n"
-            "If the previous target is still alive\n"
-            "and in sight, one of <w>f</w> or <w>p</w> fires at it\n"
-            "again (without selecting anything).\n",
-            true, true, _cmdhelp_textfilter, 40);
+            "\n<h>Targeting\n"
+            "<w>Enter</w> or <w>.</w> or <w>Del</w> : confirm target\n"
+            "<w>+</w> and <w>-</w> : cycle between targets\n"
+            "<w>f</w> or <w>p</w> : shoot at previous target\n"
+            "         if still alive and in sight\n",
+            false, true, _cmdhelp_textfilter);
 }
 
 void list_commands(int hotkey, bool do_redraw_screen,
@@ -2658,13 +2753,16 @@ int list_wizard_commands(bool do_redraw_screen)
                        "<w>{</w>      : magic mapping\n"
                        "<w>}</w>      : detect all traps on level\n"
                        "<w>)</w>      : change Shoals' tide speed\n"
-                       "<w>Ctrl-E</w> : dump level builder information\n",
+                       "<w>Ctrl-E</w> : dump level builder information\n"
+                       "<w>Ctrl-R</w> : regenerate current level\n",
                        true, true);
 
     cols.add_formatted(1,
                        "<yellow>Other player related effects</yellow>\n"
                        "<w>c</w>      : card effect\n"
+#ifdef DEBUG_BONES
                        "<w>Ctrl-G</w> : save/load ghost (bones file)\n"
+#endif
                        "<w>h</w>/<w>H</w>    : heal yourself (super-Heal)\n"
                        "<w>Ctrl-H</w> : set hunger state\n"
                        "<w>X</w>      : make Xom do something now\n"

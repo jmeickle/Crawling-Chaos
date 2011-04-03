@@ -1,8 +1,7 @@
-/*
- *  File:       items.cc
- *  Summary:    Misc (mostly) inventory related functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc (mostly) inventory related functions.
+**/
 
 #include "AppHdr.h"
 
@@ -34,9 +33,9 @@
 #include "food.h"
 #include "godpassive.h"
 #include "godprayer.h"
+#include "hints.h"
 #include "hiscores.h"
 #include "invent.h"
-#include "it_use2.h"
 #include "item_use.h"
 #include "itemname.h"
 #include "itemprop.h"
@@ -52,6 +51,7 @@
 #include "orb.h"
 #include "place.h"
 #include "player.h"
+#include "player-equip.h"
 #include "quiver.h"
 #include "religion.h"
 #include "shopping.h"
@@ -630,64 +630,67 @@ void request_autopickup(bool do_pickup)
     will_autopickup = do_pickup;
 }
 
+bool item_is_branded(const item_def& item)
+{
+    switch (item.base_type)
+    {
+    case OBJ_WEAPONS:
+        return (get_weapon_brand(item) != SPWPN_NORMAL);
+    case OBJ_ARMOUR:
+        return (get_armour_ego_type(item) != SPARM_NORMAL);
+    case OBJ_MISSILES:
+        return (get_ammo_brand(item) != SPMSL_NORMAL);
+    default:
+        return (false);
+    }
+}
+
 // 2 - artefact, 1 - glowing/runed, 0 - mundane
 int item_name_specialness(const item_def& item)
 {
-    // All jewellery is worth looking at.
-    // And we can always tell from the name if it's an artefact.
-    if (item.base_type == OBJ_JEWELLERY)
-        return (is_artefact(item) ? 2 : 1);
-
     if (item.base_type != OBJ_WEAPONS && item.base_type != OBJ_ARMOUR
-        && item.base_type != OBJ_MISSILES)
+        && item.base_type != OBJ_MISSILES && item.base_type != OBJ_JEWELLERY)
     {
         return 0;
-    }
-    if (item_type_known(item))
-    {
-        if (is_artefact(item))
-            return 2;
-
-        // XXX Unite with l_item_branded() in clua.cc
-        bool branded = false;
-        switch (item.base_type)
-        {
-        case OBJ_WEAPONS:
-            branded = get_weapon_brand(item) != SPWPN_NORMAL;
-            break;
-        case OBJ_ARMOUR:
-            branded = get_armour_ego_type(item) != SPARM_NORMAL;
-            break;
-        case OBJ_MISSILES:
-            branded = get_ammo_brand(item) != SPMSL_NORMAL;
-            break;
-        default:
-            break;
-        }
-        return (branded ? 1 : 0);
-    }
-
-    std::string itname = item.name(DESC_PLAIN, false, false, false);
-    lowercase(itname);
-
-    // FIXME Maybe we should replace this with a test of ISFLAG_COSMETIC_MASK?
-    const bool item_runed = itname.find("runed ") != std::string::npos;
-    const bool heav_runed = itname.find("heavily ") != std::string::npos;
-    const bool item_glows = itname.find("glowing") != std::string::npos;
-
-    if (item_glows || item_runed && !heav_runed
-        || get_equip_desc(item) == ISFLAG_EMBROIDERED_SHINY)
-    {
-        return 1;
     }
 
     // You can tell something is an artefact, because it'll have a
     // description which rules out anything else.
-    // XXX: Fixedarts and unrandarts might upset the apple-cart, though.
     if (is_artefact(item))
         return 2;
 
+    // All unknown jewellery is worth looking at.
+    if (item.base_type == OBJ_JEWELLERY)
+    {
+        if (is_useless_item(item))
+            return 0;
+
+        return 1;
+    }
+
+    if (item_type_known(item))
+    {
+        if (item_is_branded(item))
+            return 1;
+        return 0;
+    }
+
+    if (item.flags & ISFLAG_COSMETIC_MASK)
+        return 1;
+
     return 0;
+}
+
+static void _maybe_give_corpse_hint(const item_def item)
+{
+    if (!crawl_state.game_is_hints_tutorial())
+        return;
+
+    if (item.base_type == OBJ_CORPSES && item.sub_type == CORPSE_BODY
+        && you.has_spell(SPELL_ANIMATE_SKELETON))
+    {
+        learned_something_new(HINT_ANIMATE_CORPSE_SKELETON);
+    }
 }
 
 void item_check(bool verbose)
@@ -713,6 +716,7 @@ void item_check(bool verbose)
         item_def it(*items[0]);
         std::string name = get_menu_colour_prefix_tags(it, DESC_NOCAP_A);
         strm << "You see here " << name << '.' << std::endl;
+        _maybe_give_corpse_hint(it);
         return;
     }
 
@@ -766,6 +770,7 @@ void item_check(bool verbose)
             item_def it(*items[i]);
             std::string name = get_menu_colour_prefix_tags(it, DESC_NOCAP_A);
             strm << name << std::endl;
+            _maybe_give_corpse_hint(it);
         }
     }
     else if (!done_init_line)
@@ -1268,7 +1273,7 @@ void pickup(bool partial_quantity)
                                                  DESC_NOCAP_A).c_str());
 
                 mouse_control mc(MOUSE_MODE_MORE);
-                keyin = getch();
+                keyin = getchk();
             }
 
             if (keyin == '*' || keyin == '?' || keyin == ',' || keyin == 'g'
@@ -1387,18 +1392,6 @@ bool items_similar(const item_def &item1, const item_def &item2, bool ignore_ide
 
     if ((item1.flags & NON_IDENT_FLAGS) != (item2.flags & NON_IDENT_FLAGS))
         return (false);
-
-    if (item1.base_type == OBJ_POTIONS)
-    {
-        // Thanks to mummy cursing, we can have potions of decay
-        // that don't look alike... so we don't stack potions
-        // if either isn't identified and they look different.  -- bwr
-        if (item1.plus != item2.plus
-            && (!item_type_known(item1) || !item_type_known(item2)))
-        {
-            return (false);
-        }
-    }
 
     // The inscriptions can differ if one of them is blank, but if they
     // are differing non-blank inscriptions then don't stack.
@@ -1525,6 +1518,9 @@ static void _got_item(item_def& item, int quant)
 {
     seen_item(item);
     shopping_list.cull_identical_items(item);
+
+    if (item.props.exists("needs_autopickup"))
+        item.props.erase("needs_autopickup");
 
     if (!item_is_rune(item))
         return;
@@ -1735,6 +1731,7 @@ int move_item_to_player(int obj, int quant_got, bool quiet,
         item.slot = index_to_letter(item.link);
 
     ash_id_item(item);
+
     note_inscribe_item(item);
 
     item.quantity = quant_got;
@@ -1829,6 +1826,9 @@ bool move_item_to_grid(int *const obj, const coord_def& p, bool silent)
         return (true);
     }
 
+    if (you.religion == GOD_ASHENZARI && you.see_cell(p))
+        ash_id_item(item);
+
     // If it's a stackable type...
     if (is_stackable_item(item))
     {
@@ -1919,11 +1919,8 @@ bool copy_item_to_grid(const item_def &item, const coord_def& p,
 
     if (feat_destroys_item(grd(p), item, !silenced(p) && !silent))
     {
-        if (item.base_type == OBJ_BOOKS && item.sub_type != BOOK_MANUAL
-            && item.sub_type != BOOK_DESTRUCTION)
-        {
+        if (item_is_spellbook(item))
             destroy_spellbook(item);
-        }
 
         item_was_destroyed(item, NON_MONSTER);
 
@@ -2092,7 +2089,7 @@ bool drop_item(int item_dropped, int quant_drop)
 
     if (item_dropped == you.equip[EQ_WEAPON]
         && you.inv[item_dropped].base_type == OBJ_WEAPONS
-        && you.inv[item_dropped] .cursed())
+        && you.inv[item_dropped].cursed())
     {
         mpr("That object is stuck to you!");
         return (false);
@@ -2476,6 +2473,9 @@ bool item_needs_autopickup(const item_def &item)
 {
     if (item_is_stationary(item))
         return (false);
+
+    if (item.props.exists("needs_autopickup"))
+        return (true);
 
     if (item.inscription.find("=g") != std::string::npos)
         return (true);
@@ -3006,9 +3006,7 @@ bool item_is_melded(const item_def& item)
 
 bool item_def::has_spells() const
 {
-    return ((base_type == OBJ_BOOKS && item_type_known(*this)
-               && sub_type != BOOK_DESTRUCTION
-               && sub_type != BOOK_MANUAL)
+    return (item_is_spellbook(*this) && item_type_known(*this)
             || count_staff_spells(*this, true) > 1);
 }
 
@@ -3410,7 +3408,7 @@ static void _rune_or_deck_from_specs(const char* specs, item_def &item)
 {
     if (strstr(specs, "rune"))
         _rune_from_specs(specs, item);
-    else if (strstr(specs, "deck"))
+    else if (strstr(specs, "deck") || strstr(specs, "card"))
         _deck_from_specs(specs, item);
 }
 
@@ -3825,7 +3823,7 @@ item_info get_item_info(const item_def& item)
         ii.special = item.special; // appearance
         break;
     case OBJ_BOOKS:
-        if (item_type_known(item) || item.sub_type == BOOK_MANUAL || item.sub_type == BOOK_DESTRUCTION)
+        if (item_type_known(item) || !item_is_spellbook(item))
             ii.sub_type = item.sub_type;
         ii.special = item.special; // appearance
         break;
@@ -3853,7 +3851,7 @@ item_info get_item_info(const item_def& item)
             if (item.sub_type >= MISC_DECK_OF_ESCAPE && item.sub_type <= MISC_DECK_OF_DEFENCE)
                 ii.sub_type = MISC_DECK_OF_ESCAPE;
             else if (item.sub_type >= MISC_CRYSTAL_BALL_OF_ENERGY && item.sub_type <= MISC_CRYSTAL_BALL_OF_SEEING)
-                ii.sub_type = MISC_CRYSTAL_BALL_OF_FIXATION;
+                ii.sub_type = MISC_CRYSTAL_BALL_OF_ENERGY;
             else if (item.sub_type >= MISC_BOX_OF_BEASTS && item.sub_type <= MISC_EMPTY_EBONY_CASKET)
                 ii.sub_type = MISC_BOX_OF_BEASTS;
             else

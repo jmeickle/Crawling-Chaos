@@ -187,7 +187,7 @@ public:
                           bool abyss_shift = false,
                           bool wizard_tele = false) = 0;
     virtual void poison(actor *attacker, int amount = 1, bool force = false) = 0;
-    virtual bool sicken(int amount) = 0;
+    virtual bool sicken(int amount, bool allow_hint = true) = 0;
     virtual void paralyse(actor *attacker, int strength) = 0;
     virtual void petrify(actor *attacker, int strength) = 0;
     virtual void slow_down(actor *attacker, int strength) = 0;
@@ -227,9 +227,9 @@ public:
 
     virtual mon_holy_type holiness() const = 0;
     virtual bool undead_or_demonic() const = 0;
-    virtual bool is_holy() const = 0;
-    virtual bool is_unholy() const = 0;
-    virtual bool is_evil() const = 0;
+    virtual bool is_holy(bool spells = true) const = 0;
+    virtual bool is_unholy(bool spells = true) const = 0;
+    virtual bool is_evil(bool spells = true) const = 0;
     virtual bool is_chaotic() const = 0;
     virtual bool is_artificial() const = 0;
     virtual bool is_unbreathing() const = 0;
@@ -254,9 +254,14 @@ public:
 
     virtual flight_type flight_mode() const = 0;
     virtual bool is_levitating() const = 0;
-    virtual bool is_wall_clinging() const = 0;
-    virtual bool can_cling_to(const coord_def& p) const = 0;
+    virtual bool is_wall_clinging() const;
+    virtual bool can_cling_to_walls() const = 0;
+    virtual bool can_cling_to(const coord_def& p) const;
+    virtual void check_clinging(bool stepped);
+    virtual void clear_clinging();
     virtual bool airborne() const;
+    virtual bool ground_level() const;
+    virtual bool stand_on_solid_ground() const;
 
     virtual bool paralysed() const = 0;
     virtual bool cannot_move() const = 0;
@@ -305,6 +310,8 @@ public:
     virtual bool     do_shaft() = 0;
 
     coord_def position;
+
+    CrawlHashTable props;
 
 protected:
     // These are here for memory management reasons...

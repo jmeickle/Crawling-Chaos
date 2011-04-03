@@ -34,7 +34,7 @@ Once a mighty and renowned Titan, his arrogance was his undoing. Now he is corru
 %%%%
 Asmodeus
 
-One of the arch-demons who dwell in the depths of Hell.
+One of the arch-demons who dwell in the depths of Hell, wreathed in fire.
 %%%%
 Azrael
 
@@ -148,6 +148,12 @@ A tough-looking gnoll, wearing the pelt of one of his former war dogs.
 Harold
 
 A middle aged bounty hunter, hired to kill you. He is in a hurry.
+%%%%
+Ignacio
+
+While a mortal cannot turn into a demon aside from divine intervention, this is what happened to Ignacio after Makhleb saw his love for his job and smiled upon him. He is now slated to continue the joy of his life for all eternity.
+
+Although his new form includes a number of large razor-sharp blades growing from his demonic appendages, he kept his favourite axe and is eager to let you test its edge.
 %%%%
 Ijyb
 
@@ -307,14 +313,14 @@ Terence
 
 A mean-looking human fighter who likes to kill, and not much else.
 %%%%
+Terpsichore
+
+A spectre of unearthly beauty, dancing through the air without stopping to rest or take a bow.
+%%%%
 Tiamat
 
 A powerful dragon with mighty wings. Her scales seem to shimmer and change colour as you watch.
 
-%%%%
-Tukima
-
-A spectre of unearthly beauty, dancing through the air without stopping to rest or take a bow.
 %%%%
 Urug
 
@@ -357,7 +363,7 @@ A spirit drawn from the elemental plane of air. It exists in this world as a swi
 %%%%
 alligator
 
-A reptile that's quite happy to ignore you. If you don't, or you get too close, it'll put on a great burst of speed and crush you in its massive jaws!
+A huge reptile. It hides in water and waits patiently for its prey to get too close, at which point it puts on a great burst of speed and crushes its victim with massive jaws.
 %%%%
 alligator snapping turtle
 
@@ -385,7 +391,7 @@ A placid, sacred bull of Elyvilon. Beware, evildoers, as surely it will turn on 
 %%%%
 azure jelly
 
-A frosty blob of bright blue cytoplasm.
+An extremely cold blob of bright blue cytoplasm, forming bits of frost in the air around it.
 %%%%
 baby alligator
 
@@ -402,10 +408,6 @@ A lumpy reddish fungus covered in knobbly rhizome growths, growing well in the d
 Balrug
 
 A huge and very powerful demon, wreathed in fire and shadows.
-%%%%
-bear
-
-A common cave bear. If provoked, it may become angry!
 %%%%
 beast
 
@@ -554,7 +556,7 @@ A small dragon, radiating pestilence.
 %%%%
 death ooze
 
-A putrid mass of decaying flesh.
+A putrid undead mass of decaying flesh, rife with pestilence.
 %%%%
 death yak
 
@@ -610,7 +612,7 @@ While not a natural habitat for most elven-kind, the deep elves managed to settl
 %%%%
 deep elf sorcerer
 
-Most of these mighty spellcasters draw power from the very Hells, but even those who don't possess lethal arcane abilities.
+Most of these mighty spellcasters draw power from the very Hells, but even those who don't possess lethal arcane abilities of destruction and summoning.
 %%%%
 deep elf summoner
 
@@ -642,7 +644,7 @@ An armoured deep dwarf, formidable in melee combat.
 %%%%
 deep troll
 
-A stooped troll.
+A stooped troll with dark skin.
 %%%%
 demigod
 
@@ -674,7 +676,7 @@ While formidable in combat, this draconian specializes in summoning hordes of dr
 %%%%
 draconian knight
 
-Protected by both its thick scales and its skill in use of weapons and armour, this draconian is a dangerous opponent.
+Protected by both its thick scales and its skill in use of weapons and armour, this draconian is a dangerous opponent. It complements its abilities in combat with powerful magic.
 %%%%
 draconian monk
 
@@ -748,7 +750,7 @@ A two-headed giant, able to land devastating blows left and right.
 %%%%
 Executioner
 
-A horribly powerful demon.
+A horribly powerful and swift demon, its shape obscured by a cloud of swirling scythe-like blades.
 %%%%
 eye of devastation
 
@@ -765,6 +767,10 @@ This feline has been given sentience with magic. It uses the gift of speech to d
 fiend
 
 One of the most fearsome denizens of any Hell. A huge and powerful demon wreathed in hellfire, with great scaly wings.
+%%%%
+fire bat
+
+A bat whose leathery body burns with a hot flame.
 %%%%
 fire crab
 
@@ -810,6 +816,10 @@ forest wyrm
 
 This enormous serpent wends its way through the wood without regard for collateral damage. Its scaly coils seem to go on forever.
 %%%%
+fruity bat
+
+An ugly, silly bat. It sparkles.
+%%%%
 fungus
 
 A lumpy grey fungus, growing well in the dank underground dungeon.
@@ -822,9 +832,13 @@ ghost moth
 
 A vile interdimensional predator that feeds on the life force of living beings. The few who have seen one and lived say it resembles an enormous spiny moth. Its bizarre lifecycle involves the production of ambrosia, much valued by gods and wizards.
 %%%%
+ghost-faced bat
+
+Does this bat merely possess the visage of a ghost, or is it a ghost itself?
+%%%%
 ghoul
 
-An undead humanoid creature, created from a decaying corpse by some unholy means of necromancy. It exists to spread disease and decay, and gains power from decaying corpses in the same way a necrophage does.
+An undead humanoid creature with vicious claws, created from a decaying corpse by some unholy means of necromancy. It exists to spread disease and decay, and gains power from decaying corpses in the same way a necrophage does.
 %%%%
 giant amoeba
 
@@ -856,7 +870,7 @@ A large brown cockroach. I call him 'Gregor'.
 %%%%
 giant eyeball
 
-A giant eyeball, with a captivating stare.
+A giant floating eyeball, with a captivating gaze.
 %%%%
 giant firefly
 
@@ -892,7 +906,7 @@ Several times the size of a normal newt, but still not really impressive.
 %%%%
 giant orange brain
 
-A huge wrinkled brain, floating just off the floor. Every now and then it seems to pulsate.
+A huge wrinkled brain, floating just off the floor and glowing with mutagenic energies. Every now and then it seems to pulsate.
 %%%%
 emperor scorpion
 
@@ -905,6 +919,10 @@ A huge and disgusting gastropod.
 giant spore
 
 A volatile floating ball of spores, covered in knobbly rhizome growths.
+%%%%
+giga bat
+
+A huge, bloated bat.
 %%%%
 gila monster
 
@@ -928,7 +946,7 @@ A short, ugly and unfriendly humanoid:  squat, broad, flat-nosed, sallow-skinned
 %%%%
 golden dragon
 
-A great dragon covered in shining golden scales.
+A great dragon covered in shining golden scales. Legends say that their blood runs both hot and cold.
 %%%%
 golden eye
 
@@ -1058,6 +1076,10 @@ hydra
 
 A great reptilian beast, distantly related to the dragon. It has many heads, and the potential to grow many more!
 %%%%
+ice bat
+
+An undead creature in the shape of a bat, made of ice.
+%%%%
 ice beast
 
 A terrible creature, formed of snow and crystalline ice. Its feet leave puddles of icy water on the floor.
@@ -1096,7 +1118,7 @@ A hideous humanoid figure with metal skin. While it lacks magical attacks and is
 %%%%
 iron dragon
 
-A very heavy and apparently flightless dragon.
+A very heavy and apparently flightless dragon. It is named for its scales, which are so tough they might be iron.
 %%%%
 iron elemental
 
@@ -1238,6 +1260,10 @@ metal gargoyle
 
 A hideous metal statue come to life.
 %%%%
+microbat
+
+A bat that, unlike its name, is not any smaller than megabats.
+%%%%
 midge
 
 A small flying demon.
@@ -1264,7 +1290,7 @@ Before you stands a scale-covered humanoid with a reptilian tail and small wings
 %%%%
 mottled dragon
 
-A small dragon with strangely mottled scales.
+A small dragon with strangely mottled scales, its mouth dripping with a strange liquid flame.
 %%%%
 mummy
 
@@ -1400,6 +1426,10 @@ phantom
 
 A transparent man-like undead spirit.
 %%%%
+phase bat
+
+This bat travels through more dimensions than the average bat.
+%%%%
 phoenix
 
 A bird of myth and legend, said to die in flames and be reborn from the ashes.
@@ -1438,7 +1468,7 @@ A ravenous and incredibly buggy monster. Please report its existence to the DevT
 %%%%
 pulsating lump
 
-A revolting glob of writhing flesh.
+A revolting mutagenic glob of writhing flesh.
 %%%%
 purple draconian
 
@@ -1506,6 +1536,10 @@ rock worm
 
 A large worm which moves through rock as if it were air.
 %%%%
+rotten bat
+
+I guess this bat is well past its sell-by date.
+%%%%
 rotting devil
 
 A hideous decaying form.
@@ -1569,6 +1603,10 @@ shapeshifter
 
 A disturbing creature with the power to change its form. It is very rarely observed alive in its natural state.
 %%%%
+shark
+
+A sharp-toothed predatory fish.
+%%%%
 shedu
 
 These dangerous divine guardians always travel in pairs. Each has the ability to heal the other and, if the worst is to occur, can even resurrect it.
@@ -1602,6 +1640,10 @@ A young woman with a fish tail in place of legs. Sirens are capable of casting a
 sixfirhy
 
 A small vile creature that moves in bursts, stopping then darting with lightning speed. It seems to throw sparks all around.
+%%%%
+skeletal bat
+
+A bat skeleton without the decency to lie unmoving like dead bats are supposed to.
 %%%%
 skeletal warrior
 
@@ -1669,7 +1711,7 @@ A hideous glowing apparition.
 %%%%
 sphinx
 
-A large creature with a human head, the body of a lion, and the wings of a huge bird.
+A large creature with a human head, the body of a lion, and the wings of a huge bird, wielding dangerous hexes.
 %%%%
 spider
 
@@ -1690,6 +1732,10 @@ The soul of a holy creature, reft from its body. It is a timid creature, but as 
 spriggan
 
 A small humanoid, resembling a human or elf except for the size. They move at a great speed, and love playing dirty tricks on people.
+%%%%
+spriggan air mage
+
+Ever noticed the wind always blows in your eyes and in the backs of some? These guys have something to do with that.
 %%%%
 spriggan assassin
 
@@ -1820,7 +1866,7 @@ A powerful blood-drinking undead.
 %%%%
 vampire knight
 
-A powerful warrior, with skills undiminished by undeath.
+A powerful warrior, with skills undiminished by undeath. It complements its combat prowess with powerful enchantments.
 %%%%
 vampire mage
 
@@ -1920,7 +1966,7 @@ Before you stands a scale-covered humanoid with a reptilian tail and small wings
 %%%%
 yellow wasp
 
-A giant wasp covered with thick plates of yellow chitinous armour.
+A giant wasp covered with thick plates of yellow chitinous armour. Its deadly venom can render a grown man unable to move.
 %%%%
 ynoxinul
 

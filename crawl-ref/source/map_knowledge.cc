@@ -38,6 +38,8 @@ void set_terrain_changed(int x, int y)
     dungeon_events.fire_position_event(DET_FEAT_CHANGE, coord_def(x, y));
 
     los_terrain_changed(coord_def(x,y));
+
+    check_clinging();
 }
 
 void set_terrain_mapped(int x, int y)
@@ -91,8 +93,12 @@ void clear_map(bool clear_detected_items, bool clear_detected_monsters)
 static void _automap_from(int x, int y, int mutated)
 {
     if (mutated)
-        magic_mapping(8 * mutated, 25, true, you.religion == GOD_ASHENZARI,
+    {
+        magic_mapping(8 * mutated,
+                      you.religion == GOD_ASHENZARI ? 25 + you.piety / 8 : 25,
+                      true, you.religion == GOD_ASHENZARI,
                       true, true, coord_def(x,y));
+    }
 }
 
 static int _map_quality()

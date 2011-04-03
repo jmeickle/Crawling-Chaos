@@ -1,7 +1,7 @@
-/*
- *  File:     spl-clouds.cc
- *  Summary:  Cloud creating spells.
- */
+/**
+ * @file
+ * @brief Cloud creating spells.
+**/
 
 #include "AppHdr.h"
 
@@ -89,7 +89,7 @@ bool conjure_flame(int pow, const coord_def& where)
     monster* mons = monster_at(where);
     if (mons)
     {
-        if (you.can_see(mons))
+        if (you.can_see(mons) && !mons_is_unknown_mimic(mons))
         {
             mpr("You can't place the cloud on a creature.");
             return (false);
@@ -212,6 +212,11 @@ void manage_fire_shield(int delay)
     you.duration[DUR_FIRE_SHIELD]-= delay;
     if (you.duration[DUR_FIRE_SHIELD] < 0)
         you.duration[DUR_FIRE_SHIELD] = 0;
+
+    // Remove fire clouds on top of you
+    if (env.cgrid(you.pos()) != EMPTY_CLOUD)
+        if (env.cloud[env.cgrid(you.pos())].type == CLOUD_FIRE)
+            delete_cloud_at(you.pos());
 
     if (!you.duration[DUR_FIRE_SHIELD])
     {

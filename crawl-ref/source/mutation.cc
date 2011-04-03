@@ -1,8 +1,7 @@
-/*
- *  File:       mutation.cc
- *  Summary:    Functions for handling player mutations.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Functions for handling player mutations.
+**/
 
 #include "AppHdr.h"
 #include "mutation.h"
@@ -26,6 +25,7 @@
 #include "delay.h"
 #include "defines.h"
 #include "dgn-actions.h"
+#include "coord.h"
 #include "effects.h"
 #include "env.h"
 #include "format.h"
@@ -173,7 +173,7 @@ formatted_string describe_mutations()
     std::string scale_type = "plain brown";
 
     // center title
-    int offset = 39 - strlen(mut_title) / 2;
+    int offset = 39 - strwidth(mut_title) / 2;
     if (offset < 0) offset = 0;
 
     result += std::string(offset, ' ');
@@ -276,7 +276,7 @@ formatted_string describe_mutations()
         break;
 
     case SP_PURPLE_DRACONIAN:
-        result += "You can breathe bolts of incandescent energy.\n";
+        result += "You can breathe bolts of energy.\n";
         result += "You can dispel enchantments when you breathe energy.\n";
         scale_type = "rich purple";
         have_any = true;
@@ -291,7 +291,7 @@ formatted_string describe_mutations()
 
     case SP_PALE_DRACONIAN:
         result += "You can breathe blasts of scalding steam.\n";
-        scale_type = "pale grey";
+        scale_type = "pale cyan-grey";
         have_any = true;
         break;
 
@@ -361,13 +361,12 @@ formatted_string describe_mutations()
     {
         // Draconians are large for the purposes of armour, but only medium for
         // weapons and carrying capacity.
-        int ac = 3 + (you.experience_level / 3);
         std::ostringstream num;
-        num << ac;
+        num << 3 + you.experience_level / 3;
         result += "Your " + scale_type + " scales are hard (AC +" + num.str() + ").\n";
-        have_any = true;
 
         result += "Your body does not fit into most forms of armour.\n";
+        have_any = true;
     }
 
     result += "</lightblue>";
@@ -1212,8 +1211,13 @@ bool mutate(mutation_type which_mutation, bool failMsg,
         break;
 
     case MUT_HORNS:
-    case MUT_BEAK:
     case MUT_ANTENNAE:
+        // Horns & Antennae 3 removes all headgear.  Same algorithm as with
+        // glove removal.
+        if (you.mutation[mutat] >= 3 && !you.melded[EQ_HELMET])
+            remove_one_equip(EQ_HELMET, false, true);
+        // Intentional fall-through
+    case MUT_BEAK:
         // Horns, beaks, and antennae force hard helmets off.
         if (you.equip[EQ_HELMET] != -1
             && is_hard_helmet(you.inv[you.equip[EQ_HELMET]])
@@ -1795,8 +1799,6 @@ bool perma_mutate(mutation_type which_mut, int how_much)
 {
     ASSERT(is_valid_mutation(which_mut));
 
-    int levels = 0;
-
     how_much = std::min(static_cast<short>(how_much),
                         get_mutation_def(which_mut).levels);
 
@@ -1807,9 +1809,13 @@ bool perma_mutate(mutation_type which_mut, int how_much)
         rc = _handle_conflicting_mutations(which_mut, true);
     ASSERT(rc == 0);
 
+    int levels = 0;
     while (how_much-- > 0)
-        if (mutate(which_mut, false, true, false, false, true))
+        if (you.mutation[which_mut] > you.innate_mutations[which_mut]
+            || mutate(which_mut, false, true, false, false, true))
+        {
             levels++;
+        }
 
     you.innate_mutations[which_mut] += levels;
 
@@ -1970,6 +1976,19 @@ void check_antennae_detect()
                 if (you.religion == GOD_ASHENZARI && !player_under_penance())
                     mc = ash_monster_tier(mon);
                 env.map_knowledge(*ri).set_detected_monster(mc);
+
+                if (mc == MONS_SENSED_TRIVIAL || mc == MONS_SENSED_EASY
+                    || testbits(mon->flags, MF_SENSED))
+                {
+                    continue;
+                }
+
+                for (radius_iterator ri2(mon->pos(), 2, C_SQUARE); ri2; ++ri2)
+                    if (you.see_cell(*ri2))
+                    {
+                        mon->flags |= MF_SENSED;
+                        interrupt_activity(AI_SENSE_MONSTER);
+                    }
             }
         }
     }

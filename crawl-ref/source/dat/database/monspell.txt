@@ -4,7 +4,7 @@
 #
 # 1) If the monster is a wizard or priest which has been polymorphed into
 #    a wizard without hands which is trying to cast a spell it kept across
-#    the polymporh, then the first key will be "polymorphed wizard" or
+#    the polymorph, then the first key will be "polymorphed wizard" or
 #    "polymorphed priest".
 # 2) The name of the spell being cast:
 #   a) If being cast by a wizard or priest monster with arms, first try
@@ -60,6 +60,14 @@ Animate Dead cast gestures
 @The_monster@ gestures at the surrounding area.
 
 @The_monster@ throws @possessive@ @arms@ wide.
+%%%%
+Flame Tongue cast
+
+@The_monster@ issues a gush of flame.
+
+@The_monster@ emits a jet of flame.
+
+@The_monster@ lets out a tongue of flame.
 %%%%
 Lesser Healing cast real
 
@@ -169,14 +177,14 @@ unseen Holy Flames cast
 
 Blessed flames are called forth!
 %%%%
-Tukima's Dance Party cast
+Tukima's Ball
 
 @The_monster@ hums a lilting melody.
 
 @The_monster@ sings a lively tune!
 
 %%%%
-unseen Tukima's Dance Party cast
+unseen Tukima's Ball
 
 You hear someone hum a lilting melody!
 
@@ -296,7 +304,7 @@ You see a slight glow in a spot of thin air.
 Someone prays in loud words.
 
 %%%%
-Tukima cast targeted
+Terpsichore cast targeted
 
 @The_monster@ looks at @target@ while chanting.
 
@@ -305,18 +313,18 @@ Tukima cast targeted
 @The_monster@ casts a spell at @target@.
 
 %%%%
-Tukima cast
+Terpsichore cast
 
-Tukima weaves a pattern with her spectral knives.
+@The_monster@ weaves a pattern with her spectral knives.
 
-Tukima jumps to perform a pas de chat.
+@The_monster@ jumps to perform a pas de chat.
 
-Tukima leaps into a pas de poisson!
+@The_monster@ leaps into a pas de poisson!
 
-Tukima performs a soubresaut!
+@The_monster@ performs a soubresaut!
 
 %%%%
-unseen Tukima cast
+unseen Terpsichore cast
 
 You hear spectral shoes clatter against the floor.
 
@@ -377,6 +385,8 @@ You hear a roar.
 curse skull cast
 
 @The_monster@ rattles @possessive@ jaw.
+%%%%
+silent curse skull cast
 
 @The_monster@ casts a spell.
 %%%%

@@ -1,9 +1,9 @@
-/*
- * File:     showsymb.cc
- * Summary:  Rendering of map_cell to glyph and colour.
+/**
+ * @file
+ * @brief Rendering of map_cell to glyph and colour.
  *
  * This only needs the information within one object of type map_cell.
- */
+**/
 
 #include "AppHdr.h"
 
@@ -90,8 +90,11 @@ unsigned short _cell_feat_show_colour(const map_cell& cell, bool coloured)
     if (feat == DNGN_SHALLOW_WATER && player_in_branch(BRANCH_SHOALS))
         colour = ETC_WAVES;
 
-    if (feat_has_solid_floor(feat) && cell.flags & MAP_LIQUEFIED)
+    if (feat_has_solid_floor(feat) && !feat_is_water(feat)
+        && cell.flags & MAP_LIQUEFIED)
+    {
         colour = ETC_LIQUEFIED;
+    }
 
     if (feat >= DNGN_FLOOR_MIN && feat <= DNGN_FLOOR_MAX)
     {
@@ -117,6 +120,9 @@ static int _get_mons_colour(const monster_info& mi)
 
     if (mi.is(MB_BERSERK))
         col = RED;
+
+    if (mi.is(MB_MIRROR_DAMAGE))
+        col = ETC_NECRO;
 
     if (mi.attitude == ATT_FRIENDLY)
     {

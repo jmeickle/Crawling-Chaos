@@ -1,8 +1,7 @@
-/*
- *  File:       shopping.cc
- *  Summary:    Shop keeper functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Shop keeper functions.
+**/
 
 #include "AppHdr.h"
 
@@ -278,8 +277,8 @@ static std::string _shop_print_stock(const std::vector<int>& stock,
         else
             textcolor(i % 2 ? LIGHTGREY : WHITE);
 
-        cprintf("%-56s%5d gold",
-                item.name(DESC_NOCAP_A, false, id).substr(0, 56).c_str(),
+        cprintf("%s%5d gold",
+                chop_string(item.name(DESC_NOCAP_A, false, id), 56).c_str(),
                 gp_value);
 
         si.add_item(item, gp_value);
@@ -524,7 +523,7 @@ static bool _in_a_shop(int shopidx, int &num_in_list)
                 continue;
             else
             {
-                snprintf(info, INFO_SIZE, "Purchase for %d gold? (y/n) ",
+                snprintf(info, INFO_SIZE, "Purchase for %d gold? (y/n)",
                          total_purchase);
 
                 if (_shop_yesno(info, 'n'))
@@ -1745,7 +1744,6 @@ unsigned int item_value(item_def item, bool ident)
             case SCR_CURSE_ARMOUR:
             case SCR_CURSE_WEAPON:
             case SCR_CURSE_JEWELLERY:
-            case SCR_PAPER:
             case SCR_IMMOLATION:
                 valued++;
                 break;
@@ -1912,7 +1910,6 @@ unsigned int item_value(item_def item, bool ident)
                 valued += 400;
                 break;
 
-            case MISC_CRYSTAL_BALL_OF_FIXATION:
             case MISC_EMPTY_EBONY_CASKET:
                 valued += 20;
                 break;

@@ -1,8 +1,7 @@
-/*
- *  File:       items.h
- *  Summary:    Misc (mostly) inventory related functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc (mostly) inventory related functions.
+**/
 
 
 #ifndef ITEMS_H
@@ -75,6 +74,7 @@ bool player_on_single_stack();
 void pickup_menu(int item_link);
 void pickup(bool partial_quantity = false);
 
+bool item_is_branded(const item_def& item);
 int item_name_specialness(const item_def& item);
 void item_list_on_square(std::vector<const item_def*>& items,
                           int obj, bool force_squelch = false);

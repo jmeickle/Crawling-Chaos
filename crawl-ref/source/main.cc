@@ -1,8 +1,7 @@
-/*
- *  File:       main.cc
- *  Summary:    Main entry point, event loop, and some initialization functions
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Main entry point, event loop, and some initialization functions
+**/
 
 #include "AppHdr.h"
 
@@ -229,6 +228,7 @@ static void _handle_wizard_command(void);
 
 int main(int argc, char *argv[])
 {
+    setlocale(LC_ALL, "");
 #ifdef DEBUG_GLOBALS
     real_Options = new game_options();
     real_you = new player();
@@ -378,9 +378,6 @@ static void _launch_game()
        _announce_goal_message();
 
     _god_greeting_message(game_start);
-
-    // Warn player about their weapon, if unsuitable.
-    wield_warning(false);
 
     if (!crawl_state.game_is_tutorial())
         mpr("Press <w>?</w> for a list of commands and other information.");
@@ -587,10 +584,13 @@ static void _do_wizard_command(int wiz_command, bool silent_fail)
     case CONTROL('D'): wizard_edit_durations(); break;
     case CONTROL('E'): debug_dump_levgen(); break;
     case CONTROL('F'): debug_fight_statistics(false, true); break;
+#ifdef DEBUG_BONES
     case CONTROL('G'): debug_ghosts(); break;
+#endif
     case CONTROL('H'): wizard_set_hunger_state(); break;
     case CONTROL('I'): debug_item_statistics(); break;
     case CONTROL('L'): wizard_set_xl(); break;
+    case CONTROL('R'): wizard_recreate_level(); break;
     case CONTROL('T'): debug_terp_dlua(); break;
     case CONTROL('V'): wizard_toggle_xray_vision(); break;
     case CONTROL('X'): debug_xom_effects(); break;
@@ -648,12 +648,12 @@ static void _do_wizard_command(int wiz_command, bool silent_fail)
     case 'W': wizard_god_wrath();                    break;
 
     case 'x':
-        you.experience = 1 + exp_needed(2 + you.experience_level);
+        you.experience = 1 + exp_needed(1 + you.experience_level);
         level_change();
         break;
 
     case 's':
-        you.exp_available = FULL_EXP_POOL;
+        you.exp_available += HIGH_EXP_POOL;
         level_change();
         you.redraw_experience = true;
         break;
@@ -1185,6 +1185,9 @@ static void _input()
 
         crawl_state.waiting_for_command = false;
 
+        if (!crawl_state.is_replaying_keys())
+            you.elapsed_time_at_last_input = you.elapsed_time;
+
         if (cmd != CMD_PREV_CMD_AGAIN && cmd != CMD_NO_CMD
             && !crawl_state.is_replaying_keys())
         {
@@ -1332,11 +1335,20 @@ static void _go_upstairs()
     if (_marker_vetoes_stair())
         return;
 
+    if (you.burden_state == BS_OVERLOADED && !feat_is_escape_hatch(ygrd)
+        && !feat_is_gate(ygrd))
+    {
+        mpr("You are carrying too much to climb upwards.");
+        return;
+    }
+
     if (you.duration[DUR_MISLED])
     {
         mpr("Away from their source, illusions no longer mislead you.", MSGCH_DURATION);
         you.duration[DUR_MISLED] = 0;
     }
+
+    you.clear_clinging();
 
     tag_followers(); // Only those beside us right now can follow.
     start_delay(DELAY_ASCENDING_STAIRS,
@@ -1413,6 +1425,8 @@ static void _go_downstairs()
         you.duration[DUR_MISLED] = 0;
     }
 
+    you.clear_clinging();
+
     if (shaft)
     {
         start_delay(DELAY_DESCENDING_STAIRS, 0);
@@ -1437,10 +1451,10 @@ static void _experience_check()
 
     if (you.experience_level < 27)
     {
-        int xp_needed = (exp_needed(you.experience_level+2)-you.experience)+1;
+        int xp_needed = (exp_needed(you.experience_level+1)-you.experience)+1;
         mprf("Level %d requires %d experience (%d point%s to go!)",
               you.experience_level + 1,
-              exp_needed(you.experience_level + 2) + 1,
+              exp_needed(you.experience_level + 1) + 1,
               xp_needed,
               (xp_needed > 1) ? "s" : "");
     }
@@ -1693,7 +1707,10 @@ void process_command(command_type cmd)
 
 #ifdef CLUA_BINDINGS
     case CMD_AUTOFIGHT:
-        clua.callfn("hit_closest", 1, 1);
+        clua.callfn("hit_closest", 0, 0);
+        break;
+    case CMD_AUTOFIGHT_NOMOVE:
+        clua.callfn("hit_adjacent", 0, 0);
         break;
 #endif
     case CMD_REST:            _do_rest(); break;
@@ -1750,6 +1767,7 @@ void process_command(command_type cmd)
     case CMD_MOVE_NOWHERE:
     case CMD_SEARCH:
         search_around();
+        you.check_clinging(false);
         you.turn_is_over = true;
         break;
 
@@ -1838,9 +1856,7 @@ void process_command(command_type cmd)
         break;
 
     case CMD_CHARACTER_DUMP:
-        if (dump_char(you.your_name, false))
-            mpr("Char dumped successfully.");
-        else
+        if (!dump_char(you.your_name, false))
             mpr("Char dump unsuccessful! Sorry about that.");
         break;
 
@@ -1997,7 +2013,12 @@ static bool _decrement_a_duration(duration_type dur, int delay,
     if (you.duration[dur] <= midpoint && old_dur > midpoint)
     {
         if (midmsg)
-            mpr(midmsg, chan);
+        {
+            if (need_expiration_warning(dur))
+                mprf(MSGCH_DANGER, "Careful! %s", midmsg);
+            else
+                mpr(midmsg, chan);
+        }
         you.duration[dur] -= midloss * BASELINE_DELAY;
     }
 
@@ -2011,6 +2032,26 @@ static bool _decrement_a_duration(duration_type dur, int delay,
 
     return false;
 }
+
+static void _decrement_paralysis(int delay)
+{
+    _decrement_a_duration(DUR_PARALYSIS_IMMUNITY, delay);
+
+    if (you.duration[DUR_PARALYSIS] || you.petrified())
+    {
+        _decrement_a_duration(DUR_PARALYSIS, delay);
+        _decrement_a_duration(DUR_PETRIFIED, delay);
+
+        if (!you.duration[DUR_PARALYSIS] && !you.petrified())
+        {
+            mpr("You can move again.", MSGCH_DURATION);
+            you.redraw_evasion = true;
+            you.duration[DUR_PARALYSIS_IMMUNITY] = roll_dice(1, 3)
+                                                   * BASELINE_DELAY;
+        }
+    }
+}
+
 
 //  Perhaps we should write functions like: update_liquid_flames(), etc.
 //  Even better, we could have a vector of callback functions (or
@@ -2212,16 +2253,6 @@ static void _decrement_durations()
                           "Your poison resistance expires.", coinflip(),
                           "You start to feel less resistant to poison.");
 
-    if (_decrement_a_duration(DUR_STONEMAIL, delay,
-                              "Your scaly stone armour disappears.",
-                              coinflip(),
-                              "Your scaly stone armour is starting "
-                              "to flake away."))
-    {
-        you.redraw_armour_class = true;
-        burden_change();
-    }
-
     if (_decrement_a_duration(DUR_PHASE_SHIFT, delay,
                     "You are firmly grounded in the material plane once more.",
                     coinflip(),
@@ -2247,12 +2278,6 @@ static void _decrement_durations()
 
     if (_decrement_a_duration(DUR_CONDENSATION_SHIELD, delay))
         remove_condensation_shield();
-
-    if (you.duration[DUR_CONDENSATION_SHIELD] && player_res_cold() < 0)
-    {
-        mpr("You feel very cold.");
-        ouch(2 + random2avg(13, 2), NON_MONSTER, KILLED_BY_FREEZING);
-    }
 
     if (_decrement_a_duration(DUR_MAGIC_SHIELD, delay,
                               "Your magical shield disappears."))
@@ -2309,18 +2334,6 @@ static void _decrement_durations()
     }
     _decrement_a_duration(DUR_FINESSE, delay, "Your hands slow down.");
 
-    if (you.duration[DUR_PARALYSIS] || you.petrified())
-    {
-        _decrement_a_duration(DUR_PARALYSIS, delay);
-        _decrement_a_duration(DUR_PETRIFIED, delay);
-
-        if (!you.duration[DUR_PARALYSIS] && !you.petrified())
-        {
-            mpr("You can move again.", MSGCH_DURATION);
-            you.redraw_evasion = true;
-        }
-    }
-
     _decrement_a_duration(DUR_CONFUSING_TOUCH, delay,
                           ((std::string("Your ") + your_hand(true)) +
                           " stop glowing.").c_str());
@@ -2346,6 +2359,9 @@ static void _decrement_durations()
     dec_exhaust_player(delay);
     dec_haste_player(delay);
 
+    if (you.duration[DUR_LIQUEFYING] && !you.stand_on_solid_ground())
+        you.duration[DUR_LIQUEFYING] = 1;
+
     if (_decrement_a_duration(DUR_LIQUEFYING, delay, "The ground is no longer liquid beneath you."))
     {
         invalidate_agrid();
@@ -2369,11 +2385,12 @@ static void _decrement_durations()
         notify_stat_change(STAT_INT, -5, true, "brilliance running out");
     }
 
-    if (_decrement_a_duration(DUR_BERSERK, delay,
-                              "You are no longer berserk."))
+    if (you.duration[DUR_BERSERK]
+        && (_decrement_a_duration(DUR_BERSERK, delay)
+            || you.hunger <= HUNGER_STARVING + BERSERK_NUTRITION))
     {
-        //jmf: Guilty for berserking /after/ berserk.
-        did_god_conduct(DID_STIMULANTS, 6 + random2(6));
+        mpr("You are no longer berserk.");
+        you.duration[DUR_BERSERK] = 0;
 
         // Sometimes berserk leaves us physically drained.
         //
@@ -2428,8 +2445,8 @@ static void _decrement_durations()
 
         slow_player(dur);
 
-        make_hungry(700, true);
-        you.hunger = std::max(50, you.hunger);
+        make_hungry(BERSERK_NUTRITION, true);
+        you.hunger = std::max(HUNGER_STARVING, you.hunger);
 
         // 1KB: No berserk healing.
         you.hp = (you.hp + 1) * 2 / 3;
@@ -2477,7 +2494,7 @@ static void _decrement_durations()
             if (_decrement_a_duration(DUR_LEVITATION, delay,
                                       0,
                                       random2(6),
-                                      "You are starting to lose your buoyancy!"))
+                                      "You are starting to lose your buoyancy."))
             {
                 land_player();
             }
@@ -2553,10 +2570,13 @@ static void _decrement_durations()
             you.redraw_hit_points = true;
         }
 
-        _decrement_a_duration(DUR_DEATHS_DOOR, delay,
+        if (_decrement_a_duration(DUR_DEATHS_DOOR, delay,
                               "Your life is in your own hands again!",
                               random2(6),
-                              "Your time is quickly running out!");
+                              "Your time is quickly running out!"))
+        {
+            you.increase_duration(DUR_EXHAUSTED, roll_dice(1,3));
+        }
     }
 
     if (_decrement_a_duration(DUR_DIVINE_STAMINA, delay))
@@ -2578,6 +2598,18 @@ static void _decrement_durations()
 
     _decrement_a_duration(DUR_LIFESAVING, delay,
                           "Your divine protection fades away.");
+
+    if (_decrement_a_duration(DUR_DARKNESS, delay,
+                          "The ambient light returns to normal.")
+        || you.haloed())
+    {
+        if (you.duration[DUR_DARKNESS])
+        {
+            you.duration[DUR_DARKNESS] = 0;
+            mpr("The divine light dispels your darkness!");
+        }
+        update_vision_range();
+    }
 }
 
 static void _check_banished()
@@ -2713,7 +2745,8 @@ static void _player_reacts()
     if (!you.cannot_act() && !player_mutation_level(MUT_BLURRY_VISION)
         && x_chance_in_y(you.traps_skill(), 50))
     {
-        search_around(false); // Check nonadjacent squares too.
+        for (int i = div_rand_round(you.time_taken, player_speed()); i > 0; --i)
+            search_around(false); // Check nonadjacent squares too.
     }
 
     stealth = check_stealth();
@@ -2749,8 +2782,6 @@ static void _player_reacts()
 
     slime_wall_damage(&you, you.time_taken);
 
-    you.check_clinging();
-
     _decrement_durations();
 
     int capped_time = you.time_taken;
@@ -2765,7 +2796,6 @@ static void _player_reacts()
 
     _regenerate_hp_and_mp(capped_time);
 
-    // If you're wielding a rod, it'll gradually recharge.
     recharge_rods(you.time_taken, false);
 
     // Player stealth check.
@@ -2792,6 +2822,8 @@ static void _player_reacts_to_monsters()
                          (2 * BASELINE_DELAY), true);
 
     handle_starvation();
+    _decrement_paralysis(you.time_taken);
+
 }
 
 static void _update_golubria_traps()
@@ -2812,6 +2844,8 @@ void world_reacts()
 {
     // All markers should be activated at this point.
     ASSERT(!env.markers.need_activate());
+
+    update_monsters_in_view();
 
     reset_show_terrain();
 
@@ -2842,8 +2876,7 @@ void world_reacts()
         _player_reacts();
 
     apply_noises();
-    handle_monsters();
-    apply_noises();
+    handle_monsters(true);
 
     _check_banished();
 
@@ -3197,7 +3230,7 @@ static void _open_door(coord_def move, bool check_confused)
             door_move.delta = move;
         else
         {
-            mpr("Which direction? ", MSGCH_PROMPT);
+            mpr("Which direction?", MSGCH_PROMPT);
             direction_chooser_args args;
             args.restricts = DIR_DIR;
             direction(door_move, args);
@@ -3468,7 +3501,7 @@ static void _close_door(coord_def move)
             door_move.delta = move;
         else
         {
-            mpr("Which direction? ", MSGCH_PROMPT);
+            mpr("Which direction?", MSGCH_PROMPT);
             direction_chooser_args args;
             args.restricts = DIR_DIR;
             direction(door_move, args);
@@ -3737,14 +3770,6 @@ static void _move_player(coord_def move)
         return;
     }
 
-    // Checking if player will be clinging
-    // Changing "cling" status at this moment allows proper further evaluations
-    // of grid dangerousness. But, if movement is terminated further in this
-    // function, you have to call you.check_clinging() to restore former status.
-    // Most probably can be done in less awkward way.
-    if (you.is_wall_clinging())
-        you.clinging = you.can_cling_to(you.pos() + move);
-
     // When confused, sometimes make a random move
     if (you.confused())
     {
@@ -3763,12 +3788,11 @@ static void _move_player(coord_def move)
                                  "and next to ";
                         prompt += (dangerous == DNGN_LAVA ? "lava"
                                                           : "deep water");
-                        prompt += "? ";
+                        prompt += "?";
 
             if (!yesno(prompt.c_str(), false, 'n'))
             {
                 canned_msg(MSG_OK);
-                you.check_clinging();
                 return;
             }
         }
@@ -3789,7 +3813,6 @@ static void _move_player(coord_def move)
             apply_berserk_penalty = true;
             crawl_state.cancel_cmd_repeat();
 
-            you.check_clinging();
             return;
         }
     }
@@ -3798,10 +3821,7 @@ static void _move_player(coord_def move)
 
     // You can't walk out of bounds!
     if (!in_bounds(targ))
-    {
-        you.check_clinging();
         return;
-    }
 
     const dungeon_feature_type targ_grid = grd(targ);
     monster* targ_monst = monster_at(targ);
@@ -3853,7 +3873,6 @@ static void _move_player(coord_def move)
     {
         // [ds] Do we need this? Shouldn't it be false to start with?
         you.turn_is_over = false;
-        you.check_clinging();
         return;
     }
 
@@ -3918,7 +3937,6 @@ static void _move_player(coord_def move)
         {
             stop_running();
             you.turn_is_over = false;
-            you.check_clinging();
             return;
         }
 
@@ -3935,6 +3953,7 @@ static void _move_player(coord_def move)
 
         move_player_to_grid(targ, true, false);
 
+        you.check_clinging(true);
         you.walking = move.abs();
         you.prev_move = move;
         move.reset();
@@ -3951,17 +3970,13 @@ static void _move_player(coord_def move)
     else if (!targ_pass && grd(targ) == DNGN_TEMP_PORTAL && !attacking)
     {
         if (!_prompt_dangerous_portal(grd(targ)))
-        {
-            you.check_clinging();
             return;
-        }
 
         you.prev_move = move;
         move.reset();
         you.turn_is_over = true;
 
         entered_malign_portal(&you);
-        you.check_clinging();
         return;
     }
     else if (!targ_pass && !attacking)
@@ -3976,53 +3991,26 @@ static void _move_player(coord_def move)
         move.reset();
         you.turn_is_over = false;
         crawl_state.cancel_cmd_repeat();
-        you.check_clinging();
         return;
     }
     else if (beholder && !attacking)
     {
         mprf("You cannot move away from %s!",
             beholder->name(DESC_NOCAP_THE, true).c_str());
-        you.check_clinging();
         return;
     }
     else if (fmonger && !attacking)
     {
         mprf("You cannot move closer to %s!",
             fmonger->name(DESC_NOCAP_THE, true).c_str());
-        you.check_clinging();
         return;
     }
 
     if (you.running == RMODE_START)
         you.running = RMODE_CONTINUE;
 
-    if (you.level_type == LEVEL_ABYSS
-        && !map_bounds_with_margin(you.pos(),
-                                   MAPGEN_BORDER + ABYSS_AREA_SHIFT_RADIUS + 1))
-    {
-        dprf("Shifting abyss at (%d,%d)", you.pos().x, you.pos().y);
-
-        abyss_area_shift();
-        if (you.pet_target != MHITYOU)
-            you.pet_target = MHITNOT;
-
-#ifdef DEBUG_DIAGNOSTICS
-        int j = 0;
-        for (int i = 0; i < MAX_ITEMS; ++i)
-            if (mitm[i].defined())
-                ++j;
-
-        mprf(MSGCH_DIAGNOSTICS, "Number of items present: %d", j);
-
-        j = 0;
-        for (monster_iterator mi; mi; ++mi)
-            ++j;
-
-        mprf(MSGCH_DIAGNOSTICS, "Number of monsters present: %d", j);
-        mprf(MSGCH_DIAGNOSTICS, "Number of clouds present: %d", env.cloud_no);
-#endif
-    }
+    if (you.level_type == LEVEL_ABYSS)
+        maybe_shift_abyss_around_player();
 
     apply_berserk_penalty = !attacking;
 
@@ -4031,7 +4019,6 @@ static void _move_player(coord_def move)
     {
         did_god_conduct(DID_HASTY, 1, true);
     }
-    you.check_clinging();
 }
 
 

@@ -1,13 +1,13 @@
-/*
- *  File:       dbg-mon.cc
- *  Summary:    Monster related debugging functions.
- *  Written by: Linley Henzell and Jesse Jones
- */
+/**
+ * @file
+ * @brief Monster related debugging functions.
+**/
 
 #include "AppHdr.h"
 
 #include "wiz-mon.h"
 
+#include "abyss.h"
 #include "areas.h"
 #include "cio.h"
 #include "colour.h"
@@ -892,6 +892,9 @@ static void _move_player(const coord_def& where)
     if (!you.can_pass_through_feat(grd(where)))
         grd(where) = DNGN_FLOOR;
     move_player_to_grid(where, false, true);
+    // If necessary, update the Abyss.
+    if (you.level_type == LEVEL_ABYSS)
+        maybe_shift_abyss_around_player();
 }
 
 static void _move_monster(const coord_def& where, int mid1)
@@ -1324,6 +1327,7 @@ void debug_miscast(int target_index)
     delete miscast;
 }
 
+#ifdef DEBUG_BONES
 void debug_ghosts()
 {
     mpr("(C)reate or (L)oad bones file?", MSGCH_PROMPT);
@@ -1336,5 +1340,6 @@ void debug_ghosts()
     else
         canned_msg(MSG_OK);
 }
+#endif
 
 #endif

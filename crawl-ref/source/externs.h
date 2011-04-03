@@ -1,8 +1,7 @@
-/*
- *  File:       externs.h
- *  Summary:    Fixed size 2D vector class that asserts if you do something bad.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Fixed size 2D vector class that asserts if you do something bad.
+**/
 
 #ifndef EXTERNS_H
 #define EXTERNS_H
@@ -261,6 +260,7 @@ struct coord_def
         return (xi == x && yi == y);
     }
 };
+
 const coord_def INVALID_COORD(-1, -1);
 
 typedef bool (*coord_predicate)(const coord_def &c);

@@ -1,8 +1,7 @@
-/*
- *  File:       menu.cc
- *  Summary:    Menus and associated malarkey.
- *  Written by: Darshan Shaligram
- */
+/**
+ * @file
+ * @brief Menus and associated malarkey.
+**/
 
 #include "AppHdr.h"
 
@@ -64,8 +63,7 @@ void MenuDisplayText::draw_stock_item(int index, const MenuEntry *me)
     else
     {
         std::string text = me->get_text(needs_cursor);
-        if ((int) text.length() > get_number_of_cols())
-            text = text.substr(0, get_number_of_cols());
+        text = chop_string(text, get_number_of_cols());
         cprintf("%s", text.c_str());
     }
 }
@@ -640,10 +638,7 @@ bool Menu::draw_title_suffix(const std::string &s, bool titlefirst)
 
     // Note: 1 <= x <= get_number_of_cols(); we have no fear of overflow.
     unsigned avail_width = get_number_of_cols() - x + 1;
-    std::string towrite = s.length() > avail_width? s.substr(0, avail_width) :
-                          s.length() == avail_width? s :
-                                s + std::string(avail_width - s.length(), ' ');
-
+    std::string towrite = chop_string(s, avail_width);
     cprintf("%s", towrite.c_str());
 
     cgotoxy(oldx, oldy);
@@ -889,7 +884,7 @@ bool MonsterMenuEntry::get_tiles(std::vector<tile_def>& tileset) const
 
     MenuEntry::get_tiles(tileset);
 
-    const bool      fake = m->props.exists("fake");
+    const bool    fake = m->props.exists("fake");
     const coord_def c  = m->pos();
           tileidx_t ch = TILE_FLOOR_NORMAL;
 
@@ -1383,7 +1378,8 @@ int menu_colour(const std::string &text, const std::string &prefix,
 
 int MenuHighlighter::entry_colour(const MenuEntry *entry) const
 {
-    return entry->highlight_colour();
+    return (entry->colour != MENU_ITEM_STOCK_COLOUR ? entry->colour
+            : entry->highlight_colour());
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -2582,13 +2578,9 @@ void TextItem::render()
         textbackground(m_bg_colour);
         cprintf("%s", m_render_text.substr(newline_pos, endline_pos).c_str());
         if (endline_pos != std::string::npos)
-        {
             newline_pos = endline_pos + 1;
-        }
         else
-        {
             break;
-        }
     }
     // clear text background
     textbackground(BLACK);
@@ -3220,7 +3212,7 @@ MenuObject::InputReturnValue MenuFreeform::handle_mouse(const MouseEvent& me)
         }
         return INPUT_NO_ACTION;
     }
-    if (me.event == MouseEvent::RELEASE && me.button == MouseEvent::LEFT)
+    if (me.event == MouseEvent::PRESS && me.button == MouseEvent::LEFT)
     {
         find_item = _find_item_by_mouse_coords(coord_def(me.px,
                                                         me.py));
@@ -3724,7 +3716,7 @@ MenuObject::InputReturnValue MenuScroller::handle_mouse(const MouseEvent &me)
         return INPUT_NO_ACTION;
     }
 
-    if (me.event == MouseEvent::RELEASE && me.button == MouseEvent::LEFT)
+    if (me.event == MouseEvent::PRESS && me.button == MouseEvent::LEFT)
     {
         find_item = _find_item_by_mouse_coords(coord_def(me.px,
                                                         me.py));

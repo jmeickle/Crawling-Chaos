@@ -1,8 +1,7 @@
-/*
- *  File:       beam.cc
- *  Summary:    Functions related to ranged attacks.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Functions related to ranged attacks.
+**/
 
 #include "AppHdr.h"
 
@@ -39,7 +38,6 @@
 #include "fprop.h"
 #include "fight.h"
 #include "item_use.h"
-#include "it_use2.h"
 #include "items.h"
 #include "itemname.h"
 #include "itemprop.h"
@@ -57,6 +55,7 @@
 #include "mutation.h"
 #include "ouch.h"
 #include "player.h"
+#include "potion.h"
 #include "religion.h"
 #include "godconduct.h"
 #include "skills.h"
@@ -890,7 +889,7 @@ void bolt::fire_wall_effect()
                 emit_message(MSGCH_PLAIN, "You smell burning wood.");
             if (whose_kill() == KC_YOU)
                 did_god_conduct(DID_KILL_PLANT, 1, effect_known);
-            else if (whose_kill() == KC_FRIENDLY)
+            else if (whose_kill() == KC_FRIENDLY && !crawl_state.game_is_arena())
                 did_god_conduct(DID_PLANT_KILLED_BY_SERVANT, 1, effect_known);
             ASSERT(agent());
             place_cloud(CLOUD_FOREST_FIRE, pos(), random2(30)+25, agent());
@@ -1037,7 +1036,7 @@ void bolt::nuke_wall_effect()
     {
         if (whose_kill() == KC_YOU)
             did_god_conduct(DID_KILL_PLANT, 1);
-        else if (whose_kill() == KC_FRIENDLY)
+        else if (whose_kill() == KC_FRIENDLY && !crawl_state.game_is_arena())
             did_god_conduct(DID_PLANT_KILLED_BY_SERVANT, 1, effect_known, 0);
     }
 
@@ -1581,9 +1580,7 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
             }
         }
         else if (res <= 0 && doFlavouredEffects)
-        {
-            corrode_monster(mons);
-        }
+            corrode_monster(mons, pbolt.agent());
         break;
     }
 
@@ -1602,7 +1599,7 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
             }
         }
         else if (res <= 0 && doFlavouredEffects && !one_chance_in(3))
-            poison_monster(mons, pbolt.whose_kill());
+            poison_monster(mons, pbolt.agent());
 
         break;
     }
@@ -1620,11 +1617,11 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
                 // Poison arrow can poison any living thing regardless of
                 // poison resistance. - bwr
                 if (mons->has_lifeforce())
-                    poison_monster(mons, pbolt.whose_kill(), 2, true);
+                    poison_monster(mons, pbolt.agent(), 2, true);
             }
         }
         else if (doFlavouredEffects)
-            poison_monster(mons, pbolt.whose_kill(), 4);
+            poison_monster(mons, pbolt.agent(), 4);
 
         break;
 
@@ -1666,7 +1663,7 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
             if (!doFlavouredEffects)
                 return (hurted);
 
-            miasma_monster(mons, pbolt.whose_kill());
+            miasma_monster(mons, pbolt.agent());
 
             if (YOU_KILL(pbolt.thrower))
                 did_god_conduct(DID_UNCLEAN, 2, pbolt.effect_known);
@@ -1876,6 +1873,8 @@ static bool _monster_resists_mass_enchantment(monster* mons,
         return (true);
     }
 
+    // If monster was affected, then there was a message.
+    *did_msg = true;
     return (false);
 }
 
@@ -1883,7 +1882,7 @@ static bool _monster_resists_mass_enchantment(monster* mons,
 // If m_succumbed is non-NULL, will be set to the number of monsters that
 // were enchanted. If m_attempted is non-NULL, will be set to the number of
 // monsters that we tried to enchant.
-void mass_enchantment(enchant_type wh_enchant, int pow, int origin,
+void mass_enchantment(enchant_type wh_enchant, int pow,
                        int *m_succumbed, int *m_attempted)
 {
     bool did_msg = false;
@@ -1895,20 +1894,21 @@ void mass_enchantment(enchant_type wh_enchant, int pow, int origin,
 
     pow = std::min(pow, 200);
 
-    const kill_category kc = (origin == MHITYOU ? KC_YOU : KC_OTHER);
-
     for (monster_iterator mi(you.get_los()); mi; ++mi)
     {
         if (mi->has_ench(wh_enchant))
             continue;
 
-        if (m_attempted)
+        bool resisted = _monster_resists_mass_enchantment(*mi, wh_enchant,
+                                                          pow, &did_msg);
+
+        if (m_attempted && did_msg)
             ++*m_attempted;
 
-        if (_monster_resists_mass_enchantment(*mi, wh_enchant, pow, &did_msg))
+        if (resisted)
             continue;
 
-        if (mi->add_ench(mon_enchant(wh_enchant, 0, kc)))
+        if (mi->add_ench(mon_enchant(wh_enchant, 0, &you)))
         {
             if (m_succumbed)
                 ++*m_succumbed;
@@ -1927,7 +1927,7 @@ void mass_enchantment(enchant_type wh_enchant, int pow, int origin,
 
             // Extra check for fear (monster needs to reevaluate behaviour).
             if (wh_enchant == ENCH_FEAR)
-                behaviour_event(*mi, ME_SCARE, origin);
+                behaviour_event(*mi, ME_SCARE, MHITYOU);
         }
     }
 
@@ -1985,8 +1985,7 @@ void bolt::apply_bolt_petrify(monster* mons)
     }
 }
 
-static bool _curare_hits_monster(actor *agent, monster* mons,
-                                 kill_category who, int levels)
+static bool _curare_hits_monster(actor *agent, monster* mons, int levels)
 {
     if (!mons->alive())
         return (false);
@@ -1994,7 +1993,7 @@ static bool _curare_hits_monster(actor *agent, monster* mons,
     if (mons->res_poison() > 0)
         return (false);
 
-    poison_monster(mons, who, levels, false);
+    poison_monster(mons, agent, levels, false);
 
     int hurted = 0;
 
@@ -2013,14 +2012,14 @@ static bool _curare_hits_monster(actor *agent, monster* mons,
         enchant_monster_with_flavour(mons, agent, BEAM_SLOW);
 
     // Deities take notice.
-    if (who == KC_YOU)
+    if (agent == &you)
         did_god_conduct(DID_POISON, 5 + random2(3));
 
     return (hurted > 0);
 }
 
 // Actually poisons a monster (with message).
-bool poison_monster(monster* mons, kill_category who, int levels,
+bool poison_monster(monster* mons, const actor *who, int levels,
                     bool force, bool verbose)
 {
     if (!mons->alive())
@@ -2042,11 +2041,11 @@ bool poison_monster(monster* mons, kill_category who, int levels,
                                    old_pois.degree > 0 ? " looks even sicker."
                                                        : " is poisoned.");
         }
-        behaviour_event(mons, ME_ANNOY, (who == KC_YOU) ? MHITYOU : MHITNOT);
+        behaviour_event(mons, ME_ANNOY, who ? who->mindex() : MHITNOT);
     }
 
     // Finally, take care of deity preferences.
-    if (who == KC_YOU)
+    if (who == &you)
         did_god_conduct(DID_POISON, 5 + random2(3));
 
     return (new_pois.degree > old_pois.degree);
@@ -2054,7 +2053,7 @@ bool poison_monster(monster* mons, kill_category who, int levels,
 
 // Actually poisons, rots, and/or slows a monster with miasma (with
 // message).
-bool miasma_monster(monster* mons, kill_category who)
+bool miasma_monster(monster* mons, const actor* who)
 {
     if (!mons->alive())
         return (false);
@@ -2084,7 +2083,7 @@ bool miasma_monster(monster* mons, kill_category who)
 }
 
 // Actually napalms a monster (with message).
-bool napalm_monster(monster* mons, kill_category who, int levels,
+bool napalm_monster(monster* mons, const actor *who, int levels,
                     bool verbose)
 {
     if (!mons->alive())
@@ -2102,7 +2101,8 @@ bool napalm_monster(monster* mons, kill_category who, int levels,
     {
         if (verbose)
             simple_monster_message(mons, " is covered in liquid flames!");
-        behaviour_event(mons, ME_WHACK, who == KC_YOU ? MHITYOU : MHITNOT);
+        ASSERT(who);
+        behaviour_event(mons, ME_WHACK, who->mindex());
     }
 
     return (new_flame.degree > old_flame.degree);
@@ -2306,7 +2306,7 @@ void bolt::affect_endpoint()
     if (is_tracer)
         return;
 
-    if (!is_explosion && !noise_generated)
+    if (!is_explosion && !noise_generated && loudness)
     {
         noisy(loudness, pos(), beam_source);
         noise_generated = true;
@@ -2559,7 +2559,9 @@ maybe_bool bolt::affects_wall(dungeon_feature_type wall) const
             || wall == DNGN_CLOSED_DOOR
             || wall == DNGN_DETECTED_SECRET_DOOR
             || wall == DNGN_SECRET_DOOR)
-        return (B_TRUE);
+        {
+            return (B_TRUE);
+        }
     }
 
     // Lee's Rapid Deconstruction
@@ -3260,7 +3262,7 @@ void bolt::affect_player_enchantment()
         break;
 
     case BEAM_PARALYSIS:
-        potion_effect(POT_PARALYSIS, ench_power);
+        you.paralyse(agent(), 2 + random2(6));
         obvious_effect = true;
         break;
 
@@ -3535,12 +3537,9 @@ void bolt::affect_player()
         armour_damage_reduction = 0;
     hurted -= armour_damage_reduction;
 
-    // shrapnel has triple AC reduction
+    // shrapnel has double AC reduction
     if (flavour == BEAM_FRAG)
-    {
         hurted -= random2(1 + you.armour_class());
-        hurted -= random2(1 + you.armour_class());
-    }
 
 #ifdef DEBUG_DIAGNOSTICS
     mprf(MSGCH_DIAGNOSTICS,
@@ -3810,12 +3809,9 @@ bool bolt::determine_damage(monster* mon, int& preac, int& postac, int& final,
         {
             postac -= maybe_random2(1 + mon->ac, !is_tracer);
 
-            // Fragmentation has triple AC reduction.
+            // Fragmentation has double AC reduction.
             if (flavour == BEAM_FRAG)
-            {
                 postac -= maybe_random2(1 + mon->ac, !is_tracer);
-                postac -= maybe_random2(1 + mon->ac, !is_tracer);
-            }
         }
     }
 
@@ -4041,7 +4037,7 @@ void bolt::monster_post_hit(monster* mon, int dmg)
     if (name == "sticky flame" || name == "splash of liquid fire")
     {
         const int levels = std::min(4, 1 + random2(mon->hit_dice) / 2);
-        napalm_monster(mon, whose_kill(), levels);
+        napalm_monster(mon, agent(), levels);
 
         if (name == "splash of liquid fire")
         {
@@ -4053,7 +4049,7 @@ void bolt::monster_post_hit(monster* mon, int dmg)
                 {
                     mprf("The sticky flame splashes onto %s!",
                          mi->name(DESC_NOCAP_THE).c_str());
-                    napalm_monster(*mi, whose_kill(), levels);
+                    napalm_monster(*mi, agent(), levels);
                 }
             }
         }
@@ -4069,7 +4065,7 @@ void bolt::monster_post_hit(monster* mon, int dmg)
         if (item->special == SPMSL_CURARE)
         {
             if (ench_power == AUTOMATIC_HIT
-                && _curare_hits_monster(agent(), mon, whose_kill(), 2)
+                && _curare_hits_monster(agent(), mon, 2)
                 && !mon->alive())
             {
                 wake_mimic = false;
@@ -4536,7 +4532,6 @@ bool bolt::has_saving_throw() const
     case BEAM_INVISIBILITY:
     case BEAM_DISPEL_UNDEAD:
     case BEAM_ENSLAVE_SOUL:     // has a different saving throw
-    case BEAM_ENSLAVE_DEMON:    // ditto
         return (false);
     default:
         return (true);
@@ -4557,20 +4552,12 @@ static bool _ench_flavour_affects_monster(beam_type flavour, const monster* mon)
               && mon->type != MONS_PULSATING_LUMP);
         break;
 
-    case BEAM_ENSLAVE_UNDEAD:
-        rc = (mon->holiness() == MH_UNDEAD && mon->attitude != ATT_FRIENDLY);
-        break;
-
     case BEAM_ENSLAVE_SOUL:
         rc = (mon->holiness() == MH_NATURAL && mon->attitude != ATT_FRIENDLY);
         break;
 
     case BEAM_DISPEL_UNDEAD:
         rc = (mon->holiness() == MH_UNDEAD);
-        break;
-
-    case BEAM_ENSLAVE_DEMON:
-        rc = (mon->holiness() == MH_DEMONIC && !mon->friendly());
         break;
 
     case BEAM_PAIN:
@@ -4721,32 +4708,6 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         mon->hurt(agent(), damage.roll());
         return (MON_AFFECTED);
 
-    case BEAM_ENSLAVE_UNDEAD:
-    {
-        const god_type god =
-            (crawl_state.is_god_acting()) ? crawl_state.which_god_acting()
-                                          : GOD_NO_GOD;
-        dprf("HD: %d; pow: %d", mon->hit_dice, ench_power);
-
-        obvious_effect = true;
-        if (player_will_anger_monster(mon))
-        {
-            simple_monster_message(mon, " is repulsed!");
-            return (MON_OTHER);
-        }
-
-        simple_monster_message(mon, " is enslaved.");
-
-        // Wow, permanent enslaving!
-        mon->attitude = ATT_FRIENDLY;
-        behaviour_event(mon, ME_ALERT, MHITNOT);
-        mons_att_changed(mon);
-
-        mons_make_god_gift(mon, god);
-
-        return (MON_AFFECTED);
-    }
-
     case BEAM_ENSLAVE_SOUL:
     {
         dprf("HD: %d; pow: %d", mon->hit_dice, ench_power);
@@ -4766,45 +4727,18 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         }
 
         obvious_effect = true;
-        const int duration = you.skills[SK_INVOCATIONS] * 3 / 4 + 2;
-        mon->add_ench(mon_enchant(ENCH_SOUL_RIPE, 0, KC_YOU, duration * 10));
+        const int duration = you.skill(SK_INVOCATIONS) * 3 / 4 + 2;
+        mon->add_ench(mon_enchant(ENCH_SOUL_RIPE, 0, agent(), duration * 10));
         simple_monster_message(mon, "'s soul is now ripe for the taking.");
         return (MON_AFFECTED);
     }
-
-    case BEAM_ENSLAVE_DEMON:
-        dprf("HD: %d; pow: %d", mon->hit_dice, ench_power);
-
-        if (mon->hit_dice * 11 / 2 >= random2(ench_power)
-            || mons_is_unique(mon->type))
-        {
-            return (MON_RESIST);
-        }
-
-        obvious_effect = true;
-        if (player_will_anger_monster(mon))
-        {
-            simple_monster_message(mon, " is repulsed!");
-            return (MON_OTHER);
-        }
-
-        simple_monster_message(mon, " is enslaved.");
-
-        // Wow, permanent enslaving! (sometimes)
-        if (one_chance_in(2 + mon->hit_dice / 4))
-            mon->attitude = ATT_FRIENDLY;
-        else
-            mon->add_ench(ENCH_CHARM);
-        behaviour_event(mon, ME_ALERT, MHITNOT);
-        mons_att_changed(mon);
-        return (MON_AFFECTED);
 
     case BEAM_PAIN:             // pain/agony
         if (simple_monster_message(mon, " convulses in agony!"))
             obvious_effect = true;
 
         if (name.find("agony") != std::string::npos) // agony
-            mon->hit_points = std::max(mon->hit_points/2, 1);
+            mon->hurt(agent(), std::min((mon->hit_points+1)/2, mon->hit_points-1));
         else                    // pain
             mon->hurt(agent(), damage.roll(), flavour);
         return (MON_AFFECTED);
@@ -4834,7 +4768,7 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         return (MON_UNAFFECTED);
 
     case BEAM_SLOW:
-        obvious_effect = do_slow_monster(mon, whose_kill());
+        obvious_effect = do_slow_monster(mon, agent());
         return (MON_AFFECTED);
 
     case BEAM_HASTE:
@@ -4914,7 +4848,7 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         if (!mons_class_is_confusable(mon->type))
             return (MON_UNAFFECTED);
 
-        if (mon->add_ench(mon_enchant(ENCH_CONFUSION, 0, whose_kill())))
+        if (mon->add_ench(mon_enchant(ENCH_CONFUSION, 0, agent())))
         {
             // FIXME: Put in an exception for things you won't notice
             // becoming confused.
@@ -5536,17 +5470,13 @@ bool bolt::nasty_to(const monster* mon) const
         return (mon->holiness() == MH_NATURAL);
     }
 
-    // dispel undead / control undead
-    if (flavour == BEAM_DISPEL_UNDEAD || flavour == BEAM_ENSLAVE_UNDEAD)
+    // dispel undead
+    if (flavour == BEAM_DISPEL_UNDEAD)
         return (mon->holiness() == MH_UNDEAD);
 
     // pain / agony
     if (flavour == BEAM_PAIN)
         return (!mon->res_negative_energy());
-
-    // control demon
-    if (flavour == BEAM_ENSLAVE_DEMON)
-        return (mon->holiness() == MH_DEMONIC);
 
     // everything else is considered nasty by everyone
     return (true);
@@ -5788,12 +5718,16 @@ static std::string _beam_type_name(beam_type type)
     case BEAM_CHARM:                 return ("enslave");
     case BEAM_BANISH:                return ("banishment");
     case BEAM_DEGENERATE:            return ("degeneration");
+#if TAG_MAJOR_VERSION == 32
     case BEAM_ENSLAVE_UNDEAD:        return ("enslave undead");
+#endif
     case BEAM_ENSLAVE_SOUL:          return ("enslave soul");
     case BEAM_PAIN:                  return ("pain");
     case BEAM_DISPEL_UNDEAD:         return ("dispel undead");
     case BEAM_DISINTEGRATION:        return ("disintegration");
+#if TAG_MAJOR_VERSION == 32
     case BEAM_ENSLAVE_DEMON:         return ("enslave demon");
+#endif
     case BEAM_BLINK:                 return ("blink");
     case BEAM_BLINK_CLOSE:           return ("blink close");
     case BEAM_PETRIFY:               return ("petrify");

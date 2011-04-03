@@ -1,15 +1,13 @@
-/*
- *  File:       view.cc
- *  Summary:    Misc function used to render the dungeon.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc function used to render the dungeon.
+**/
 
 #include "AppHdr.h"
 
 #include "view.h"
 #include "shout.h"
 
-#include <stdint.h>
 #include <string.h>
 #include <cmath>
 #include <sstream>
@@ -75,10 +73,10 @@
 
 crawl_view_geometry crawl_view;
 
-void handle_seen_interrupt(monster* mons, std::vector<std::string>* msgs_buf)
+bool handle_seen_interrupt(monster* mons, std::vector<std::string>* msgs_buf)
 {
     if (mons_is_unknown_mimic(mons))
-        return;
+        return false;
 
     activity_interrupt_data aid(mons);
     if (!mons->seen_context.empty())
@@ -92,13 +90,16 @@ void handle_seen_interrupt(monster* mons, std::vector<std::string>* msgs_buf)
     else
         aid.context = "newly seen";
 
+    seen_monster(mons);
+
     if (!mons_is_safe(mons)
         && !mons_class_flag(mons->type, M_NO_EXP_GAIN)
             || mons->type == MONS_BALLISTOMYCETE && mons->number > 0)
     {
-        interrupt_activity(AI_SEE_MONSTER, aid, msgs_buf);
+        return interrupt_activity(AI_SEE_MONSTER, aid, msgs_buf);
     }
-    seen_monster(mons);
+
+    return false;
 }
 
 void flush_comes_into_view()
@@ -158,10 +159,46 @@ void seen_monsters_react()
     }
 }
 
+static std::string _desc_mons_type_map(std::map<monster_type, int> types)
+{
+    std::string message;
+    unsigned int count = 1;
+    for (std::map<monster_type, int>::iterator it = types.begin();
+         it != types.end(); it++)
+    {
+        std::string name;
+        description_level_type desc;
+        if (it->second == 1)
+        {
+            desc = (it == types.begin() ? DESC_CAP_A
+                                                : DESC_NOCAP_A);
+        }
+        else
+            desc = DESC_PLAIN;
+
+        name = mons_type_name(it->first, desc);
+        if (it->second > 1)
+        {
+            name = make_stringf("%d %s", it->second,
+                                pluralise(name).c_str());
+        }
+
+        message += name;
+        if (count == types.size() - 1)
+            message += " and ";
+        else if (count < types.size())
+            message += ", ";
+        ++count;
+    }
+    return make_stringf("%s come into view.", message.c_str());
+}
+
 void update_monsters_in_view()
 {
+    const unsigned int max_msgs = 4;
     int num_hostile = 0;
     std::vector<std::string> msgs;
+    std::vector<monster*> monsters;
 
     for (monster_iterator mi; mi; ++mi)
     {
@@ -179,7 +216,8 @@ void update_monsters_in_view()
             }
             else if (mi->visible_to(&you))
             {
-                handle_seen_interrupt(*mi, &msgs);
+                if (handle_seen_interrupt(*mi, &msgs))
+                    monsters.push_back(*mi);
                 seen_monster(*mi);
             }
             else
@@ -190,19 +228,59 @@ void update_monsters_in_view()
 
         // If the monster hasn't been seen by the time that the player
         // gets control back then seen_context is out of date.
-        mi->seen_context.clear();
+        if (!you.turn_is_over)
+            mi->seen_context.clear();
     }
 
     if (!msgs.empty())
     {
-        int size = msgs.size();
-        if (size <= 6)
+        unsigned int size = monsters.size();
+        std::map<monster_type, int> types;
+        std::map<monster_type, int> genera; // This is the plural for genus!
+        for (unsigned int i = 0; i < size; ++i)
         {
-            for (int i = 0; i < size; i++)
-                mpr(msgs[i], MSGCH_WARN);
+            types[monsters[i]->type]++;
+            genera[mons_genus(monsters[i]->type)]++;
         }
+
+        if (size == 1)
+            mpr(msgs[0], MSGCH_WARN);
+        else if (types.size() <= max_msgs)
+            mpr(_desc_mons_type_map(types), MSGCH_WARN);
+        else if (genera.size() <= max_msgs)
+            mpr(_desc_mons_type_map(genera), MSGCH_WARN);
         else
             mprf(MSGCH_WARN, "%d monsters come into view.", size);
+
+        bool warning = false;
+        std::string warning_msg = "Ashenzari warns you: ";
+        for (unsigned int i = 0; i < size; ++i)
+        {
+            const monster* mon = monsters[i];
+            if (!mon->props.exists("ash_id"))
+                continue;
+
+            if (warning)
+                warning_msg += " ";
+            else
+                warning = true;
+
+            if (size == 1)
+                warning_msg += mon->pronoun(PRONOUN_CAP);
+            else if (mon->type == MONS_DANCING_WEAPON)
+                warning_msg += "There";
+            else if (types[mon->type] == 1)
+                warning_msg += mon->full_name(DESC_CAP_THE);
+            else
+                warning_msg += mon->full_name(DESC_CAP_A);
+
+            warning_msg += " is";
+            warning_msg += get_monster_equipment_desc(mon, DESC_IDENTIFIED,
+                                                      DESC_NONE);
+            warning_msg += ".";
+        }
+        if (warning)
+            mpr(warning_msg, MSGCH_GOD);
     }
 
     // Xom thinks it's hilarious the way the player picks up an ever
@@ -503,90 +581,53 @@ bool mon_enemies_around(const monster* mons)
     }
 }
 
-// Returns a string containing an ASCII representation of the map. If fullscreen
-// is set to false, only the viewable area is returned. Leading and trailing
-// spaces are trimmed from each line. Leading and trailing empty lines are also
-// snipped.
-std::string screenshot(bool fullscreen)
+// Returns a string containing a representation of the map.  Leading and
+// trailing spaces are trimmed from each line.  Leading and trailing empty
+// lines are also snipped.
+std::string screenshot()
 {
-    UNUSED(fullscreen);
-
-    // [ds] Screenshots need to be straight ASCII. We will now proceed to force
-    // the char and feature tables back to ASCII.
-    FixedVector<unsigned, NUM_DCHAR_TYPES> char_table_bk;
-    char_table_bk = Options.char_table;
-
-    init_char_table(CSET_ASCII);
-    init_show_table();
-
-    int firstnonspace = -1;
-    int firstpopline  = -1;
-    int lastpopline   = -1;
-
     std::vector<std::string> lines(crawl_view.viewsz.y);
-    for (int count_y = 1; count_y <= crawl_view.viewsz.y; count_y++)
+    unsigned int lsp = GXM;
+    for (int y = 0; y < crawl_view.viewsz.y; y++)
     {
-        int lastnonspace = -1;
-
-        for (int count_x = 1; count_x <= crawl_view.viewsz.x; count_x++)
+        std::string line;
+        for (int x = 0; x < crawl_view.viewsz.x; x++)
         {
             // in grid coords
             const coord_def gc = view2grid(crawl_view.viewp +
-                                     coord_def(count_x - 1, count_y - 1));
-
-            int ch =
-                  (!map_bounds(gc))             ? 0 :
+                                     coord_def(x, y));
+            ucs_t ch =
+                  (!map_bounds(gc))             ? ' ' :
                   (gc == you.pos())             ? mons_char(you.symbol)
                                                 : get_cell_glyph(gc).ch;
-
-            if (ch && !isprint(ch))
-            {
-                // [ds] Evil hack time again. Peek at grid, use that character.
-                ch = get_feat_symbol(grid_appearance(gc));
-            }
-
-            // More mangling to accommodate C strings.
-            if (!ch)
-                ch = ' ';
-
-            if (ch != ' ')
-            {
-                lastnonspace = count_x;
-                lastpopline = count_y;
-
-                if (firstnonspace == -1 || firstnonspace > count_x)
-                    firstnonspace = count_x;
-
-                if (firstpopline == -1)
-                    firstpopline = count_y;
-            }
-
-            lines[count_y - 1] += ch;
+            line += stringize_glyph(ch);
         }
-
-        if (lastnonspace < (int) lines[count_y - 1].length())
-            lines[count_y - 1].erase(lastnonspace + 1);
+        // right-trim the line
+        for (int x = line.length() - 1; x >= 0; x--)
+            if (line[x] == ' ')
+                line.erase(x);
+        // see how much it can be left-trimmed
+        for (unsigned int x = 0; x < line.length(); x++)
+            if (line[x] != ' ')
+            {
+                if (lsp > x)
+                    lsp = x;
+                break;
+            }
+        lines[y] = line;
     }
 
-    // Restore char and feature tables.
-    Options.char_table = char_table_bk;
-    init_show_table();
+    for (unsigned int y = 0; y < lines.size(); y++)
+        lines[y].erase(0, lsp); // actually trim from the left
+    while (!lines.empty() && lines.back().empty())
+        lines.pop_back();       // then from the bottom
 
     std::ostringstream ss;
-    if (firstpopline != -1 && lastpopline != -1)
-    {
-        if (firstnonspace == -1)
-            firstnonspace = 0;
-
-        for (int i = firstpopline; i <= lastpopline; ++i)
-        {
-            const std::string &ref = lines[i - 1];
-            if (firstnonspace < (int) ref.length())
-                ss << ref.substr(firstnonspace);
-            ss << "\n";
-        }
-    }
-
+    unsigned int y = 0;
+    for (y = 0; y < lines.size() && lines[y].empty(); y++)
+        ;                       // ... and from the top
+    for (; y < lines.size(); y++)
+        ss << lines[y] << "\n";
     return (ss.str());
 }
 

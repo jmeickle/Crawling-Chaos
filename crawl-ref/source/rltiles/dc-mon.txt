@@ -14,6 +14,7 @@ queen_ant MONS_QUEEN_ANT
 
 ## Batty monsters ('b')
 megabat MONS_MEGABAT
+../../player/transform/bat_form MONS_VAMPIRE_BAT
 butterfly MONS_BUTTERFLY
 butterfly1
 butterfly2
@@ -21,7 +22,18 @@ butterfly3
 butterfly4
 butterfly5
 butterfly6
+fire_bat MONS_FIRE_BAT
 raven MONS_RAVEN
+dc-mon/holy/phoenix MONS_PHOENIX
+%sdir dc-mon/vault
+%rim 0
+microbat MONS_MICROBAT
+%rim 1
+gigabat MONS_GIGABAT
+fruity_bat MONS_FRUITY_BAT
+ice_bat MONS_ICE_BAT
+phase_bat MONS_PHASE_BAT
+%sdir dc-mon/animals
 
 ## Hounds and hogs ('h')
 jackal MONS_JACKAL
@@ -105,7 +117,7 @@ snapping_turtle_shell MONS_SNAPPING_TURTLE_SHELL
 alligator_snapping_turtle MONS_ALLIGATOR_SNAPPING_TURTLE
 alligator_snapping_turtle_shell MONS_ALLIGATOR_SNAPPING_TURTLE_SHELL
 %rim 0
-firecrab MONS_FIRECRAB
+fire_crab MONS_FIRE_CRAB
 %rim 1
 
 ## Worms and larvae ('w')
@@ -136,7 +148,7 @@ shark MONS_SHARK
 jellyfish MONS_JELLYFISH /*'J'*/
 %rim 1
 
-%include dc-kraken.txt
+%include dc-tentacles.txt
 
 ## Beetles ('B')
 %sdir dc-mon/animals
@@ -169,7 +181,6 @@ sea_snake MONS_SEA_SNAKE
 salamander MONS_SALAMANDER
 
 ## Bears ('U')
-bear MONS_BEAR
 black_bear MONS_BLACK_BEAR
 grizzly_bear MONS_GRIZZLY_BEAR
 polar_bear MONS_POLAR_BEAR
@@ -192,7 +203,7 @@ apis MONS_APIS
 earth_elemental MONS_EARTH_ELEMENTAL /*'#'*/
 fire_elemental MONS_FIRE_ELEMENTAL /*'#'*/
 water_elemental MONS_WATER_ELEMENTAL /*'#'*/
-#air_elemental MONS_AIR_ELEMENTAL /*'#'*/
+air_elemental MONS_AIR_ELEMENTAL /*'#'*/
 iron_elemental MONS_IRON_ELEMENTAL
 fire_vortex MONS_FIRE_VORTEX /*'v'*/
 spatial_vortex MONS_SPATIAL_VORTEX /*'v'*/
@@ -214,6 +225,10 @@ silver_star MONS_SILVER_STAR /*'*'*/
 %sdir dc-mon/abyss
 ancient_zyme MONS_ANCIENT_ZYME
 lurking_horror MONS_LURKING_HORROR
+starcursed_mass MONS_STARCURSED_MASS
+tentacled_starspawn MONS_TENTACLED_STARSPAWN
+thrashing_horror MONS_THRASHING_HORROR
+wretched_star MONS_WRETCHED_STAR
 
 ### Demonic monsters
 ## Arch demons ('&')
@@ -240,6 +255,9 @@ green_death MONS_GREEN_DEATH
 ice_fiend MONS_ICE_FIEND
 pit_fiend MONS_PIT_FIEND
 shadow_fiend MONS_SHADOW_FIEND
+%sdir dc-mon/unique
+ignacio MONS_IGNACIO
+%sdir dc-mon/demons
 
 # type '2' demons
 beast MONS_BEAST
@@ -347,6 +365,8 @@ vine-covered_golem MONS_VINE_GOLEM
 %sdir dc-mon/unique
 roxanne MONS_ROXANNE
 %sdir dc-mon/statues
+pillar_of_salt MONS_PILLAR_OF_SALT
+training_dummy MONS_TRAINING_DUMMY
 ice_statue MONS_ICE_STATUE
 silver_statue MONS_SILVER_STATUE
 orange_crystal_statue MONS_ORANGE_STATUE
@@ -461,9 +481,10 @@ paladin MONS_PALADIN
 angel MONS_ANGEL
 daeva MONS_DAEVA
 cherub MONS_CHERUB
+%sdir dc-mon/unique
+mennas MONS_MENNAS
 
 ## Giants ('C')
-%sdir dc-mon/unique
 polyphemus MONS_POLYPHEMUS
 chuck MONS_CHUCK
 iron_giant MONS_IRON_GIANT
@@ -478,6 +499,7 @@ stone_giant MONS_STONE_GIANT
 titan MONS_TITAN
 
 ## Drakes (also 'l')
+%sdir dc-mon/dragons
 swamp_drake MONS_SWAMP_DRAKE
 fire_drake MONS_FIRE_DRAKE
 lindwurm MONS_LINDWURM
@@ -497,7 +519,7 @@ lernaean_hydra08
 lernaean_hydra09
 lernaean_hydra10
 serpent_of_hell MONS_SERPENT_OF_HELL
-%sdir dc-mon
+%sdir dc-mon/dragons
 wyvern MONS_WYVERN
 dragon MONS_DRAGON
 hydra1 MONS_HYDRA
@@ -516,17 +538,16 @@ iron_dragon MONS_IRON_DRAGON
 storm_dragon MONS_STORM_DRAGON
 golden_dragon MONS_GOLDEN_DRAGON
 shadow_dragon MONS_SHADOW_DRAGON
-undead/bone_dragon MONS_BONE_DRAGON
-%sdir dc-mon/holy
-pearl_dragon MONS_PEARL_DRAGON
+dc-mon/undead/bone_dragon MONS_BONE_DRAGON
+dc-mon/holy/pearl_dragon MONS_PEARL_DRAGON
 
 ## Eyes ('G')
 %sdir dc-mon/fungi_plants
 giant_spore MONS_GIANT_SPORE
-%sdir dc-mon
+%sdir dc-mon/eyes
 giant_eyeball MONS_GIANT_EYEBALL
 eye_of_draining MONS_EYE_OF_DRAINING
-giant_orange_brain MONS_GIANT_ORANGE_BRAIN
+dc-mon/giant_orange_brain MONS_GIANT_ORANGE_BRAIN
 great_orb_of_eyes MONS_GREAT_ORB_OF_EYES
 shining_eye MONS_SHINING_EYE
 eye_of_devastation MONS_EYE_OF_DEVASTATION
@@ -546,8 +567,8 @@ kenku MONS_KENKU
 %sdir dc-mon/holy
 shedu MONS_SHEDU
 
-## Beasts ('I')
-%sdir dc-mon
+## Various beasts ('I')
+%sdir dc-mon/animals
 ice_beast MONS_ICE_BEAST
 sky_beast MONS_SKY_BEAST
 
@@ -555,7 +576,7 @@ sky_beast MONS_SKY_BEAST
 %sdir dc-mon/unique
 royal_jelly MONS_ROYAL_JELLY
 dissolution MONS_DISSOLUTION
-%sdir dc-mon
+%sdir dc-mon/amorphous
 ooze MONS_OOZE
 jelly MONS_JELLY
 slime_creature MONS_SLIME_CREATURE
@@ -568,7 +589,6 @@ giant_amoeba MONS_GIANT_AMOEBA
 brown_ooze MONS_BROWN_OOZE
 azure_jelly MONS_AZURE_JELLY
 acid_blob MONS_ACID_BLOB
-%sdir dc-mon/undead
 death_ooze MONS_DEATH_OOZE
 
 ## Kobolds ('K')
@@ -730,6 +750,9 @@ spriggan_druid MONS_SPRIGGAN_DRUID
 spriggan_berserker MONS_SPRIGGAN_BERSERKER
 spriggan_defender MONS_SPRIGGAN_DEFENDER
 spriggan_assassin MONS_SPRIGGAN_ASSASSIN
+%rim 0
+spriggan_air_mage MONS_SPRIGGAN_AIR_MAGE
+%rim 1
 dc-mon/unique/enchantress MONS_THE_ENCHANTRESS
 dc-mon/unique/agnes MONS_AGNES
 
@@ -784,6 +807,8 @@ silent_spectre MONS_SILENT_SPECTRE
 %rim 1
 flayed_ghost MONS_FLAYED_GHOST
 hungry_ghost MONS_HUNGRY_GHOST
+%sdir dc-mon/unique
+terpsichore MONS_TERPSICHORE
 %sdir dc-mon/nonliving
 insubstantial_wisp MONS_INSUBSTANTIAL_WISP
 %sdir dc-mon/holy
@@ -850,7 +875,6 @@ draco-job-shifter DRACO_SHIFTER
 draco-job-zealot DRACO_ZEALOT
 
 dc-mon/nonliving/test_spawner MONS_TEST_SPAWNER
-dc-mon/statues/training_dummy MONS_TRAINING_DUMMY
 
 dc-misc/unseen PLAYER
 
@@ -860,7 +884,12 @@ bat_form TRAN_BAT
 spider_form TRAN_SPIDER
 pig_form TRAN_PIG
 ice_form TRAN_ICE_BEAST
-statue_form TRAN_STATUE
+statue_form_humanoid TRAN_STATUE_HUMANOID
+%syn TRAN_STATUE_EQUIP_FIRST
+statue_form_centaur TRAN_STATUE_CENTAUR
+statue_form_naga TRAN_STATUE_NAGA
+%syn TRAN_STATUE_EQUIP_LAST
+statue_form_felid TRAN_STATUE_FELID
 dragon_form TRAN_DRAGON
 lich_form_humanoid TRAN_LICH_HUMANOID
 %syn TRAN_LICH_EQUIP_FIRST

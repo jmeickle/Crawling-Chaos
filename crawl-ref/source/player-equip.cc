@@ -103,7 +103,7 @@ bool unmeld_slot(equipment_type slot, bool msg)
 }
 
 static void _equip_weapon_effect(item_def& item, bool showMsgs);
-static void _unequip_weapon_effect(item_def& item, bool showMsgs);
+static void _unequip_weapon_effect(item_def& item, bool showMsgs, bool meld);
 static void _equip_armour_effect(item_def& arm, bool unmeld);
 static void _unequip_armour_effect(item_def& item, bool meld);
 static void _equip_jewellery_effect(item_def &item);
@@ -148,7 +148,7 @@ static void _unequip_effect(equipment_type slot, int item_slot, bool meld,
               && (slot == EQ_LEFT_RING || slot == EQ_RIGHT_RING));
 
     if (slot == EQ_WEAPON)
-        _unequip_weapon_effect(item, msg);
+        _unequip_weapon_effect(item, msg, meld);
     else if (slot >= EQ_CLOAK && slot <= EQ_BODY_ARMOUR)
         _unequip_armour_effect(item, meld);
     else if (slot >= EQ_LEFT_RING && slot <= EQ_AMULET)
@@ -599,9 +599,9 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs)
                     break;
 
                 case SPWPN_PAIN:
-                    if (you.skills[SK_NECROMANCY] == 0)
+                    if (you.skill(SK_NECROMANCY) == 0)
                         mpr("You have a feeling of ineptitude.");
-                    else if (you.skills[SK_NECROMANCY] <= 4)
+                    else if (you.skill(SK_NECROMANCY) <= 4)
                         mpr("Pain shudders through your arm!");
                     else
                         mpr("A searing pain shoots up your arm!");
@@ -677,8 +677,9 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs)
     you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED] = 0;
 }
 
-static void _unequip_weapon_effect(item_def& item, bool showMsgs)
+static void _unequip_weapon_effect(item_def& item, bool showMsgs, bool meld)
 {
+    you.wield_change = true;
     you.m_quiver->on_weapon_changed();
 
     // Call this first, so that the unrandart func can set showMsgs to
@@ -758,7 +759,7 @@ static void _unequip_weapon_effect(item_def& item, bool showMsgs)
                 // int effect = 9 -
                 //        random2avg(you.skills[SK_TRANSLOCATIONS] * 2, 2);
 
-                if (you.duration[DUR_WEAPON_BRAND] == 0)
+                if (you.duration[DUR_WEAPON_BRAND] == 0 && !meld)
                 {
                     // Makes no sense to discourage unwielding a temporarily
                     // branded weapon since you can wait it out. This also
@@ -881,7 +882,7 @@ static void _equip_armour_effect(item_def& arm, bool unmeld)
             break;
 
         case SPARM_ARCHMAGI:
-            if (!you.skills[SK_SPELLCASTING])
+            if (!you.skill(SK_SPELLCASTING))
                 mpr("You feel strangely lacking in power.");
             else
                 mpr("You feel powerful.");
@@ -936,6 +937,9 @@ static void _equip_armour_effect(item_def& arm, bool unmeld)
 
     if (get_item_slot(arm) == EQ_SHIELD)
         warn_shield_penalties();
+
+    if (get_item_slot(arm) == EQ_BODY_ARMOUR)
+        warn_armour_penalties();
 
     you.redraw_armour_class = true;
     you.redraw_evasion = true;
@@ -1001,7 +1005,9 @@ static void _unequip_armour_effect(item_def& item, bool meld)
         break;
 
     case SPARM_LEVITATION:
-        if (you.species != SP_KENKU || you.experience_level < 15)
+        if (you.attribute[ATTR_PERM_LEVITATION] == 0)
+            break;
+        else if (you.species != SP_KENKU || you.experience_level < 15)
             you.attribute[ATTR_PERM_LEVITATION] = 0;
         land_player();
         break;
@@ -1269,6 +1275,13 @@ static void _equip_jewellery_effect(item_def &item)
     case AMU_THE_GOURMAND:
         // What's this supposed to achieve? (jpeg)
         you.duration[DUR_GOURMAND] = 0;
+
+        if (you.species != SP_MUMMY
+            && player_mutation_level(MUT_HERBIVOROUS) < 3)
+        {
+            mpr("You feel a craving for the dungeon's cuisine.");
+            ident = ID_KNOWN_TYPE;
+        }
         break;
 
     case AMU_CONTROLLED_FLIGHT:
@@ -1486,4 +1499,31 @@ static void _unequip_jewellery_effect(item_def &item, bool mesg)
 
     // Must occur after ring is removed. -- bwr
     calc_mp();
+}
+
+bool unwield_item(bool showMsgs)
+{
+    if (!you.weapon())
+        return (false);
+
+    if (you.berserk())
+    {
+        if (showMsgs)
+            canned_msg(MSG_TOO_BERSERK);
+        return (false);
+    }
+
+    item_def& item = *you.weapon();
+
+    const bool is_weapon = get_item_slot(item) == EQ_WEAPON;
+
+    if (is_weapon && !safe_to_remove(item))
+        return (false);
+
+    unequip_item(EQ_WEAPON, showMsgs);
+
+    you.wield_change     = true;
+    you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED] = 0;
+
+    return (true);
 }

@@ -1,8 +1,7 @@
-/*
- *  File:       invent.cc
- *  Summary:    Functions for inventory related commands.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Functions for inventory related commands.
+**/
 
 #include "AppHdr.h"
 
@@ -232,7 +231,7 @@ std::string InvEntry::get_text(bool need_cursor) const
             std::string colour_tag = colour_to_str(item->colour);
             colour_tag_adjustment = colour_tag.size() * 2 + 5;
         }
-        tstr << std::setw(get_number_of_cols() - tstr.str().length() - 2
+        tstr << std::setw(get_number_of_cols() - strwidth(tstr.str()) - 2
                           + colour_tag_adjustment)
              << std::right
              << make_stringf("(%.1f aum)", BURDEN_TO_AUM * mass);
@@ -392,21 +391,18 @@ void InvMenu::set_title(const std::string &s)
     std::string stitle = s;
     if (stitle.empty())
     {
-        std::ostringstream default_title;
         const int cap = carrying_capacity(BS_UNENCUMBERED);
 
-        default_title << make_stringf(
+        stitle = make_stringf(
             "Inventory: %.0f/%.0f aum (%d%%, %d/52 slots)",
             BURDEN_TO_AUM * you.burden,
             BURDEN_TO_AUM * cap,
             (you.burden * 100) / cap,
             inv_count());
 
-        default_title << std::setw(get_number_of_cols() - default_title.str().length() - 1)
-                      << std::right
-                      << "Press item letter to examine.";
-
-        stitle = default_title.str();
+        std::string prompt = "Press item letter to examine.";
+        stitle = stitle + std::string(get_number_of_cols() - strwidth(stitle)
+                                      - strwidth(prompt), ' ') + prompt;
     }
 
     set_title(new InvTitle(this, stitle, title_annotate));
@@ -487,6 +483,10 @@ static std::string _no_selectables_message(int item_selector)
         return "You aren't carrying any armour which can be made ponderous.";
     case OSEL_CURSED_WORN:
         return "None of your equipped items are cursed.";
+    case OSEL_UNCURSED_WORN_ARMOUR:
+        return "You aren't wearing any piece of uncursed armour.";
+    case OSEL_UNCURSED_WORN_JEWELLERY:
+        return "You aren't wearing any piece of uncursed jewellery.";
     }
 
     return "You aren't carrying any such object.";
@@ -822,8 +822,7 @@ void InvMenu::load_items(const std::vector<const item_def*> &mitems,
             if (!glyphs.empty())
             {
                 const std::string str = "Magical Staves and Rods"; // longest string
-                subtitle += std::string(str.length()
-                                        - subtitle.length() + 1, ' ');
+                subtitle += std::string(strwidth(str) - strwidth(subtitle) + 1, ' ');
                 subtitle += "(select all with ";
 #ifdef USE_TILE
                 // For some reason, this is only formatted correctly in the
@@ -1119,6 +1118,12 @@ static bool _item_class_selected(const item_def &i, int selector)
                 && (&i != you.weapon()
                     || i.base_type == OBJ_WEAPONS
                     || i.base_type == OBJ_STAVES));
+
+    case OSEL_UNCURSED_WORN_ARMOUR:
+        return (!i.cursed() && item_is_equipped(i) && itype == OBJ_ARMOUR);
+
+    case OSEL_UNCURSED_WORN_JEWELLERY:
+        return (!i.cursed() && item_is_equipped(i) && itype == OBJ_JEWELLERY);
 
     default:
         return (false);
@@ -1503,7 +1508,7 @@ bool check_old_item_warning(const item_def& item,
 
     // now ask
     prompt += old_item.name(DESC_INVENTORY);
-    prompt += '?';
+    prompt += "?";
     return yesno(prompt.c_str(), false, 'n');
 }
 
@@ -1854,7 +1859,8 @@ bool item_is_wieldable(const item_def &item)
 {
     const int type = item.base_type;
     return (type == OBJ_WEAPONS || type == OBJ_STAVES || is_deck(item)
-            || type == OBJ_MISCELLANY && type == MISC_LANTERN_OF_SHADOWS);
+            || type == OBJ_MISCELLANY
+               && item.sub_type == MISC_LANTERN_OF_SHADOWS);
 }
 
 bool item_is_evokable(const item_def &item, bool known, bool all_wands,

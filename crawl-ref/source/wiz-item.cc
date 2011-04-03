@@ -1,8 +1,7 @@
-/*
- *  File:       wiz-item.cc
- *  Summary:    Item related wizard functions.
- *  Written by: Linley Henzell and Jesse Jones
- */
+/**
+ * @file
+ * @brief Item related wizard functions.
+**/
 
 #include "AppHdr.h"
 
@@ -523,6 +522,14 @@ void wizard_tweak_object(void)
         const bool hex = (keyin == 'e');
         int64_t new_val = strtoll(specs, &end, hex ? 16 : 0);
 
+        if (keyin == 'e' && new_val & ISFLAG_ARTEFACT_MASK
+            && (!you.inv[item].props.exists(KNOWN_PROPS_KEY)
+             || !you.inv[item].props.exists(ARTEFACT_PROPS_KEY)))
+        {
+            mpr("You can't set this flag on a non-artefact.");
+            continue;
+        }
+
         if (end == specs)
             return;
 
@@ -559,7 +566,7 @@ static bool _make_book_randart(item_def &book)
     do
     {
         mpr("Make book fixed [t]heme or fixed [l]evel? ", MSGCH_PROMPT);
-        type = tolower(getch());
+        type = tolower(getchk());
     }
     while (type != 't' && type != 'l');
 
@@ -911,7 +918,7 @@ static void _debug_acquirement_stats(FILE *ostat)
     {
         if (kbhit())
         {
-            getch();
+            getchk();
             mpr("Stopping early due to keyboard input.");
             break;
         }
@@ -1261,7 +1268,7 @@ static void _debug_acquirement_stats(FILE *ostat)
         item.sub_type = i;
         std::string name = item.name(desc, terse, true);
 
-        max_width = std::max(max_width, (int) name.length());
+        max_width = std::max(max_width, strwidth(name));
     }
 
     // Now output the sub types.
@@ -1373,7 +1380,7 @@ static void _debug_rap_stats(FILE *ostat)
     {
         if (kbhit())
         {
-            getch();
+            getchk();
             mpr("Stopping early due to keyboard input.");
             break;
         }

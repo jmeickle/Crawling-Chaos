@@ -1,8 +1,7 @@
-/*
- *  File:       effects.cc
- *  Summary:    Misc stuff.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc stuff.
+**/
 
 #include "AppHdr.h"
 
@@ -40,7 +39,6 @@
 #include "hints.h"
 #include "hiscores.h"
 #include "invent.h"
-#include "it_use2.h"
 #include "item_use.h"
 #include "itemname.h"
 #include "itemprop.h"
@@ -62,6 +60,7 @@
 #include "notes.h"
 #include "ouch.h"
 #include "place.h"
+#include "player-equip.h"
 #include "player-stats.h"
 #include "player.h"
 #include "religion.h"
@@ -431,7 +430,7 @@ static bool _conduct_electricity_affects_actor(const bolt& beam,
                                                const actor* victim)
 {
     return (victim->alive() && victim->res_elec() <= 0
-            && !(victim->airborne() || victim->is_wall_clinging()));
+            && victim->ground_level());
 }
 
 static bool _conduct_electricity_damage(bolt &beam, actor* victim,
@@ -1325,7 +1324,7 @@ static void _hell_effects()
         else                // 1 in 8 odds {dlb}
             which_miscast = coinflip() ? SPTYP_HEXES : SPTYP_CHARMS;
 
-        MiscastEffect(&you, MISC_MISCAST, which_miscast,
+        MiscastEffect(&you, HELL_EFFECT_MISCAST, which_miscast,
                       4 + random2(6), random2avg(97, 3),
                       "the effects of Hell");
     }
@@ -1381,7 +1380,7 @@ static void _hell_effects()
         }
         else
         {
-            MiscastEffect(&you, MISC_MISCAST, which_miscast,
+            MiscastEffect(&you, HELL_EFFECT_MISCAST, which_miscast,
                           4 + random2(6), random2avg(97, 3),
                           "the effects of Hell");
         }
@@ -3046,9 +3045,7 @@ int spawn_corpse_mushrooms(item_def &corpse,
 
                     time_left *= 10;
 
-                    mon_enchant temp_en(ENCH_SLOWLY_DYING, 1, KC_OTHER,
-                                        time_left);
-
+                    mon_enchant temp_en(ENCH_SLOWLY_DYING, 1, 0, time_left);
                     env.mons[mushroom].update_ench(temp_en);
                 }
 
@@ -3276,15 +3273,11 @@ void recharge_rods(int aut, bool level_only)
     if (!level_only)
     {
         for (int item = 0; item < ENDOFPACK; ++item)
-        {
             _recharge_rod(you.inv[item], aut, true);
-        }
     }
 
     for (int item = 0; item < MAX_ITEMS; ++item)
-    {
         _recharge_rod(mitm[item], aut, false);
-    }
 }
 
 void slime_wall_damage(actor* act, int delay)

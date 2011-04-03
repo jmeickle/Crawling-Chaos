@@ -13,14 +13,13 @@ void cast_detect_secret_doors(int pow);
 int detect_traps(int pow);
 int detect_items(int pow);
 int detect_creatures(int pow, bool telepathic = false);
-bool remove_curse();
+bool remove_curse(bool alreadyknown = true);
+bool curse_item(bool armour, bool alreadyknown);
 bool detect_curse(int scroll, bool suppress_msg);
 
 bool entomb(int pow);
 bool cast_imprison(int pow, monster* mons, int source);
 
-bool cast_smiting(int pow, const coord_def& where);
-
-void stonemail(int pow);
+bool cast_smiting(int pow, monster* mons);
 
 #endif

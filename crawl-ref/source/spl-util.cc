@@ -1,8 +1,7 @@
-/*
- *  File:       spl-util.cc                                          *
- *  Summary:    data handlers for player-available spell list        *
- *  Written by: don brodale <dbrodale@bigfootinteractive.com>        *
- */
+/**
+ * @file
+ * @brief data handlers for player-available spell list
+**/
 
 #include "AppHdr.h"
 
@@ -103,7 +102,7 @@ void init_spell_descs(void)
         if (data.id < SPELL_NO_SPELL || data.id >= NUM_SPELLS)
             end(1, false, "spell #%d has invalid id %d", i, data.id);
 
-        if (data.title == NULL || strlen(data.title) == 0)
+        if (data.title == NULL || !*data.title)
             end(1, false, "spell #%d, id %d has no name", i, data.id);
 
         if (data.level < 1 || data.level > 9)
@@ -263,6 +262,11 @@ int get_spell_slot(spell_type spell)
     return -1;
 }
 
+int get_spell_letter(spell_type spell)
+{
+    return index_to_letter(get_spell_slot(spell));
+}
+
 spell_type get_spell_by_letter(char letter)
 {
     ASSERT(isaalpha(letter));
@@ -360,11 +364,11 @@ int spell_hunger(spell_type which_spell, bool rod)
 
     if (rod)
     {
-        hunger -= 10 * you.skills[SK_EVOCATIONS];
+        hunger -= 10 * you.skill(SK_EVOCATIONS);
         hunger = std::max(hunger, level * 5);
     }
     else
-        hunger -= you.intel() * you.skills[SK_SPELLCASTING];
+        hunger -= you.intel() * you.skill(SK_SPELLCASTING);
 
     if (hunger < 0)
         hunger = 0;
@@ -528,13 +532,21 @@ const char *spell_title(spell_type spell)
 // Apply a function-pointer to all visible squares
 // Returns summation of return values from passed in function.
 int apply_area_visible(cell_func cf, int power,
-                       bool pass_through_trans, actor *agent)
+                       bool pass_through_trans, actor *agent,
+                       bool affect_scryed)
 {
     int rv = 0;
+
+    bool xray = you.xray_vision;
+
+    if (!affect_scryed)
+        you.xray_vision = false;
 
     for (radius_iterator ri(you.pos(), LOS_RADIUS); ri; ++ri)
         if (pass_through_trans || you.see_cell_no_trans(*ri))
             rv += cf(*ri, power, 0, agent);
+
+    you.xray_vision = xray;
 
     return (rv);
 }
@@ -822,7 +834,8 @@ bool spell_direction(dist &spelld, bolt &pbolt,
                       int range,
                       bool needs_path, bool may_target_monster,
                       bool may_target_self, const char *target_prefix,
-                      const char* top_prompt, bool cancel_at_self)
+                      const char* top_prompt, bool cancel_at_self,
+                      targetter *hitfunc)
 {
     if (range < 1)
         range = (pbolt.range < 1) ? LOS_RADIUS : pbolt.range;
@@ -840,6 +853,7 @@ bool spell_direction(dist &spelld, bolt &pbolt,
         args.top_prompt = top_prompt;
     args.behaviour = NULL;
     args.cancel_at_self = cancel_at_self;
+    args.hitfunc = hitfunc;
 
     direction(spelld, args);
 
@@ -1277,6 +1291,13 @@ bool spell_is_useless(spell_type spell, bool transient)
     case SPELL_TUKIMAS_DANCE:
         if (you.species == SP_CAT)
             return (true);
+        break;
+    case SPELL_DARKNESS:
+        // mere corona is not enough, but divine light blocks it completely
+        if (transient && you.haloed())
+            return true;
+        if (you.religion == GOD_SHINING_ONE && player_under_penance())
+            return true;
         break;
     default:
         break; // quash unhandled constants warnings

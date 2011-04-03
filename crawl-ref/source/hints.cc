@@ -1,10 +1,9 @@
-/*
- *  File:       hints.cc
- *  Summary:    A hints mode as an introduction on how to play Dungeon Crawl.
- *  Written by: j-p-e-g
+/**
+ * @file
+ * @brief A hints mode as an introduction on how to play Dungeon Crawl.
  *
- *  Created on 2007-01-11.
- */
+ * Created on 2007-01-11.
+**/
 
 #include "AppHdr.h"
 
@@ -172,7 +171,7 @@ void pick_hints(newgame_def* choice)
 
     while (true)
     {
-        char keyn = getch_ck();
+        int keyn = getch_ck();
 
         // Random choice.
         if (keyn == '*' || keyn == '+' || keyn == '!' || keyn == '#')
@@ -835,12 +834,6 @@ void taken_new_item(object_class_type item_type)
 // Give a special message if you gain a skill you didn't have before.
 void hints_gained_new_skill(skill_type skill)
 {
-    if (crawl_state.game_is_tutorial()
-        && skill == SK_SPELLCASTING)
-    {
-        learned_something_new(HINT_GAINED_SPELLCASTING);
-        return;
-    }
     if (!crawl_state.game_is_hints())
         return;
 
@@ -906,8 +899,7 @@ void hints_gained_new_skill(skill_type skill)
 
 #ifndef USE_TILE
 // As safely as possible, colourize the passed glyph.
-// Handles quoting "<", MBCS-ing unicode, and
-// making DEC characters safe if not properly printable.
+// Stringizes it and handles quoting "<".
 static std::string _colourize_glyph(int col, unsigned ch)
 {
     glyph g;
@@ -1375,6 +1367,7 @@ static bool _tutorial_interesting(hints_event_type event)
     case HINT_TARGET_NO_FOE:
     case HINT_YOU_POISON:
     case HINT_YOU_SICK:
+    case HINT_CONTAMINATED_CHUNK:
     case HINT_NEW_ABILITY_ITEM:
     case HINT_ITEM_RESISTANCES:
     case HINT_LEVITATING:
@@ -1382,7 +1375,10 @@ static bool _tutorial_interesting(hints_event_type event)
     case HINT_HEALING_POTIONS:
     case HINT_GAINED_SPELLCASTING:
     case HINT_FUMBLING_SHALLOW_WATER:
-    case HINT_EATING_ROTTEN_FOOD:
+    case HINT_MEMORISE_FAILURE:
+    case HINT_SPELL_MISCAST:
+    case HINT_CLOUD_WARNING:
+    case HINT_ANIMATE_CORPSE_SKELETON:
         return (true);
     default:
         return (false);
@@ -1407,6 +1403,10 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
 
     // Already learned about that.
     if (!Hints.hints_events[seen_what])
+        return;
+
+    // Don't give at the beginning of your spellcasting career.
+    if (seen_what == HINT_SPELL_MISCAST && you.max_magic_points <= 2)
         return;
 
     // Don't trigger twice in the same turn.
@@ -2227,7 +2227,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         text << "Every third level you get to choose a stat to raise: "
                 "Strength, Intelligence, or Dexterity. "
                 "<w>Strength</w> affects the amount you can carry and makes it "
-                "easier to ear heavy armour. "
+                "easier to wear heavy armour. "
                 "<w>Intelligence</w> makes it easier to cast spells and "
                 "reduces the amount by which you hunger when you do so. "
                 "<w>Dexterity</w> increases your evasion "
@@ -2243,6 +2243,21 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         cmd.push_back(CMD_DISPLAY_COMMANDS);
         break;
 
+    case HINT_CONTAMINATED_CHUNK:
+        text << "Chunks that are described as <brown>contaminated</brown> will "
+                "occasionally make you sick when eaten. However, since food is "
+                "scarce in the dungeon, you'll sometimes have to risk it. "
+                "Note that if a chunk makes you sick, you won't get any nutrition "
+                "out of it.";
+
+        // Break if we've seen the sickness hint before.
+        if (!Hints.hints_events[HINT_YOU_SICK])
+            break;
+
+        // Mark HINT_YOU_SICK as seen, and fall through.
+        text << "\n";
+        Hints.hints_events[HINT_YOU_SICK] = false;
+
     case HINT_YOU_SICK:
         if (crawl_state.game_is_hints())
         {
@@ -2252,13 +2267,9 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
             learned_something_new(HINT_YOU_ENCHANTED);
             Hints.hints_just_triggered = true;
         }
-        text << "Chunks that are described as <brown>contaminated</brown> will "
-                "occasionally make you sick when eaten. However, since is food is "
-                "scarce in the dungeon, you'll sometimes have to risk it.\n"
-                "While sick, your hitpoints won't regenerate and your attributes "
+        text << "While sick, your hitpoints won't regenerate and your attributes "
                 "may decrease. Sickness wears off with time, so you should wait it "
-                "out with %. Note that if a chunk makes you sick, you won't get "
-                "any nutrition out of it.";
+                "out with %.";
         cmd.push_back(CMD_REST);
         break;
 
@@ -2413,12 +2424,20 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         break;
 
     case HINT_ROTTEN_FOOD:
+        if (!crawl_state.game_is_hints())
+        {
+            text << "One or more of the chunks or corpses you carry has "
+                    "started to rot. While some species can eat rotten "
+                    "meat, you can't.";
+            break;
+        }
         text << "One or more of the chunks or corpses you carry has started "
-                "to rot. Few species can digest these safely, so you might "
-                "just as well <w>%</w>rop them now. When selecting items from "
-                "a menu, there's a shortcut (<w>&</w>) to select all corpses, "
-                "skeletons, and rotten chunks in your inventory at once.";
-         cmd.push_back(CMD_DROP);
+                "to rot. Few species can digest these, so you might just as "
+                "well <w>%</w>rop them now."
+                "When selecting items from a menu, there's a shortcut "
+                "(<w>&</w>) to select all items in your inventory at once "
+                "that are useless to you.";
+        cmd.push_back(CMD_DROP);
         break;
 
     case HINT_MAKE_CHUNKS:
@@ -2737,22 +2756,34 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         {
             text << "Levitation will allow you to cross deep water or lava. To "
                     "activate it, select the corresponding ability in the ability "
-                    "menu (<w>%</w>). Once levitating, keep an eye on the status "
-                    "line and messages as it will eventually time out and may "
-                    "cause you to fall into water and drown.";
+                    "menu (<w>%</w>"
+#ifdef USE_TILE
+                    " or via <w>mouseclick</w> in the <w>command panel</w>"
+#endif
+                    "). Once levitating, keep an eye on the status line and messages "
+                    "as it will eventually time out and may cause you to fall "
+                    "into water and drown.";
         }
         else
         {
             text << "That item you just equipped granted you a new ability. "
-                    "Press <w>%</w> to take a look at your abilities or to "
-                    "use one of them.";
+                    "Press <w>%</w> "
+#ifdef USE_TILE
+                    "(or <w>click</w> in the <w>command panel</w>) "
+#endif
+                    "to take a look at your abilities or to use one of them.";
         }
         cmd.push_back(CMD_USE_ABILITY);
         break;
 
     case HINT_ITEM_RESISTANCES:
         text << "Equipping this item affects your resistances. Check the "
-                "overview screen (<w>%</w>) for details.";
+                "overview screen (<w>%</w>"
+#ifdef USE_TILE
+                " or click on the <w>character overview button</w> in the "
+                "command panel"
+#endif
+                ") for details.";
         cmd.push_back(CMD_RESISTS_SCREEN);
         break;
 
@@ -3124,6 +3155,20 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
 
     case HINT_SPELL_MISCAST:
     {
+        if (!crawl_state.game_is_hints())
+        {
+            text << "Miscasting a spell can have nasty consequences, "
+                    "particularly for the more difficult spells. Your chance "
+                    "of successfully casting a spell increases with your magic "
+                    "skills, and can also be improved with the help of some "
+                    "items. Use the <w>%</w> command "
+#ifdef USE_TILE
+                    "or mouse over the spell tiles "
+#endif
+                    "to check your current success rates.";
+            cmd.push_back(CMD_DISPLAY_SPELLS);
+            break;
+        }
         text << "You just miscast a spell. ";
 
         const item_def *shield = you.slot_item(EQ_SHIELD, false);
@@ -3310,13 +3355,31 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
         break;
     case HINT_GAINED_SPELLCASTING:
         text << "Great, from now on you'll be able to cast spells!\n"
-                "Press <w>%</w> to manage your skill set.";
+                "Press <w>%</w> "
+#ifdef USE_TILE
+             << "(or click on the <w>skill button</w> in the command panel) "
+#endif
+             << "to have a look at your skills and manage their training.";
         cmd.push_back(CMD_DISPLAY_SKILLS);
+        break;
+    case HINT_MEMORISE_FAILURE:
+        text << "At low skills, spells may be difficult to learn or cast. "
+                "For now, just keep trying!";
         break;
     case HINT_FUMBLING_SHALLOW_WATER:
         text << "Fighting in shallow water will sometimes cause you to slip "
                 "and fumble your attack. If possible, try to fight on "
                 "firm ground.";
+        break;
+    case HINT_CLOUD_WARNING:
+        text << "Rather than step into this cloud and hurt yourself, you should "
+                "try to step around it or wait it out with <w>%</w> or <w>%</w>.";
+        cmd.push_back(CMD_MOVE_NOWHERE);
+        cmd.push_back(CMD_REST);
+        break;
+    case HINT_ANIMATE_CORPSE_SKELETON:
+        text << "As long as a monster has a skeleton, Animate Skeleton also "
+                "works on unskeletalized corpses.";
         break;
     default:
         text << "You've found something new (but I don't know what)!";
@@ -3364,7 +3427,7 @@ std::string hints_skills_info()
         "pressing their slot letters. A <darkgrey>greyish</darkgrey> skill "
         "will increase at a decidedly slower rate and ease training of others. "
         "Press <w>?</w> to read your skills' descriptions.";
-    linebreak_string2(broken, _get_hints_cols());
+    linebreak_string2(broken, std::min(80, _get_hints_cols()));
     text << broken;
     text << "</" << colour_to_str(channel_to_colour(MSGCH_TUTORIAL)) << ">";
 

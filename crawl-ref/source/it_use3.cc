@@ -1,8 +1,7 @@
-/*
- *  File:       it_use3.cc
- *  Summary:    Functions for using some of the wackier inventory items.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Functions for using some of the wackier inventory items.
+**/
 
 #include "AppHdr.h"
 
@@ -164,7 +163,7 @@ void shadow_lantern_effect()
         // This should only get called when we are wielding a lantern of
         // shadows.
         ASSERT(lantern && lantern->base_type == OBJ_MISCELLANY
-                && lantern->sub_type == MISC_LANTERN_OF_SHADOWS);
+               && lantern->sub_type == MISC_LANTERN_OF_SHADOWS);
 
         bool known = fully_identified(*lantern);
         did_god_conduct(DID_NECROMANCY, 1, known);
@@ -210,6 +209,8 @@ static bool _reaching_weapon_attack(const item_def& wpn)
     args.mode = TARG_HOSTILE;
     args.range = 2;
     args.top_prompt = "Attack whom?";
+    targetter_reach hitfunc(&you, REACH_TWO);
+    args.hitfunc = &hitfunc;
 
     direction(beam, args);
 
@@ -308,13 +309,20 @@ static bool _evoke_horn_of_geryon(item_def &item)
     // Note: This assumes that the Vestibule has not been changed.
     bool rc = false;
 
-    if (silenced(you.pos())) {
+    if (silenced(you.pos()))
+    {
         mpr("You can't produce a sound!");
         return false;
     }
     else if (player_in_branch(BRANCH_VESTIBULE_OF_HELL))
     {
         mpr("You produce a weird and mournful sound.");
+
+        if (you.char_direction == GDT_ASCENDING)
+        {
+            mpr("But nothing happens...");
+            return false;
+        }
 
         for (int count_x = 0; count_x < GXM; count_x++)
             for (int count_y = 0; count_y < GYM; count_y++)
@@ -367,7 +375,7 @@ static bool _evoke_horn_of_geryon(item_def &item)
 
 static bool _efreet_flask(int slot)
 {
-    bool friendly = x_chance_in_y(10 + you.skills[SK_EVOCATIONS] / 3, 20);
+    bool friendly = x_chance_in_y(10 + you.skill(SK_EVOCATIONS) / 3, 20);
 
     mpr("You open the flask...");
 
@@ -407,8 +415,7 @@ static bool _efreet_flask(int slot)
 static bool _is_crystal_ball(const item_def &item)
 {
     return (item.base_type == OBJ_MISCELLANY
-            && (item.sub_type == MISC_CRYSTAL_BALL_OF_FIXATION
-                || item.sub_type == MISC_CRYSTAL_BALL_OF_ENERGY
+            && (item.sub_type == MISC_CRYSTAL_BALL_OF_ENERGY
                 || item.sub_type == MISC_CRYSTAL_BALL_OF_SEEING));
 }
 
@@ -426,11 +433,12 @@ static bool _check_crystal_ball(int subtype, bool known)
         return (false);
     }
 
-    if (subtype == MISC_CRYSTAL_BALL_OF_ENERGY && known
-        && (you.magic_points == you.max_magic_points))
+    if (subtype == MISC_CRYSTAL_BALL_OF_ENERGY
+        && known
+        && you.magic_points == you.max_magic_points)
     {
         mpr("With no energy to recover, the crystal ball of energy is "
-             "presently useless to you.");
+            "presently useless to you.");
         return (false);
     }
 
@@ -443,12 +451,10 @@ static bool _ball_of_seeing(void)
 
     mpr("You gaze into the crystal ball.");
 
-    int use = random2(you.skills[SK_EVOCATIONS] * 6);
+    int use = random2(you.skill(SK_EVOCATIONS) * 6);
 
     if (use < 2)
-    {
         lose_stat(STAT_INT, 1, false, "using a ball of seeing");
-    }
     else if (use < 5 && enough_mp(1, true))
     {
         mpr("You feel your power drain away!");
@@ -462,32 +468,30 @@ static bool _ball_of_seeing(void)
         confuse_player(10 + random2(10));
     }
     else if (use < 15 || coinflip())
-    {
         mpr("You see nothing.");
-    }
-    else if (magic_mapping(6 + you.skills[SK_EVOCATIONS],
-                           50 + random2(you.skills[SK_EVOCATIONS]), true))
+    else if (magic_mapping(6 + you.skill(SK_EVOCATIONS),
+                           50 + random2(you.skill(SK_EVOCATIONS)), true))
     {
         mpr("You see a map of your surroundings!");
         ret = true;
     }
     else
-    {
         mpr("You see nothing.");
-    }
 
     return (ret);
 }
 
 bool disc_of_storms(bool drac_breath)
 {
-    const int fail_rate = (30 - you.skills[SK_EVOCATIONS]);
+    const int fail_rate = (30 - you.skill(SK_EVOCATIONS));
     bool rc = false;
     int power;
 
     if ((player_res_electricity() || x_chance_in_y(fail_rate, 100))
          && !drac_breath)
+    {
         canned_msg(MSG_NOTHING_HAPPENS);
+    }
     else if (x_chance_in_y(fail_rate, 100) && !drac_breath)
         mpr("The disc glows for a moment, then fades.");
     else if (x_chance_in_y(fail_rate, 100) && !drac_breath)
@@ -495,11 +499,11 @@ bool disc_of_storms(bool drac_breath)
     else
     {
         if (!drac_breath)
-         mpr("The disc erupts in an explosion of electricity!");
+            mpr("The disc erupts in an explosion of electricity!");
         rc = true;
 
         const int disc_count = (drac_breath) ? roll_dice(2, 1 + you.experience_level / 7) :
-                                roll_dice(2, 1 + you.skills[SK_EVOCATIONS] / 7);
+                                roll_dice(2, 1 + you.skill(SK_EVOCATIONS) / 7);
 
         for (int i = 0; i < disc_count; ++i)
         {
@@ -510,10 +514,10 @@ bool disc_of_storms(bool drac_breath)
             const zap_type which_zap = RANDOM_ELEMENT(types);
 
             beam.range = (drac_breath) ? you.experience_level / 3 + 5 :
-                                         you.skills[SK_EVOCATIONS]/3 + 5; // 5--14
+                                         you.skill(SK_EVOCATIONS)/3 + 5; // 5--14
             beam.source = you.pos();
             beam.target = you.pos() + coord_def(random2(13)-6, random2(13)-6);
-            power = (drac_breath) ? 25 + you.experience_level : 30 + you.skills[SK_EVOCATIONS] * 2;
+            power = (drac_breath) ? 25 + you.experience_level : 30 + you.skill(SK_EVOCATIONS) * 2;
             // Non-controlleable, so no player tracer.
             zapping(which_zap, power, beam);
 
@@ -521,24 +525,24 @@ bool disc_of_storms(bool drac_breath)
 
         if (!drac_breath)
         {
-        for (radius_iterator ri(you.pos(), LOS_RADIUS, false); ri; ++ri)
-        {
-            if (grd(*ri) < DNGN_MAXWALL)
-                continue;
+            for (radius_iterator ri(you.pos(), LOS_RADIUS, false); ri; ++ri)
+            {
+                if (grd(*ri) < DNGN_MAXWALL)
+                    continue;
 
-            if (one_chance_in(60 - you.skills[SK_EVOCATIONS]))
-                place_cloud(CLOUD_RAIN, *ri,
-                            random2(you.skills[SK_EVOCATIONS]), &you);
+                if (one_chance_in(60 - you.skill(SK_EVOCATIONS)))
+                    place_cloud(CLOUD_RAIN, *ri,
+                                random2(you.skill(SK_EVOCATIONS)), &you);
+            }
         }
     }
-}
     return (rc);
 }
 
 void tome_of_power(int slot)
 {
-    int powc = 5 + you.skills[SK_EVOCATIONS]
-                 + roll_dice(5, you.skills[SK_EVOCATIONS]);
+    int powc = 5 + you.skill(SK_EVOCATIONS)
+                 + roll_dice(5, you.skill(SK_EVOCATIONS));
 
     msg::stream << "The book opens to a page covered in "
                 << weird_writing() << '.' << std::endl;
@@ -608,7 +612,7 @@ void tome_of_power(int slot)
     {
         viewwindow();
 
-        int temp_rand = random2(23) + random2(you.skills[SK_EVOCATIONS] / 3);
+        int temp_rand = random2(23) + random2(you.skill(SK_EVOCATIONS) / 3);
 
         if (temp_rand > 25)
             temp_rand = 25;
@@ -667,38 +671,31 @@ static bool _box_of_beasts(item_def &box)
 
     mpr("You open the lid...");
 
-    if (x_chance_in_y(60 + you.skills[SK_EVOCATIONS], 100))
+    if (x_chance_in_y(60 + you.skill(SK_EVOCATIONS), 100))
     {
-        monster_type beasty = MONS_NO_MONSTER;
+        const monster_type beasts[] = {
+            MONS_MEGABAT,   MONS_HOUND,     MONS_JACKAL,
+            MONS_RAT,       MONS_ICE_BEAST, MONS_SNAKE,
+            MONS_YAK,       MONS_BUTTERFLY, MONS_WATER_MOCCASIN,
+            MONS_CROCODILE, MONS_HELL_HOUND
+        };
 
-        // If you worship a good god, don't summon an evil beast (in
+        monster_type mon = MONS_NO_MONSTER;
+
+        // If you worship a good god, don't summon an unholy beast (in
         // this case, the hell hound).
         do
-        {
-            int temp_rand = random2(11);
+            mon = RANDOM_ELEMENT(beasts);
+        while (player_will_anger_monster(mon));
 
-            beasty = ((temp_rand == 0) ? MONS_MEGABAT :
-                      (temp_rand == 1) ? MONS_HOUND :
-                      (temp_rand == 2) ? MONS_JACKAL :
-                      (temp_rand == 3) ? MONS_RAT :
-                      (temp_rand == 4) ? MONS_ICE_BEAST :
-                      (temp_rand == 5) ? MONS_SNAKE :
-                      (temp_rand == 6) ? MONS_YAK :
-                      (temp_rand == 7) ? MONS_BUTTERFLY :
-                      (temp_rand == 8) ? MONS_WATER_MOCCASIN :
-                      (temp_rand == 9) ? MONS_CROCODILE
-                                       : MONS_HELL_HOUND);
-        }
-        while (player_will_anger_monster(beasty));
-
-        beh_type beha = BEH_FRIENDLY;
-
-        if (one_chance_in(you.skills[SK_EVOCATIONS] + 5))
-            beha = BEH_HOSTILE;
+        const bool friendly = (!one_chance_in(you.skill(SK_EVOCATIONS) + 5));
 
         if (create_monster(
-                mgen_data(beasty, beha, &you, 2 + random2(4), 0,
-                          you.pos(), MHITYOU)) != -1)
+                mgen_data(mon,
+                          friendly ? BEH_FRIENDLY : BEH_HOSTILE, &you,
+                          2 + random2(4), 0,
+                          you.pos(),
+                          MHITYOU)) != -1)
         {
             success = true;
 
@@ -726,7 +723,7 @@ static bool _ball_of_energy(void)
 
     mpr("You gaze into the crystal ball.");
 
-    int use = random2(you.skills[SK_EVOCATIONS] * 6);
+    int use = random2(you.skill(SK_EVOCATIONS) * 6);
 
     if (use < 2)
     {
@@ -750,7 +747,7 @@ static bool _ball_of_energy(void)
     {
         int proportional = (you.magic_points * 100) / you.max_magic_points;
 
-        if (random2avg(77 - you.skills[SK_EVOCATIONS] * 2, 4) > proportional
+        if (random2avg(77 - you.skill(SK_EVOCATIONS) * 2, 4) > proportional
             || one_chance_in(25))
         {
             mpr("You feel your power drain away!");
@@ -759,25 +756,13 @@ static bool _ball_of_energy(void)
         else
         {
             mpr("You are suffused with power!");
-            inc_mp(6 + roll_dice(2, you.skills[SK_EVOCATIONS]), false);
+            inc_mp(6 + roll_dice(2, you.skill(SK_EVOCATIONS)), false);
 
             ret = true;
         }
     }
 
     return (ret);
-}
-
-static bool _ball_of_fixation(void)
-{
-    mpr("You gaze into the crystal ball.");
-    mpr("You are mesmerised by a rainbow of scintillating colours!");
-
-    const int duration = random_range(15, 40);
-    you.set_duration(DUR_PARALYSIS, duration);
-    you.set_duration(DUR_SLOW,      duration);
-
-    return (true);
 }
 
 bool evoke_item(int slot)
@@ -876,7 +861,7 @@ bool evoke_item(int slot)
                 return (false);
             }
             else if (you.magic_points < you.max_magic_points
-                     && x_chance_in_y(you.skills[SK_EVOCATIONS] + 11, 40))
+                     && x_chance_in_y(you.skill(SK_EVOCATIONS) + 11, 40))
             {
                 mpr("You channel some magical energy.");
                 inc_mp(1 + random2(3), false);
@@ -923,7 +908,7 @@ bool evoke_item(int slot)
             break;
 
         case MISC_AIR_ELEMENTAL_FAN:
-            if (you.skills[SK_EVOCATIONS] <= random2(30))
+            if (you.skill(SK_EVOCATIONS) <= random2(30))
                 canned_msg(MSG_NOTHING_HAPPENS);
             else
             {
@@ -934,7 +919,7 @@ bool evoke_item(int slot)
             break;
 
         case MISC_LAMP_OF_FIRE:
-            if (you.skills[SK_EVOCATIONS] <= random2(30))
+            if (you.skill(SK_EVOCATIONS) <= random2(30))
                 canned_msg(MSG_NOTHING_HAPPENS);
             else
             {
@@ -945,7 +930,7 @@ bool evoke_item(int slot)
             break;
 
         case MISC_STONE_OF_EARTH_ELEMENTALS:
-            if (you.skills[SK_EVOCATIONS] <= random2(30))
+            if (you.skill(SK_EVOCATIONS) <= random2(30))
                 canned_msg(MSG_NOTHING_HAPPENS);
             else
             {
@@ -970,10 +955,12 @@ bool evoke_item(int slot)
                 pract = 1, ident = true;
             break;
 
+#if TAG_MAJOR_VERSION == 32
         case MISC_CRYSTAL_BALL_OF_FIXATION:
-            if (_ball_of_fixation())
-                pract = 1, ident = true;
+            mpr("Nothing happens.");
+            pract = 0, ident = true;
             break;
+#endif
 
         case MISC_DISC_OF_STORMS:
             if (disc_of_storms())

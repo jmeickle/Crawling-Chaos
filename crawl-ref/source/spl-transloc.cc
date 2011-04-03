@@ -1,7 +1,7 @@
-/*
- *  File:     spl-transloc.cc
- *  Summary:  Translocation spells.
- */
+/**
+ * @file
+ * @brief Translocation spells.
+**/
 
 #include "AppHdr.h"
 
@@ -215,7 +215,6 @@ void random_blink(bool allow_partial_control, bool override_abyss)
 {
     ASSERT(!crawl_state.game_is_arena());
 
-    bool success = false;
     coord_def target;
 
     if (item_blocks_teleport(true, true))
@@ -240,14 +239,12 @@ void random_blink(bool allow_partial_control, bool override_abyss)
         mpr("You may select the general direction of your translocation.");
         cast_semi_controlled_blink(100);
         maybe_id_ring_TC();
-        success = true;
     }
     else
     {
         canned_msg(MSG_YOU_BLINK);
         coord_def origin = you.pos();
         move_player_to_grid(target, false, true);
-        success = true;
 
         // Leave a purple cloud.
         place_cloud(CLOUD_TLOC_ENERGY, origin, 1 + random2(3), &you);
@@ -804,12 +801,6 @@ bool cast_apportation(int pow, bolt& beam)
         }
     }
 
-    if (max_units < item.quantity)
-    {
-        item.quantity = max_units;
-        mpr("You feel that some mass got lost in the cosmic void.");
-    }
-
     // If we apport a net, free the monster under it.
     if (item.base_type == OBJ_MISSILES
         && item.sub_type == MI_THROWING_NET
@@ -859,7 +850,20 @@ bool cast_apportation(int pow, bolt& beam)
     }
 
     // Actually move the item.
-    move_top_item(where, you.pos());
+    if (max_units < item.quantity)
+    {
+        if (!copy_item_to_grid(item, you.pos(), max_units))
+        {
+            // always >1 item
+            mpr("They abruptly stop in place!");
+            // Too late to abort.
+            return (true);
+        }
+        item.quantity -= max_units;
+    }
+    else
+        move_top_item(where, you.pos());
+
     // Mark the item as found now.
     origin_set(you.pos());
 

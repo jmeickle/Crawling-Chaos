@@ -1,7 +1,7 @@
-/*
- * File:      status.h
- * Summary:   Collects information for output of status effects.
- */
+/**
+ * @file
+ * @brief Collects information for output of status effects.
+**/
 
 #ifndef STATUS_H
 #define STATUS_H
@@ -19,6 +19,9 @@ enum status_type
     STATUS_SICK,
     STATUS_SPEED,
     STATUS_CLINGING,
+    STATUS_STR_ZERO,
+    STATUS_INT_ZERO,
+    STATUS_DEX_ZERO,
 };
 
 struct status_info

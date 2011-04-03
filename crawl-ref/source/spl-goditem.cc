@@ -1,7 +1,7 @@
-/*
- *  File:     spl-goditem.cc
- *  Summary:  Pseudo spells triggered by gods and various items.
- */
+/**
+ * @file
+ * @brief Pseudo spells triggered by gods and various items.
+**/
 
 #include "AppHdr.h"
 
@@ -170,12 +170,12 @@ static int _can_pacify_monster(const monster* mon, const int healed)
     else if (holiness == MH_DEMONIC)
         divisor += 2;
 
-    const int random_factor = random2((you.skills[SK_INVOCATIONS] + 1) *
+    const int random_factor = random2((you.skill(SK_INVOCATIONS) + 1) *
                                       healed / divisor);
 
     dprf("pacifying %s? max hp: %d, factor: %d, Inv: %d, healed: %d, rnd: %d",
          mon->name(DESC_PLAIN).c_str(), mon->max_hit_points, factor,
-         you.skills[SK_INVOCATIONS], healed, random_factor);
+         you.skill(SK_INVOCATIONS), healed, random_factor);
 
     if (mon->max_hit_points < factor * random_factor)
         return (1);
@@ -227,7 +227,7 @@ static int _healing_spell(int healed, bool divine_ability,
     monster* mons = monster_at(spd.target);
     if (!mons)
     {
-        mpr("There isn't anything there!");
+        canned_msg(MSG_NOTHING_THERE);
         // This isn't a cancel, to avoid leaking invisible monster
         // locations.
         return (0);
@@ -242,8 +242,12 @@ static int _healing_spell(int healed, bool divine_ability,
         && can_pacify <= 0)
     {
         if (can_pacify == 0)
+        {
             canned_msg(MSG_NOTHING_HAPPENS);
+            return (0);
+        }
         else
+        {
             if (can_pacify == -2)
             {
                 mprf("You cannot pacify this monster while %s is sleeping!",
@@ -251,7 +255,8 @@ static int _healing_spell(int healed, bool divine_ability,
             }
             else
                 mpr("You cannot pacify this monster!");
-        return (0);
+            return (-1);
+        }
     }
 
     bool did_something = false;
@@ -368,9 +373,9 @@ bool cast_revivification(int pow)
 void antimagic()
 {
     duration_type dur_list[] = {
-        DUR_INVIS, DUR_CONF, DUR_PARALYSIS, DUR_HASTE,
-        DUR_MIGHT, DUR_AGILITY, DUR_BRILLIANCE, DUR_FIRE_SHIELD, DUR_ICY_ARMOUR, DUR_REPEL_MISSILES,
-        DUR_REGENERATION, DUR_SWIFTNESS, DUR_STONEMAIL, DUR_CONTROL_TELEPORT,
+        DUR_INVIS, DUR_CONF, DUR_PARALYSIS, DUR_HASTE, DUR_MIGHT, DUR_AGILITY,
+        DUR_BRILLIANCE, DUR_FIRE_SHIELD, DUR_ICY_ARMOUR, DUR_REPEL_MISSILES,
+        DUR_REGENERATION, DUR_SWIFTNESS, DUR_CONTROL_TELEPORT,
         DUR_TRANSFORMATION, DUR_DEATH_CHANNEL, DUR_DEFLECT_MISSILES,
         DUR_PHASE_SHIFT, DUR_SEE_INVISIBLE, DUR_WEAPON_BRAND, DUR_SILENCE,
         DUR_CONDENSATION_SHIELD, DUR_STONESKIN, DUR_BARGAIN,
@@ -598,9 +603,9 @@ static bool _selectively_remove_curse()
     }
 }
 
-bool remove_curse()
+bool remove_curse(bool alreadyknown)
 {
-    if (you.religion == GOD_ASHENZARI)
+    if (you.religion == GOD_ASHENZARI && alreadyknown)
         return _selectively_remove_curse();
 
     bool success = false;
@@ -633,10 +638,84 @@ bool remove_curse()
         mpr("You feel as if something is helping you.");
         learned_something_new(HINT_REMOVED_CURSE);
     }
+    else if (alreadyknown)
+        mpr("None of your equipped items are cursed.", MSGCH_PROMPT);
     else
         canned_msg(MSG_NOTHING_HAPPENS);
 
     return (success);
+}
+
+static bool _selectively_curse_item(bool armour)
+{
+    while(1)
+    {
+        int item_slot = prompt_invent_item("Curse which item?", MT_INVLIST,
+                                           armour ? OSEL_UNCURSED_WORN_ARMOUR
+                                                  : OSEL_UNCURSED_WORN_JEWELLERY,
+                                           true, true, false);
+        if (prompt_failed(item_slot))
+            return false;
+
+        item_def& item(you.inv[item_slot]);
+
+        if (item.cursed()
+            || !item_is_equipped(item)
+            || armour && item.base_type != OBJ_ARMOUR
+            || !armour && item.base_type != OBJ_JEWELLERY)
+        {
+            mprf("Choose an uncursed equipped piece of %s, or Esc to abort.",
+                 armour ? "armour" : "jewellery");
+            if (Options.auto_list)
+                more();
+            continue;
+        }
+
+        do_curse_item(item, false);
+        return true;
+    }
+}
+
+bool curse_item(bool armour, bool alreadyknown)
+{
+    // make sure there's something to curse first
+    int count = 0;
+    int affected = EQ_WEAPON;
+    int min_type, max_type;
+    if (armour)
+        min_type = EQ_MIN_ARMOUR, max_type = EQ_MAX_ARMOUR;
+    else
+        min_type = EQ_LEFT_RING, max_type = EQ_AMULET;
+    for (int i = min_type; i <= max_type; i++)
+    {
+        if (you.equip[i] != -1 && !you.inv[you.equip[i]].cursed())
+        {
+            count++;
+            if (one_chance_in(count))
+                affected = i;
+        }
+    }
+
+    if (affected == EQ_WEAPON)
+    {
+        if (you.religion == GOD_ASHENZARI && alreadyknown)
+        {
+            mprf(MSGCH_PROMPT, "You aren't wearing any piece of uncursed %s.",
+                 armour ? "armour" : "jewellery");
+        }
+        else
+            canned_msg(MSG_NOTHING_HAPPENS);
+
+        return false;
+    }
+
+    if (you.religion == GOD_ASHENZARI && alreadyknown)
+        return _selectively_curse_item(armour);
+
+    // Make the name before we curse it.
+    do_curse_item(you.inv[you.equip[affected]], false);
+    learned_something_new(HINT_YOU_CURSED);
+    return true;
 }
 
 bool detect_curse(int scroll, bool suppress_msg)
@@ -801,9 +880,8 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
                 env.markers.add(marker);
             }
             else
-            {
                 grd(*ai) = DNGN_ROCK_WALL;
-            }
+
             set_terrain_changed(*ai);
             number_built++;
         }
@@ -811,10 +889,13 @@ static bool _do_imprison(int pow, const coord_def& where, bool zin)
 
     if (number_built > 0)
     {
-        if (!zin)
-            mpr("Walls emerge from the floor!");
+        if (zin)
+        {
+            mprf("Zin imprisons %s with walls of pure silver!",
+                 targname.c_str());
+        }
         else
-            mprf("Zin imprisons %s with walls of pure silver!", targname.c_str());
+            mpr("Walls emerge from the floor!");
 
         you.update_beholders();
         you.update_fearmongers();
@@ -832,7 +913,7 @@ bool entomb(int pow)
     if (crawl_state.game_is_zotdef())
     {
         mpr("The dungeon rumbles ominously, and rocks fall from the ceiling!");
-        return false;
+        return (false);
     }
 
     return (_do_imprison(pow, you.pos(), false));
@@ -842,8 +923,7 @@ bool cast_imprison(int pow, monster* mons, int source)
 {
     if (_do_imprison(pow, mons->pos(), true))
     {
-        const int tomb_duration = BASELINE_DELAY
-            * pow;
+        const int tomb_duration = BASELINE_DELAY * pow;
         env.markers.add(new map_tomb_marker(mons->pos(),
                                             tomb_duration,
                                             source,
@@ -855,13 +935,11 @@ bool cast_imprison(int pow, monster* mons, int source)
     return (false);
 }
 
-bool cast_smiting(int pow, const coord_def& where)
+bool cast_smiting(int pow, monster* mons)
 {
-    monster* m = monster_at(where);
-
-    if (m == NULL)
+    if (mons == NULL || mons->submerged())
     {
-        mpr("There's nothing there!");
+        canned_msg(MSG_NOTHING_THERE);
         // Counts as a real cast, due to victory-dancing and
         // invisible/submerged monsters.
         return (true);
@@ -870,17 +948,17 @@ bool cast_smiting(int pow, const coord_def& where)
     god_conduct_trigger conducts[3];
     disable_attack_conducts(conducts);
 
-    const bool success = !stop_attack_prompt(m, false, you.pos());
+    const bool success = !stop_attack_prompt(mons, false, you.pos());
 
     if (success)
     {
-        set_attack_conducts(conducts, m);
+        set_attack_conducts(conducts, mons);
 
-        mprf("You smite %s!", m->name(DESC_NOCAP_THE).c_str());
+        mprf("You smite %s!", mons->name(DESC_NOCAP_THE).c_str());
 
-        behaviour_event(m, ME_ANNOY, MHITYOU);
-        if (mons_is_mimic(m->type))
-            mimic_alert(m);
+        behaviour_event(mons, ME_ANNOY, MHITYOU);
+        if (mons_is_mimic(mons->type))
+            mimic_alert(mons);
     }
 
     enable_attack_conducts(conducts);
@@ -888,38 +966,12 @@ bool cast_smiting(int pow, const coord_def& where)
     if (success)
     {
         // Maxes out at around 40 damage at 27 Invocations, which is
-        // plenty in my book (the old max damage was around 70,
-        // which seems excessive).
-        m->hurt(&you, 7 + (random2(pow) * 33 / 191));
-        if (m->alive())
-            print_wounds(m);
+        // plenty in my book (the old max damage was around 70, which
+        // seems excessive).
+        mons->hurt(&you, 7 + (random2(pow) * 33 / 191));
+        if (mons->alive())
+            print_wounds(mons);
     }
 
     return (success);
-}
-
-void stonemail(int pow)
-{
-    if (you.duration[DUR_ICY_ARMOUR] || you.duration[DUR_STONESKIN])
-    {
-        mpr("The spell conflicts with another spell still in effect.");
-        return;
-    }
-
-    if (you.duration[DUR_STONEMAIL])
-        mpr("Your scaly armour looks firmer.");
-    else
-    {
-        if (you.form == TRAN_STATUE)
-            mpr("Your stone body feels more resilient.");
-        else
-            mpr("A set of stone scales covers your body!");
-
-        you.redraw_evasion = true;
-        you.redraw_armour_class = true;
-    }
-
-    you.increase_duration(DUR_STONEMAIL, 20 + random2(pow) + random2(pow), 100,
-                          NULL);
-    burden_change();
 }

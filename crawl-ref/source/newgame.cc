@@ -1,8 +1,7 @@
-/*
- *  File:       newgame.cc
- *  Summary:    Functions used when starting a new game.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Functions used when starting a new game.
+**/
 
 #include "AppHdr.h"
 
@@ -204,7 +203,7 @@ undead_state_type get_undead_state(const species_type sp)
     }
 }
 
-static void _choose_tutorial_character(newgame_def* ng_choice)
+void choose_tutorial_character(newgame_def* ng_choice)
 {
     ng_choice->species = SP_HIGH_ELF;
     ng_choice->job = JOB_FIGHTER;
@@ -283,9 +282,9 @@ static void _resolve_job(newgame_def* ng, const newgame_def* ng_choice)
     case JOB_VIABLE:
     {
         int good_choices = 0;
-        for (int i = 0; i < ng_num_jobs(); i++)
+        for (int i = 0; i < NUM_JOBS; i++)
         {
-            job_type job = get_job(i);
+            job_type job = job_type(i);
             if (is_good_combination(ng->species, job, true)
                 && one_chance_in(++good_choices))
             {
@@ -300,15 +299,15 @@ static void _resolve_job(newgame_def* ng, const newgame_def* ng_choice)
         if (ng->species == SP_UNKNOWN)
         {
             // any job will do
-            ng->job = get_job(random2(ng_num_jobs()));
+            ng->job = job_type(random2(NUM_JOBS));
         }
         else
         {
             // Pick a random legal character.
             int good_choices = 0;
-            for (int i = 0; i < ng_num_jobs(); i++)
+            for (int i = 0; i < NUM_JOBS; i++)
             {
-                job_type job = get_job(i);
+                job_type job = job_type(i);
                 if (is_good_combination(ng->species, job, false)
                     && one_chance_in(++good_choices))
                 {
@@ -394,9 +393,7 @@ static bool _reroll_random(newgame_def* ng)
 {
     clrscr();
 
-    std::string specs = species_name(ng->species);
-    if (specs.length() > 79)
-        specs = specs.substr(0, 79);
+    std::string specs = chop_string(species_name(ng->species), 79, false);
 
     cprintf("You are a%s %s %s.\n",
             (is_vowel(specs[0])) ? "n" : "", specs.c_str(),
@@ -415,7 +412,7 @@ static void _choose_char(newgame_def* ng, newgame_def* choice,
     const newgame_def ng_reset = *ng;
 
     if (ng->type == GAME_TYPE_TUTORIAL)
-        _choose_tutorial_character(choice);
+        choose_tutorial_character(choice);
     else if (ng->type == GAME_TYPE_HINTS)
         pick_hints(choice);
 
@@ -482,9 +479,7 @@ bool choose_game(newgame_def* ng, newgame_def* choice,
     {
         clrscr();
 
-        std::string specs = species_name(ng->species);
-        if (specs.length() > 79)
-            specs = specs.substr(0, 79);
+        std::string specs = chop_string(species_name(ng->species), 79, false);
 
         cprintf("You are a%s %s %s.\n",
                 (is_vowel(specs[0])) ? "n" : "", specs.c_str(),
@@ -519,22 +514,6 @@ int start_to_book(int firstbook, int booktype)
 {
     switch (firstbook)
     {
-    case BOOK_MINOR_MAGIC_I:
-        switch (booktype)
-        {
-        case SBT_FIRE:
-            return (BOOK_MINOR_MAGIC_I);
-
-        case SBT_COLD:
-            return (BOOK_MINOR_MAGIC_II);
-
-        case SBT_SUMM:
-            return (BOOK_MINOR_MAGIC_III);
-
-        default:
-            return (-1);
-        }
-
     case BOOK_CONJURATIONS_I:
         switch (booktype)
         {
@@ -964,26 +943,26 @@ static void _prompt_species(newgame_def* ng, newgame_def* ng_choice,
     }
 }
 
-/**
- * Helper for _choose_job
- * constructs the menu used and highlights the previous job if there is one
- */
-static void _construct_backgrounds_menu(const newgame_def* ng,
-                                        const newgame_def& defaults,
-                                        MenuFreeform* menu)
+void job_group::attach(const newgame_def* ng, const newgame_def& defaults,
+                       MenuFreeform* menu, menu_letter &letter)
 {
-    static const int ITEMS_IN_COLUMN = 10;
-    // Construct the menu, 3 columns
-    TextItem* tmp = NULL;
+    TextItem* tmp = new NoSelectTextItem();
     std::string text;
-    coord_def min_coord(0,0);
-    coord_def max_coord(0,0);
+    tmp->set_text(name);
+    tmp->set_fg_colour(WHITE);
+    coord_def min_coord(2 + position.x, 3 + position.y);
+    coord_def max_coord(min_coord.x + width, min_coord.y + 1);
+    tmp->set_bounds(min_coord, max_coord);
+    menu->attach_item(tmp);
+    tmp->set_visible(true);
 
-    for (int i = 0; i < ng_num_jobs(); ++i)
+    for (unsigned int i = 0; i < ARRAYSZ(jobs); ++i)
     {
-        const job_type job = get_job(i);
+        job_type &job = jobs[i];
+        if (job == JOB_UNKNOWN)
+            break;
+
         tmp = new TextItem();
-        text.clear();
 
         if (ng->species == SP_UNKNOWN
             || job_allowed(ng->species, job) == CC_UNRESTRICTED)
@@ -999,28 +978,24 @@ static void _construct_backgrounds_menu(const newgame_def* ng,
         if (ng->species != SP_UNKNOWN
             && job_allowed(ng->species, job) == CC_BANNED)
         {
-            text = "    ";
+            text = "N/A ";
             text += get_job_name(job);
-            text += " N/A";
             tmp->set_fg_colour(DARKGRAY);
             tmp->set_highlight_colour(RED);
         }
         else
         {
-            text = index_to_letter(i);
+            text = letter;
             text += " - ";
             text += get_job_name(job);
         }
-        // fill the text entry to end of column - 1
-        text.append(COLUMN_WIDTH - text.size() - 1 , ' ');
+
         tmp->set_text(text);
-        min_coord.x = X_MARGIN + (i / ITEMS_IN_COLUMN) * COLUMN_WIDTH;
-        min_coord.y = 3 + i % ITEMS_IN_COLUMN;
-        max_coord.x = min_coord.x + tmp->get_text().size();
-        max_coord.y = min_coord.y + 1;
+        ++min_coord.y;
+        ++max_coord.y;
         tmp->set_bounds(min_coord, max_coord);
 
-        tmp->add_hotkey(index_to_letter(i));
+        tmp->add_hotkey(letter++);
         tmp->set_id(job);
         tmp->set_description_text(getGameStartDescription(get_job_name(job)));
 
@@ -1031,14 +1006,62 @@ static void _construct_backgrounds_menu(const newgame_def* ng,
             menu->set_active_item(tmp);
         }
     }
+}
+
+/**
+ * Helper for _choose_job
+ * constructs the menu used and highlights the previous job if there is one
+ */
+static void _construct_backgrounds_menu(const newgame_def* ng,
+                                        const newgame_def& defaults,
+                                        MenuFreeform* menu)
+{
+    job_group jobs_order[] =
+    {
+        {
+            "Warrior",
+            coord_def(0, 0), 15,
+            {JOB_FIGHTER, JOB_GLADIATOR, JOB_MONK, JOB_HUNTER, JOB_ASSASSIN,
+             JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN}
+        },
+        {
+            "Adventurer",
+            coord_def(0, 7), 15,
+            {JOB_ARTIFICER, JOB_WANDERER, JOB_UNKNOWN, JOB_UNKNOWN,
+             JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN}
+        },
+        {
+            "Zealot",
+            coord_def(17, 0), 20,
+            {JOB_BERSERKER, JOB_ABYSSAL_KNIGHT, JOB_CHAOS_KNIGHT,
+             JOB_DEATH_KNIGHT, JOB_PRIEST, JOB_HEALER, JOB_UNKNOWN,
+             JOB_UNKNOWN, JOB_UNKNOWN}
+        },
+        {
+            "Warrior-mage",    // XXX: Arcane Marksmen are temporarily disabled
+            coord_def(39, 0), 17,
+            {JOB_CRUSADER, JOB_ENCHANTER, JOB_TRANSMUTER, JOB_STALKER,
+             JOB_WARPER, JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN}
+        },
+        {
+            "Mage",
+            coord_def(57, 0), 22,
+            {JOB_WIZARD, JOB_CONJURER, JOB_SUMMONER, JOB_NECROMANCER,
+             JOB_FIRE_ELEMENTALIST, JOB_ICE_ELEMENTALIST,
+             JOB_AIR_ELEMENTALIST, JOB_EARTH_ELEMENTALIST, JOB_VENOM_MAGE}
+        }
+    };
+
+    menu_letter letter = 'a';
+    for (unsigned int i = 0; i < ARRAYSZ(jobs_order); ++i)
+        jobs_order[i].attach(ng, defaults, menu, letter);
 
     // Add all the special button entries
-    tmp = new TextItem();
+    TextItem* tmp = new TextItem();
     tmp->set_text("+ - Viable background");
-    min_coord.x = X_MARGIN;
-    min_coord.y = SPECIAL_KEYS_START_Y;
-    max_coord.x = min_coord.x + tmp->get_text().size();
-    max_coord.y = min_coord.y + 1;
+    coord_def min_coord = coord_def(X_MARGIN, SPECIAL_KEYS_START_Y);
+    coord_def max_coord = coord_def(min_coord.x + tmp->get_text().size(),
+                                    min_coord.y + 1);
     tmp->set_bounds(min_coord, max_coord);
     tmp->set_fg_colour(BROWN);
     tmp->add_hotkey('+');
@@ -1160,13 +1183,10 @@ static void _construct_backgrounds_menu(const newgame_def* ng,
 
     if (_char_defined(defaults))
     {
-        text.clear();
-        text = "Tab - ";
-        text += _char_description(defaults).c_str();
-        // Adjust the end marker to aling the - because
+        // Adjust the end marker to align the - because
         // Tab text is longer by 2
         tmp = new TextItem();
-        tmp->set_text(text);
+        tmp->set_text("Tab - " + _char_description(defaults));
         min_coord.x = X_MARGIN + COLUMN_WIDTH - 2;
         min_coord.y = SPECIAL_KEYS_START_Y + 3;
         max_coord.x = min_coord.x + tmp->get_text().size();
@@ -1195,8 +1215,8 @@ static void _prompt_job(newgame_def* ng, newgame_def* ng_choice,
     PrecisionMenu menu;
     menu.set_select_type(PrecisionMenu::PRECISION_SINGLESELECT);
     MenuFreeform* freeform = new MenuFreeform();
-    freeform->init(coord_def(0,0), coord_def(get_number_of_cols(),
-                   get_number_of_lines()), "freeform");
+    freeform->init(coord_def(0,0), coord_def(get_number_of_cols() + 1,
+                   get_number_of_lines() + 1), "freeform");
     menu.attach_object(freeform);
     menu.set_active_object(freeform);
 
@@ -1324,6 +1344,7 @@ static void _prompt_job(newgame_def* ng, newgame_def* ng_choice,
                 }
                 else
                 {
+                    selection.at(0)->select(false);
                     continue;
                 }
             }
@@ -1344,7 +1365,8 @@ static weapon_type _fixup_weapon(weapon_type wp,
     return (WPN_UNKNOWN);
 }
 
-static void _construct_weapon_menu(const weapon_type& defweapon,
+static void _construct_weapon_menu(const newgame_def* ng,
+                                   const weapon_type& defweapon,
                                    const std::vector<weapon_choice>& weapons,
                                    MenuFreeform* menu)
 {
@@ -1376,7 +1398,8 @@ static void _construct_weapon_menu(const weapon_type& defweapon,
         text += letter;
         text += " - ";
         text += weapons[i].first == WPN_UNARMED
-                ? "claws" : weapon_base_name(weapons[i].first);
+                ? (species_has_claws(ng->species) ? "claws" : "unarmed")
+                : weapon_base_name(weapons[i].first);
         // Fill to column width to give extra padding for the highlight
         text.append(COLUMN_WIDTH - text.size() - 1 , ' ');
         tmp->set_text(text);
@@ -1518,7 +1541,7 @@ static bool _prompt_weapon(const newgame_def* ng, newgame_def* ng_choice,
 
     weapon_type defweapon = _fixup_weapon(defaults.weapon, weapons);
 
-    _construct_weapon_menu(defweapon, weapons, freeform);
+    _construct_weapon_menu(ng, defweapon, weapons, freeform);
 
     BoxMenuHighlighter* highlighter = new BoxMenuHighlighter(&menu);
     highlighter->init(coord_def(0,0), coord_def(0,0), "highlighter");
@@ -1618,9 +1641,11 @@ static std::vector<weapon_choice> _get_weapons(const newgame_def* ng)
 {
     std::vector<weapon_choice> weapons;
 
-    weapon_type startwep[5] = { WPN_UNARMED, WPN_SHORT_SWORD, WPN_MACE,
-                                WPN_HAND_AXE, WPN_SPEAR };
-    for (int i = 0; i < 5; ++i)
+    weapon_type startwep[7] = { WPN_UNARMED, WPN_SHORT_SWORD, WPN_MACE,
+                                WPN_HAND_AXE, WPN_SPEAR, WPN_FALCHION,
+                                WPN_QUARTERSTAFF};
+
+    for (unsigned int i = 0; i < ARRAYSZ(startwep); ++i)
     {
         weapon_choice wp;
         wp.first = startwep[i];
@@ -1628,14 +1653,16 @@ static std::vector<weapon_choice> _get_weapons(const newgame_def* ng)
         switch (wp.first)
         {
         case WPN_UNARMED:
-            if (ng->job == JOB_GLADIATOR || !species_has_claws(ng->species))
+            if (!species_has_claws(ng->species) && ng->job != JOB_MONK
+                || ng->job == JOB_GLADIATOR)
+            {
                 continue;
+            }
             break;
         case WPN_SPEAR:
-            // Non-small gladiators and merfolk get tridents.
-            if (ng->job == JOB_GLADIATOR
-                  && species_size(ng->species, PSIZE_BODY) >= SIZE_MEDIUM
-                || ng->species == SP_MERFOLK)
+            // Non-small fighters and gladiators get tridents.
+            if ((ng->job == JOB_FIGHTER || ng->job == JOB_GLADIATOR)
+                  && species_size(ng->species, PSIZE_BODY) >= SIZE_MEDIUM)
             {
                 wp.first = WPN_TRIDENT;
             }
@@ -1711,9 +1738,11 @@ static bool _choose_weapon(newgame_def* ng, newgame_def* ng_choice,
     {
     case JOB_FIGHTER:
     case JOB_GLADIATOR:
+    case JOB_MONK:
     case JOB_CHAOS_KNIGHT:
+    case JOB_DEATH_KNIGHT:
+    case JOB_ABYSSAL_KNIGHT:
     case JOB_CRUSADER:
-    case JOB_REAVER:
     case JOB_WARPER:
         break;
     default:
@@ -1757,8 +1786,6 @@ static std::string _startup_book_name(startup_book_type book)
         return "Fire";
     case SBT_COLD:
         return "Cold";
-    case SBT_SUMM:
-        return "Summoning";
     case SBT_RANDOM:
         return "Random";
     case SBT_VIABLE:
@@ -2106,11 +2133,8 @@ static bool _choose_book(newgame_def* ng, newgame_def* ng_choice,
 {
     switch (ng->job)
     {
-    case JOB_REAVER:
     case JOB_CONJURER:
         return (_choose_book(ng, ng_choice, defaults, BOOK_CONJURATIONS_I, 2));
-    case JOB_WIZARD:
-        return (_choose_book(ng, ng_choice, defaults, BOOK_MINOR_MAGIC_I, 3));
     default:
         return (true);
     }
@@ -2123,16 +2147,8 @@ static std::string _god_text(god_type god)
     {
     case GOD_ZIN:
         return "Zin (for traditional priests)";
-    case GOD_YREDELEMNUL:
-        return "Yredelemnul (for priests of death)";
     case GOD_BEOGH:
         return "Beogh (for priests of Orcs)";
-    case GOD_XOM:
-        return "Xom of Chaos";
-    case GOD_MAKHLEB:
-        return "Makhleb the Destroyer";
-    case GOD_LUGONU:
-        return "Lugonu the Unformed";
     default:
         die("invalid priestly god: %d", god);
     }
@@ -2462,7 +2478,7 @@ static void _resolve_god(newgame_def* ng, const newgame_def* ng_choice,
 static bool _choose_god(newgame_def* ng, newgame_def* ng_choice,
                         const newgame_def& defaults)
 {
-    if (ng->job != JOB_PRIEST && ng->job != JOB_CHAOS_KNIGHT)
+    if (ng->job != JOB_PRIEST)
         return (true);
 
     std::vector<god_choice> gods;
@@ -2832,14 +2848,16 @@ static void _construct_gamemode_map_menu(const mapref_vector& maps,
     std::string text;
     coord_def min_coord(0,0);
     coord_def max_coord(0,0);
+    bool activate_next = false;
 
     unsigned int padding_width = 0;
     for (int i = 0; i < static_cast<int> (maps.size()); i++)
     {
-        if (padding_width < maps.at(i)->desc_or_name().length())
-            padding_width = maps.at(i)->desc_or_name().length();
+        padding_width = std::max<int>(padding_width,
+                                      strwidth(maps.at(i)->desc_or_name()));
     }
     padding_width += 4; // Count the letter and " - "
+    padding_width = std::min<int>(padding_width, MENU_COLUMN_WIDTH - 1);
 
     for (int i = 0; i < static_cast<int> (maps.size()); i++)
     {
@@ -2854,12 +2872,7 @@ static void _construct_gamemode_map_menu(const mapref_vector& maps,
         text += " - ";
 
         text += maps[i]->desc_or_name();
-        if (static_cast<int>(text.length()) > MENU_COLUMN_WIDTH - 1)
-            text = text.substr(0, MENU_COLUMN_WIDTH - 1);
-
-        // Add padding
-        if (padding_width > text.size())
-            text.append(padding_width - text.size(), ' ');
+        text = chop_string(text, padding_width);
 
         tmp->set_text(text);
         tmp->add_hotkey(letter);
@@ -2873,9 +2886,20 @@ static void _construct_gamemode_map_menu(const mapref_vector& maps,
 
         menu->attach_item(tmp);
         tmp->set_visible(true);
-        // Is this item our default map?
-        if (defaults.map == maps[i]->name)
+
+        if (activate_next)
+        {
             menu->set_active_item(tmp);
+            activate_next = false;
+        }
+        // Is this item our default map?
+        else if (defaults.map == maps[i]->name)
+        {
+            if (crawl_state.last_game_won)
+                activate_next = true;
+            else
+                menu->set_active_item(tmp);
+        }
     }
 
     // Don't overwhelm new players with aptitudes or the full list of commands!
@@ -2945,8 +2969,8 @@ static void _construct_gamemode_map_menu(const mapref_vector& maps,
     //tmp->set_visible(true);
 
     // Only add tab entry if we have a previous map choice
-    if (crawl_state.game_is_sprint()
-        && !defaults.map.empty() && _char_defined(defaults))
+    if (crawl_state.game_is_sprint() && !defaults.map.empty()
+        && defaults.type == GAME_TYPE_SPRINT && _char_defined(defaults))
     {
         tmp = new TextItem();
         text.clear();

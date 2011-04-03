@@ -1,8 +1,7 @@
-/*
- *  File:       dbg-asrt.cc
- *  Summary:    Assertions and crashing.
- *  Written by: Linley Henzell and Jesse Jones
- */
+/**
+ * @file
+ * @brief Assertions and crashing.
+**/
 
 #include "AppHdr.h"
 
@@ -22,6 +21,7 @@
 #include "dungeon.h"
 #include "env.h"
 #include "initfile.h"
+#include "itemname.h"
 #include "jobs.h"
 #include "libutil.h"
 #include "mapmark.h"
@@ -314,8 +314,24 @@ static void _dump_player(FILE *file)
             fprintf(file, " <invalid>\n");
             continue;
         }
-        fprintf(file, ": %s\n",
-                you.inv[eq].name(DESC_PLAIN, false, true).c_str());
+        const bool unknown = !item_type_known(you.inv[eq]);
+        const bool melded  = you.melded[i];
+        std::string suffix = "";
+        if (unknown || melded)
+        {
+            suffix = " (";
+            if (unknown)
+            {
+                suffix += "unknown";
+                if (melded)
+                    suffix += ", ";
+            }
+            if (melded)
+                suffix += "melded";
+            suffix += ")";
+        }
+        fprintf(file, ": %s%s\n",
+                you.inv[eq].name(DESC_PLAIN, false, true).c_str(), suffix.c_str());
     }
     fprintf(file, "\n");
 
@@ -689,8 +705,10 @@ static NORETURN void _BreakStrToDebugger(const char *mesg, bool assert)
         MessageBox(SysInfo.window, mesg, assert ? "Assertion failed!" : "Error",
                    MB_OK|MB_ICONERROR);
     }
-    else
-        fprintf(stderr, "%s", mesg);
+    // Print the message to STDERR in addition to the above message box,
+    // so it's in the message history if we call Crawl from a shell.
+    fprintf(stderr, "%s", mesg);
+
     int* p = NULL;
     *p = 0;
     abort();
@@ -748,6 +766,23 @@ NORETURN void die(const char *file, int line, const char *format, ...)
 
     snprintf(mesg, sizeof(mesg), "ERROR in '%s' at line %d: %s",
              file, line, tmp);
+
+    _assert_msg = mesg;
+
+    _BreakStrToDebugger(mesg, false);
+}
+
+NORETURN void die_noline(const char *format, ...)
+{
+    char tmp[2048], mesg[2048];
+
+    va_list args;
+
+    va_start(args, format);
+    vsnprintf(tmp, sizeof(tmp), format, args);
+    va_end(args);
+
+    snprintf(mesg, sizeof(mesg), "ERROR: %s", tmp);
 
     _assert_msg = mesg;
 

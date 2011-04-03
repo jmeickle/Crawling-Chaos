@@ -1,8 +1,7 @@
-/*
- *  File:       mon-behv.h
- *  Summary:    Monster behaviour functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Monster behaviour functions.
+**/
 
 #include "AppHdr.h"
 #include "mon-behv.h"
@@ -251,7 +250,8 @@ void handle_behaviour(monster* mon)
     }
 
     const dungeon_feature_type can_move =
-        (mons_amphibious(mon)) ? DNGN_DEEP_WATER : DNGN_SHALLOW_WATER;
+        (mons_habitat(mon) == HT_AMPHIBIOUS) ? DNGN_DEEP_WATER
+                                             : DNGN_SHALLOW_WATER;
 
     // Validate current target exists.
     _mon_check_foe_invalid(mon);
@@ -476,17 +476,6 @@ void handle_behaviour(monster* mon)
                 if (mon->travel_target == MTRAV_SIREN)
                     mon->travel_target = MTRAV_NONE;
 
-                if (mon->foe == MHITYOU && mon->is_travelling()
-                    && mon->travel_target == MTRAV_PLAYER)
-                {
-                    // We've got a target, so we'll continue on our way.
-#ifdef DEBUG_PATHFIND
-                    mpr("Player out of LoS... start wandering.");
-#endif
-                    new_beh = BEH_WANDER;
-                    break;
-                }
-
                 if (isFriendly && mon->foe != MHITYOU)
                 {
                     if (patrolling || crawl_state.game_is_arena())
@@ -590,8 +579,8 @@ void handle_behaviour(monster* mon)
                 // If monster is currently getting into firing position and
                 // see the player and can attack him, clear firing_pos.
                 if (!mon->firing_pos.zero()
-                    && mons_has_los_ability(mon->type)
-                       || mon->see_cell_no_trans(mon->target))
+                    && (mons_has_los_ability(mon->type)
+                        || mon->see_cell_no_trans(mon->target)))
                 {
                     mon->firing_pos.reset();
                 }
@@ -1038,8 +1027,8 @@ void behaviour_event(monster* mon, mon_event_type event, int src,
                 && !you.see_cell(mon->pos()))
             {
                 const dungeon_feature_type can_move =
-                    (mons_amphibious(mon)) ? DNGN_DEEP_WATER
-                                           : DNGN_SHALLOW_WATER;
+                    (mons_habitat(mon) == HT_AMPHIBIOUS) ? DNGN_DEEP_WATER
+                                                         : DNGN_SHALLOW_WATER;
 
                 try_pathfind(mon, can_move);
             }

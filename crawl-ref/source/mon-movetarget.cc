@@ -35,7 +35,7 @@ static void _mark_neighbours_target_unreachable(monster* mon)
         return;
 
     const bool flies         = mons_flies(mon);
-    const bool amphibious    = mons_amphibious(mon);
+    const bool amphibious    = (mons_habitat(mon) == HT_AMPHIBIOUS);
     const habitat_type habit = mons_primary_habitat(mon);
 
     for (radius_iterator ri(mon->pos(), 2, true, false); ri; ++ri)
@@ -61,10 +61,17 @@ static void _mark_neighbours_target_unreachable(monster* mon)
         if (mons_primary_habitat(m) != habit)
             continue;
 
+        // Wall clinging monsters use different pathfinding.
+        if (mon->can_cling_to_walls() != m->can_cling_to_walls())
+            continue;
+
         // A flying monster has an advantage over a non-flying one.
         // Same for a swimming one.
-        if (!flies && mons_flies(m) || !amphibious && mons_amphibious(m))
+        if (!flies && mons_flies(m)
+            || !amphibious && mons_habitat(m) == HT_AMPHIBIOUS)
+        {
             continue;
+        }
 
         if (m->travel_target == MTRAV_NONE)
             m->travel_target = MTRAV_UNREACHABLE;
@@ -103,7 +110,8 @@ bool try_pathfind(monster* mon, const dungeon_feature_type can_move)
     // next turn, and even extend that flag to neighbouring
     // monsters of similar movement restrictions.
 
-    bool need_pathfind = !can_go_straight(mon->pos(), PLAYER_POS, can_move);
+    bool need_pathfind = !can_go_straight(mon, mon->pos(), PLAYER_POS,
+                                          can_move);
 
     // Smart monsters that can fire through obstacles won't use
     // pathfinding.
@@ -142,8 +150,13 @@ bool try_pathfind(monster* mon, const dungeon_feature_type can_move)
 
     // If the target is "unreachable" (the monster already tried,
     // and failed, to find a path), there's a chance of trying again.
-    if (_target_is_unreachable(mon) && !one_chance_in(12))
+    // The chance is higher for wall clinging monsters to help them avoid
+    // shallow water.
+    if (_target_is_unreachable(mon) && !one_chance_in(12)
+        && !(mon->can_cling_to_walls() && one_chance_in(4)))
+    {
         return (false);
+    }
 
 #ifdef DEBUG_PATHFIND
     mprf("%s: Player out of reach! What now?",
@@ -156,7 +169,7 @@ bool try_pathfind(monster* mon, const dungeon_feature_type can_move)
         const coord_def targ = mon->travel_path[len - 1];
 
         // Current target still valid?
-        if (can_go_straight(targ, PLAYER_POS, can_move))
+        if (can_go_straight(mon, targ, PLAYER_POS, can_move))
         {
             // Did we reach the target?
             if (mon->pos() == mon->travel_path[0])
@@ -170,7 +183,7 @@ bool try_pathfind(monster* mon, const dungeon_feature_type can_move)
                     return (true);
                 }
             }
-            else if (can_go_straight(mon->pos(), mon->travel_path[0],
+            else if (can_go_straight(mon, mon->pos(), mon->travel_path[0],
                                      can_move))
             {
                 mon->target = mon->travel_path[0];
@@ -516,7 +529,7 @@ static bool _handle_monster_travelling(monster* mon,
     }
 
     // Can we still see our next waypoint?
-    if (!can_go_straight(mon->pos(), mon->travel_path[0], can_move))
+    if (!can_go_straight(mon, mon->pos(), mon->travel_path[0], can_move))
     {
 #ifdef DEBUG_PATHFIND
         mpr("Can't see waypoint grid.");
@@ -534,7 +547,7 @@ static bool _handle_monster_travelling(monster* mon,
         const int size = mon->travel_path.size();
         for (int i = size - 1; i >= 0; --i)
         {
-            if (can_go_straight(mon->pos(), mon->travel_path[i], can_move))
+            if (can_go_straight(mon, mon->pos(), mon->travel_path[i], can_move))
             {
                 mon->target = mon->travel_path[i];
                 erase = i;
@@ -992,8 +1005,9 @@ void check_wander_target(monster* mon, bool isPacified,
 
         if (!can_move)
         {
-            can_move = (mons_amphibious(mon) ? DNGN_DEEP_WATER
-                                             : DNGN_SHALLOW_WATER);
+            can_move =
+                (mons_habitat(mon) == HT_AMPHIBIOUS) ? DNGN_DEEP_WATER
+                                                     : DNGN_SHALLOW_WATER;
         }
 
         if (mon->is_travelling())

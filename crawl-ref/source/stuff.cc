@@ -1,8 +1,7 @@
-/*
- *  File:       stuff.cc
- *  Summary:    Misc stuff.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc stuff.
+**/
 
 #include "AppHdr.h"
 
@@ -130,21 +129,13 @@ std::string make_time_string(time_t abs_time, bool terse)
     const int mins  = (abs_time % 3600) / 60;
     const int secs  = abs_time % 60;
 
-    std::ostringstream buff;
-    buff << std::setfill('0');
-
+    std::string buff;
     if (days > 0)
     {
-        if (terse)
-            buff << days << ", ";
-        else
-            buff << days << (days > 1 ? " days" : "day");
+        buff += make_stringf("%d%s ", days, terse ? ","
+                             : days > 1 ? "days" : "day");
     }
-
-    buff << std::setw(2) << hours << ':'
-         << std::setw(2) << mins << ':'
-         << std::setw(2) << secs;
-    return buff.str();
+    return buff + make_stringf("%02d:%02d:%02d", hours, mins, secs);
 }
 
 std::string make_file_time(time_t when)
@@ -237,6 +228,8 @@ static bool _tag_follower_at(const coord_def &pos, bool &real_follower)
     fmenv->patrol_point.reset();
     fmenv->travel_path.clear();
     fmenv->travel_target = MTRAV_NONE;
+
+    fmenv->clear_clinging();
 
     dprf("%s is marked for following.",
          fmenv->name(DESC_CAP_THE, true).c_str());
@@ -337,9 +330,6 @@ void cio_init()
 #ifdef USE_TILE
     tiles.resize();
 #endif
-
-    if (Options.char_set == CSET_UNICODE && !crawl_state.unicode_ok)
-        end(1, false, "Unicode glyphs are not available.");
 }
 
 void cio_cleanup()
@@ -396,12 +386,16 @@ NORETURN void end(int exit_code, bool print_error, const char *format, ...)
             error += "\n";
     }
 
+#if (defined(TARGET_OS_WINDOWS) && !defined(USE_TILE)) \
+     || defined(TARGET_OS_DOS) \
+     || defined(DGL_PAUSE_AFTER_ERROR)
     bool need_pause = true;
     if (exit_code && !error.empty())
     {
         if (print_error_screen("%s", error.c_str()))
             need_pause = false;
     }
+#endif
 
     cio_cleanup();
     msg::deinitialise_mpr_streams();
@@ -683,6 +677,14 @@ void canned_msg(canned_message_type which_message)
         break;
     case MSG_UNTHINKING_ACT:
         mpr("Why would you want to do that?");
+        crawl_state.cancel_cmd_repeat();
+        break;
+    case MSG_NOTHING_THERE:
+        mpr("There's nothing there!");
+        crawl_state.cancel_cmd_repeat();
+        break;
+    case MSG_NOTHING_CLOSE_ENOUGH:
+        mpr("There's nothing close enough!");
         crawl_state.cancel_cmd_repeat();
         break;
     case MSG_SPELL_FIZZLES:

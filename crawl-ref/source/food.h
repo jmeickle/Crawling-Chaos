@@ -1,8 +1,7 @@
-/*
- *  File:       food.h
- *  Summary:    Functions for eating and butchering.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Functions for eating and butchering.
+**/
 
 
 #ifndef FOOD_H
@@ -36,6 +35,9 @@ enum food_type
     NUM_FOODS                          //   23
 };
 
+#define BERSERK_NUTRITION    700
+#define HUNGER_STARVING     1000
+
 int count_corpses_in_pack(bool blood_only = false);
 bool butchery(int which_corpse = -1, bool bottle_blood = false);
 
@@ -48,7 +50,7 @@ void lessen_hunger(int statiated_amount, bool suppress_msg);
 
 void set_hunger(int new_hunger_level, bool suppress_msg);
 
-void weapon_switch(int targ);
+void weapon_switch(int targ, bool force = false);
 
 bool is_bad_food(const item_def &food);
 bool is_poisonous(const item_def &food);
@@ -60,8 +62,11 @@ bool is_preferred_food(const item_def &food);
 bool is_forbidden_food(const item_def &food);
 bool check_amu_the_gourmand(bool reqid);
 
-bool can_ingest(int what_isit, int kindof_thing, bool suppress_msg,
+bool can_ingest(const item_def &food, bool suppress_msg,
                 bool reqid = false, bool check_hunger = true);
+bool can_ingest(int what_isit, int kindof_thing, bool suppress_msg,
+                bool reqid = false, bool check_hunger = true,
+                bool rotten = false);
 
 bool chunk_is_poisonous(int chunktype);
 void eat_floor_item(int item_link);

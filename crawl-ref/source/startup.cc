@@ -1,8 +1,7 @@
-/*
- *  File:       startup.cc
- *  Summary:    Collection of startup related functions and objects
- *  Written by:
- */
+/**
+ * @file
+ * @brief Collection of startup related functions and objects
+**/
 
 #include "AppHdr.h"
 
@@ -198,6 +197,8 @@ static void _post_init(bool newc)
     macro_init();
 
     crawl_state.need_save = true;
+    crawl_state.last_type = crawl_state.type;
+    crawl_state.last_game_won = false;
 
     calc_hp();
     calc_mp();
@@ -276,7 +277,6 @@ static void _post_init(bool newc)
     you.xray_vision = !!you.duration[DUR_SCRYING];
     init_exclusion_los();
     you.bondage_level = ash_bondage_level();
-    you.check_clinging();
 
     trackers_init_new_level(false);
 
@@ -541,6 +541,7 @@ static void _show_startup_menu(newgame_def* ng_choice,
 {
     std::vector<player_save_info> chars = find_all_saved_characters();
     const int num_saves = chars.size();
+    static int type = GAME_TYPE_UNSPECIFIED;
 
 #ifdef USE_TILE
     const int max_col    = tiles.get_crt()->mx;
@@ -656,7 +657,12 @@ static void _show_startup_menu(newgame_def* ng_choice,
     bool full_name = !input_string.empty();
 
     int save = _find_save(chars, input_string);
-    if (save != -1)
+    if (type != GAME_TYPE_UNSPECIFIED)
+    {
+        menu.set_active_object(game_modes);
+        game_modes->set_active_item(type);
+    }
+    else if (save != -1)
     {
         menu.set_active_object(save_games);
         // save game id is offset by NUM_GAME_TYPE
@@ -704,10 +710,8 @@ static void _show_startup_menu(newgame_def* ng_choice,
         {
             // handle the non-action keys by hand to poll input
             // Only consider alphanumeric keys and -_ .
-            // Note: this currently allows letters between 128 and 255 in
-            // 8-bit ancient charsets.
             bool changed_name = false;
-            if (std::isalnum(keyn) || keyn == '-' || keyn == '.'
+            if (std::iswalnum(keyn) || keyn == '-' || keyn == '.'
                 || keyn == '_' || keyn == ' ')
             {
                 if (full_name)
@@ -715,9 +719,9 @@ static void _show_startup_menu(newgame_def* ng_choice,
                     full_name = false;
                     input_string = "";
                 }
-                if ((int) input_string.length() < kNameLen)
+                if (strwidth(input_string) < kNameLen)
                 {
-                    input_string += static_cast<char> (keyn);
+                    input_string += stringize_glyph(keyn);
                     changed_name = true;
                 }
             }
@@ -759,8 +763,8 @@ static void _show_startup_menu(newgame_def* ng_choice,
             else
             {
                 // Menu might have changed selection -- sync name.
-                int id = menu.get_active_item()->get_id();
-                switch (id)
+                type = menu.get_active_item()->get_id();
+                switch (type)
                 {
                 case GAME_TYPE_ARENA:
                     input_string = "";
@@ -781,7 +785,7 @@ static void _show_startup_menu(newgame_def* ng_choice,
                     break;
 
                 default:
-                    int save_number = id - NUM_GAME_TYPE;
+                    int save_number = type - NUM_GAME_TYPE;
                     input_string = chars.at(save_number).name;
                     full_name = true;
                     break;
@@ -899,10 +903,20 @@ bool startup_step()
 
 
 #ifndef DGAMELAUNCH
+    if (crawl_state.last_type == GAME_TYPE_TUTORIAL
+        || crawl_state.last_type == GAME_TYPE_SPRINT)
+    {
+        choice.type = crawl_state.last_type;
+        crawl_state.type = crawl_state.last_type;
+        crawl_state.last_type = GAME_TYPE_UNSPECIFIED;
+        choice.name = defaults.name;
+        if (choice.type == GAME_TYPE_TUTORIAL)
+            choose_tutorial_character(&choice);
+    }
     // We could also check whether game type has been set here,
     // but it's probably not necessary to choose non-default game
     // types while specifying a name externally.
-    if (!is_good_name(choice.name, false, false)
+    else if (!is_good_name(choice.name, false, false)
         && choice.type != GAME_TYPE_ARENA)
     {
         _show_startup_menu(&choice, defaults);

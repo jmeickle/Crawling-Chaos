@@ -1,9 +1,8 @@
-/*
- *  File:       travel.cc
- *  Summary:    Travel stuff
- *  Written by: Darshan Shaligram
- *
- *  Known issues:
+/**
+ * @file
+ * @brief Travel stuff
+**/
+/* Known issues:
  *   Hardcoded dungeon features all over the place - this thing is a devil to
  *   refactor.
  */
@@ -28,6 +27,7 @@
 #include "exclude.h"
 #include "fight.h"
 #include "godabil.h"
+#include "godpassive.h"
 #include "itemname.h"
 #include "itemprop.h"
 #include "items.h"
@@ -126,8 +126,7 @@ const int8_t IMPASSABLE  = 0;
 const int8_t FORBIDDEN   = -1;
 
 // Map of terrain types that are traversable.
-// Should be [NUM_FEATURES], but we're paranoid here.
-static int8_t traversable_terrain[256];
+static FixedVector<int8_t,NUM_FEATURES> traversable_terrain;
 
 /*
  * Warn if interlevel travel is going to take you outside levels in
@@ -919,7 +918,7 @@ command_type travel()
 
     command_type result = CMD_NO_CMD;
 
-    if (kbhit())
+    if (Options.travel_key_stop && kbhit())
     {
         mprf("Key pressed, stopping %s.", you.running.runmode_name().c_str());
         stop_running();
@@ -2054,7 +2053,7 @@ static int _prompt_travel_branch(int prompt_flags, bool* to_entrance)
                                      branches[br[i]].travel_shortcut,
                                      branches[br[i]].shortname);
             }
-            if (line.length())
+            if (!line.empty())
                 mpr(line.c_str());
         }
 
@@ -2131,13 +2130,13 @@ static int _prompt_travel_branch(int prompt_flags, bool* to_entrance)
                             || i == BRANCH_SHOALS
                             || i == BRANCH_SNAKE_PIT))
                     {
-                        msg += "Branch not generated this game.  ";
+                        msg += "Branch not generated this game. ";
                     }
 
                     if (target.entry_stairs == NUM_FEATURES
                         && br[i] != BRANCH_MAIN_DUNGEON)
                     {
-                        msg += "Branch has no entry stairs.  ";
+                        msg += "Branch has no entry stairs. ";
                     }
 
                     if (!msg.empty())
@@ -2348,8 +2347,11 @@ bool travel_kill_monster(monster_type mons)
         return (false);
 
     // Don't auto-kill things with berserkitis or *rage.
-    if (player_mutation_level(MUT_BERSERK) || scan_artefacts(ARTP_ANGRY))
+    if ((player_mutation_level(MUT_BERSERK) || scan_artefacts(ARTP_ANGRY))
+        && !wearing_amulet(AMU_STASIS, false) && !player_mental_clarity(false))
+    {
         return (false);
+    }
 
     return (true);
 }
@@ -3589,7 +3591,7 @@ void TravelCache::list_waypoints() const
             line = "";
         }
     }
-    if (line.length())
+    if (!line.empty())
         mpr(line.c_str());
 }
 
@@ -4286,7 +4288,7 @@ template <class C> void explore_discoveries::say_any(
     const std::string message = "Found " +
         comma_separated_line(coll.begin(), coll.end()) + ".";
 
-    if ((int) message.length() >= get_number_of_cols())
+    if (strwidth(message) >= get_number_of_cols())
         mprf(stub, number_in_words(coll.size()).c_str());
     else
         mprf("%s", message.c_str());
@@ -4370,7 +4372,7 @@ void do_interlevel_travel()
         mesclr();
 }
 
-
+#ifdef USE_TILE
 // (0,0) = same position is handled elsewhere.
 const int dir_dx[8] = {-1, 0, 1, -1, 1, -1,  0,  1};
 const int dir_dy[8] = { 1, 1, 1,  0, 0, -1, -1, -1};
@@ -4392,19 +4394,19 @@ static int _adjacent_cmd(const coord_def &gc, bool force)
         if (force)
             cmd += CMD_OPEN_DOOR_LEFT - CMD_MOVE_LEFT;
 
-        return command_to_key((command_type) cmd);
+        return cmd;
     }
 
-    return 0;
+    return CK_MOUSE_CMD;
 }
 
 int click_travel(const coord_def &gc, bool force)
 {
     if (!in_bounds(gc))
-        return 0;
+        return CK_MOUSE_CMD;
 
-    int cmd = _adjacent_cmd(gc, force);
-    if (cmd)
+    const int cmd = _adjacent_cmd(gc, force);
+    if (cmd != CK_MOUSE_CMD)
         return cmd;
 
     if ((!is_excluded(gc) || _is_stair_exclusion(gc))
@@ -4428,10 +4430,11 @@ int click_travel(const coord_def &gc, bool force)
     const coord_def dest = tp.pathfind(RMODE_TRAVEL);
 
     if (!dest.x && !dest.y)
-        return 0;
+        return CK_MOUSE_CMD;
 
     return _adjacent_cmd(dest, force);
 }
+#endif
 
 bool check_for_interesting_features()
 {
@@ -4443,6 +4446,8 @@ bool check_for_interesting_features()
     for (radius_iterator ri(you.get_los()); ri; ++ri)
     {
         const coord_def p(*ri);
+        ash_id_item(p);
+
         if (!env.map_shadow(p).seen() && env.map_knowledge(p).seen())
             _check_interesting_square(p, discoveries);
     }

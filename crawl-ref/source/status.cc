@@ -6,6 +6,7 @@
 #include "misc.h"
 #include "mutation.h"
 #include "player.h"
+#include "player-stats.h"
 #include "skills2.h"
 #include "transform.h"
 
@@ -47,7 +48,7 @@ static duration_def duration_data[] =
     { DUR_DIVINE_VIGOUR, false,
       0, "", "divinely vigorous", "You are divinely vigorous." },
     { DUR_EXHAUSTED, false,
-      YELLOW, "Fatig", "exhausted", "You are exhausted." },
+      YELLOW, "Exh", "exhausted", "You are exhausted." },
     { DUR_FIRE_SHIELD, true,
       BLUE, "RoF", "immune to fire clouds", "" },
     { DUR_ICY_ARMOUR, true,
@@ -86,8 +87,10 @@ static duration_def duration_data[] =
       GREEN, "Slime", "slimy", "" },
     { DUR_SLEEP, false,
       0, "", "sleeping", "You are sleeping." },
+#if TAG_MAJOR_VERSION == 32
     { DUR_STONEMAIL, true,
       0, "", "stone mail", "You are covered in scales of stone."},
+#endif
     { DUR_STONESKIN, false,
       0, "", "stone skin", "Your skin is tough as stone." },
     { DUR_SWIFTNESS, true,
@@ -127,6 +130,8 @@ static duration_def duration_data[] =
       LIGHTBLUE, "Finesse", "finesse", "Your blows are lightning fast." },
     { DUR_LIFESAVING, true,
       LIGHTGREY, "Prot", "protection", "You ask for being saved." },
+    { DUR_DARKNESS, true,
+      BLUE, "Dark", "darkness", "You emit darkness." },
 };
 
 static int duration_index[NUM_DURATIONS];
@@ -217,6 +222,7 @@ static void _describe_sickness(status_info* inf);
 static void _describe_speed(status_info* inf);
 static void _describe_poison(status_info* inf);
 static void _describe_transform(status_info* inf);
+static void _describe_stat_zero(status_info* inf, stat_type st);
 
 void fill_status_info(int status, status_info* inf)
 {
@@ -363,7 +369,7 @@ void fill_status_info(int status, status_info* inf)
         if (handle_pbd_corpses(false) > 0)
         {
             inf->light_colour = LIGHTMAGENTA;
-            inf->light_text   = "PbD";
+            inf->light_text   = "Regen+";
         }
         break;
 
@@ -407,7 +413,7 @@ void fill_status_info(int status, status_info* inf)
         break;
 
     case STATUS_CLINGING:
-        if (you.clinging)
+        if (you.is_wall_clinging())
         {
             inf->light_text   = "Cling";
             inf->short_text   = "clinging";
@@ -416,6 +422,16 @@ void fill_status_info(int status, status_info* inf)
                                            dur_expiring(DUR_TRANSFORMATION));
             _mark_expiring(inf, dur_expiring(DUR_TRANSFORMATION));
         }
+        break;
+
+    case STATUS_STR_ZERO:
+        _describe_stat_zero(inf, STAT_STR);
+        break;
+    case STATUS_INT_ZERO:
+        _describe_stat_zero(inf, STAT_INT);
+        break;
+    case STATUS_DEX_ZERO:
+        _describe_stat_zero(inf, STAT_DEX);
         break;
 
     default:
@@ -589,7 +605,7 @@ static void _describe_speed(status_info* inf)
         inf->long_text = "Your actions are hasted.";
         _mark_expiring(inf, dur_expiring(DUR_HASTE));
     }
-    if (liquefied(you.pos(), true) && !you.airborne() && !you.clinging)
+    if (liquefied(you.pos(), true) && you.ground_level())
     {
         inf->light_colour = BROWN;
         inf->light_text   = "SlowM";
@@ -752,4 +768,19 @@ static void _describe_transform(status_info* inf)
 
     inf->light_colour = dur_colour(GREEN, expire);
     _mark_expiring(inf, expire);
+}
+
+static const char* s0_names[NUM_STATS] = { "Collapse", "Brainless", "Clumsy", };
+
+static void _describe_stat_zero(status_info* inf, stat_type st)
+{
+    if (you.stat_zero[st])
+    {
+        inf->light_colour = you.stat(st) ? LIGHTRED : RED;
+        inf->light_text   = s0_names[st];
+        inf->short_text   = make_stringf("lost %s", stat_desc(st, SD_NAME));
+        inf->long_text    = make_stringf(you.stat(st) ?
+                "You are recovering from loss of %s." : "You have no %s!",
+                stat_desc(st, SD_NAME));
+    }
 }

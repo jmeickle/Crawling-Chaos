@@ -1,7 +1,7 @@
-/*
- *  File:       godabil.h
- *  Summary:    God-granted abilities.
- */
+/**
+ * @file
+ * @brief God-granted abilities.
+**/
 
 #ifndef GODABIL_H
 #define GODABIL_H
@@ -17,7 +17,6 @@ bool zin_sustenance(bool actual = true);
 bool zin_check_able_to_recite();
 int zin_check_recite_to_monsters(recite_type *prayertype);
 bool zin_recite_to_single_monster(const coord_def& where,
-                                  bool imprisoned,
                                   recite_type prayertype);
 void zin_saltify(monster* mon);
 bool zin_vitalisation();
@@ -49,6 +48,7 @@ void yred_drain_life();
 void yred_make_enslaved_soul(monster* mon, bool force_hostile = false);
 
 bool kiku_receive_corpses(int pow, coord_def where);
+bool kiku_take_corpse();
 
 bool fedhas_passthrough_class(const monster_type mc);
 bool fedhas_passthrough(const monster* target);

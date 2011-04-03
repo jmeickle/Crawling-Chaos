@@ -1,8 +1,8 @@
-/*
- *  File:     spl-damage.cc
- *  Summary:  Damage-dealing spells not already handled elsewhere.
- *            Other targeted spells are covered in spl-zap.cc.
- */
+/**
+ * @file
+ * @brief Damage-dealing spells not already handled elsewhere.
+ *           Other targeted spells are covered in spl-zap.cc.
+**/
 
 #include "AppHdr.h"
 
@@ -17,7 +17,6 @@
 #include "env.h"
 #include "food.h"
 #include "godconduct.h"
-#include "it_use2.h"
 #include "itemprop.h"
 #include "items.h"
 #include "libutil.h"
@@ -29,6 +28,7 @@
 #include "mon-util.h"
 #include "ouch.h"
 #include "player.h"
+#include "player-equip.h"
 #include "shout.h"
 #include "spl-util.h"
 #include "stuff.h"
@@ -231,16 +231,6 @@ void cast_chain_lightning(int pow, const actor *caster)
             }
         }
 
-        if (caster == &you)
-        {
-            monster* mons = monster_at(target);
-            if (mons)
-            {
-                if (stop_attack_prompt(mons, false, you.pos()))
-                    return;
-            }
-        }
-
         const bool see_source = you.see_cell(source);
         const bool see_targ   = you.see_cell(target);
 
@@ -377,13 +367,10 @@ void cast_toxic_radiance(bool non_player)
             // this check should not be !mons->invisible().
             if (!mi->has_ench(ENCH_INVIS))
             {
-                kill_category kc = KC_YOU;
-                if (non_player)
-                    kc = KC_OTHER;
-                bool affected =
-                    poison_monster(*mi, kc, 1, false, false);
+                const actor* agent = non_player ? 0 : &you;
+                bool affected = poison_monster(*mi, agent, 1, false, false);
 
-                if (coinflip() && poison_monster(*mi, kc, false, false))
+                if (coinflip() && poison_monster(*mi, agent, false, false))
                     affected = true;
 
                 if (affected)
@@ -404,7 +391,7 @@ void cast_toxic_radiance(bool non_player)
             make_stringf("%s %s poisoned.",
                          _describe_monsters(affected_monsters).c_str(),
                          _monster_count(affected_monsters) == 1? "is" : "are");
-        if (static_cast<int>(message.length()) < get_number_of_cols() - 2)
+        if (strwidth(message) < get_number_of_cols() - 2)
             mpr(message.c_str());
         else
         {
@@ -418,7 +405,7 @@ void cast_toxic_radiance(bool non_player)
     }
 }
 
-void cast_refrigeration(int pow, bool non_player)
+void cast_refrigeration(int pow, bool non_player, bool freeze_potions)
 {
     if (non_player)
         mpr("Something drains the heat from around you.");
@@ -442,7 +429,8 @@ void cast_refrigeration(int pow, bool non_player)
         // Note: this used to be 12!... and it was also applied even if
         // the player didn't take damage from the cold, so we're being
         // a lot nicer now.  -- bwr
-        expose_player_to_element(BEAM_COLD, 5);
+        if (freeze_potions)
+            expose_player_to_element(BEAM_COLD, 5);
     }
 
     // Now do the monsters.
@@ -460,7 +448,7 @@ void cast_refrigeration(int pow, bool non_player)
             make_stringf("%s %s frozen.",
                          _describe_monsters(affected_monsters).c_str(),
                          _monster_count(affected_monsters) == 1? "is" : "are");
-        if (static_cast<int>(message.length()) < get_number_of_cols() - 2)
+        if (strwidth(message) < get_number_of_cols() - 2)
             mpr(message.c_str());
         else
         {
@@ -508,8 +496,9 @@ bool vampiric_drain(int pow, monster* mons)
 {
     if (mons == NULL || mons->submerged())
     {
-        mpr("There isn't anything there!");
-        // Cost to disallow freely locating invisible monsters.
+        canned_msg(MSG_NOTHING_CLOSE_ENOUGH);
+        // Cost to disallow freely locating invisible/submerged
+        // monsters.
         return (true);
     }
 
@@ -587,15 +576,15 @@ bool vampiric_drain(int pow, monster* mons)
     return (true);
 }
 
-bool burn_freeze(int pow, beam_type flavour, monster* mons)
+bool cast_freeze(int pow, monster* mons)
 {
     pow = std::min(25, pow);
 
     if (mons == NULL || mons->submerged())
     {
-        mpr("There isn't anything close enough!");
+        canned_msg(MSG_NOTHING_CLOSE_ENOUGH);
         // If there's no monster there, you still pay the costs in
-        // order to prevent locating invisible monsters.
+        // order to prevent locating invisible/submerged monsters.
         return (true);
     }
 
@@ -608,13 +597,7 @@ bool burn_freeze(int pow, beam_type flavour, monster* mons)
     {
         set_attack_conducts(conducts, mons);
 
-        mprf("You %s %s.",
-             (flavour == BEAM_FIRE)        ? "burn" :
-             (flavour == BEAM_COLD)        ? "freeze" :
-             (flavour == BEAM_MISSILE)     ? "crush" :
-             (flavour == BEAM_ELECTRICITY) ? "zap"
-                                           : "______",
-             mons->name(DESC_NOCAP_THE).c_str());
+        mprf("You freeze %s.", mons->name(DESC_NOCAP_THE).c_str());
 
         behaviour_event(mons, ME_ANNOY, MHITYOU);
     }
@@ -625,7 +608,7 @@ bool burn_freeze(int pow, beam_type flavour, monster* mons)
         return (false);
 
     bolt beam;
-    beam.flavour = flavour;
+    beam.flavour = BEAM_COLD;
     beam.thrower = KILL_YOU;
 
     const int orig_hurted = roll_dice(1, 3 + pow / 3);
@@ -634,17 +617,14 @@ bool burn_freeze(int pow, beam_type flavour, monster* mons)
 
     if (mons->alive())
     {
-        mons->expose_to_element(flavour, orig_hurted);
+        mons->expose_to_element(BEAM_COLD, orig_hurted);
         print_wounds(mons);
 
-        if (flavour == BEAM_COLD)
+        const int cold_res = mons->res_cold();
+        if (cold_res <= 0)
         {
-            const int cold_res = mons->res_cold();
-            if (cold_res <= 0)
-            {
-                const int stun = (1 - cold_res) * random2(2 + pow/5);
-                mons->speed_increment -= stun;
-            }
+            const int stun = (1 - cold_res) * random2(2 + pow/5);
+            mons->speed_increment -= stun;
         }
     }
 
@@ -714,16 +694,6 @@ int airstrike(int pow, const dist &beam)
 
     return (success);
 }
-
-enum DEBRIS                 // jmf: add for shatter, dig, and Giants to throw
-{
-    DEBRIS_METAL,           //    0
-    DEBRIS_ROCK,
-    DEBRIS_STONE,
-    DEBRIS_WOOD,
-    DEBRIS_CRYSTAL,
-    NUM_DEBRIS
-};          // jmf: ...and I'll actually implement the items Real Soon Now...
 
 // Just to avoid typing this over and over.
 // Returns true if monster died. -- bwr
@@ -950,7 +920,7 @@ void cast_shatter(int pow)
         mpr("The dungeon rumbles!", MSGCH_SOUND);
     }
 
-    int rad = 3 + (you.skills[SK_EARTH_MAGIC] / 5);
+    int rad = 3 + (you.skill(SK_EARTH_MAGIC) / 5);
 
     apply_area_within_radius(_shatter_items, you.pos(), pow, rad, 0);
     apply_area_within_radius(_shatter_monsters, you.pos(), pow, rad, 0);
@@ -1250,9 +1220,9 @@ void cast_ignite_poison(int pow)
 {
     flash_view(RED);
 
-    apply_area_visible(_ignite_poison_clouds, pow, false, &you);
-    apply_area_visible(_ignite_poison_objects, pow, false, &you);
-    apply_area_visible(_ignite_poison_monsters, pow, false, &you);
+    apply_area_visible(_ignite_poison_clouds, pow, true, &you);
+    apply_area_visible(_ignite_poison_objects, pow, true, &you);
+    apply_area_visible(_ignite_poison_monsters, pow, true, &you);
 // Not currently relevant - nothing will ever happen as long as
 // the actor is &you.
     apply_area_visible(_ignite_poison_player, pow, false, &you);
@@ -1353,6 +1323,8 @@ static int _disperse_monster(monster* mon, int pow)
 {
     if (!mon)
         return (0);
+    if (mons_is_projectile(mon->type))
+        return (0);
 
     if (mons_genus(mon->type) == MONS_BLINK_FROG)
     {
@@ -1418,7 +1390,7 @@ bool cast_fragmentation(int pow, const dist& spd)
     beam.aux_source.clear();
 
     // Number of dice vary... 3 is easy/common, but it can get as high as 6.
-    beam.damage = dice_def(0, 5 + pow / 10);
+    beam.damage = dice_def(0, 5 + pow / 5);
 
     const dungeon_feature_type grid = grd(spd.target);
 
@@ -1617,15 +1589,17 @@ bool cast_fragmentation(int pow, const dist& spd)
     // Stone and rock terrain
     //
     case DNGN_ROCK_WALL:
-    case DNGN_CLEAR_ROCK_WALL:
     case DNGN_SECRET_DOOR:
         beam.colour = env.rock_colour;
         // fall-through
-    case DNGN_CLEAR_STONE_WALL:
     case DNGN_STONE_WALL:
-        what = "wall";
         if (player_in_branch(BRANCH_HALL_OF_ZOT))
             beam.colour = env.rock_colour;
+    case DNGN_CLEAR_ROCK_WALL:
+    case DNGN_CLEAR_STONE_WALL:
+        if (beam.colour == 0)
+            beam.colour = LIGHTCYAN;
+        what = "wall";
         // fall-through
     case DNGN_ORCISH_IDOL:
         if (what == NULL)
@@ -1764,6 +1738,10 @@ bool cast_fragmentation(int pow, const dist& spd)
         // FIXME: cute message for water?
         break;
     }
+
+    // If it was recoloured, use that colour instead.
+    if (env.grid_colours(spd.target))
+        beam.colour = env.grid_colours(spd.target);
 
   all_done:
     if (explode && beam.damage.num > 0)

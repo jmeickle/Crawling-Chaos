@@ -1,8 +1,7 @@
-/*
- *  File:       traps.cc
- *  Summary:    Traps related functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Traps related functions.
+**/
 
 #include "AppHdr.h"
 
@@ -458,7 +457,7 @@ void trap_def::trigger(actor& triggerer, bool flat_footed)
             || trig_knows && !mons_is_fleeing(m) && !m->pacified())
         {
             // No message for flying monsters to avoid message spam.
-            if (you_know && !(triggerer.airborne() || triggerer.is_wall_clinging()))
+            if (you_know && triggerer.ground_level())
                 simple_monster_message(m, " carefully avoids the shaft.");
             return;
         }
@@ -471,8 +470,7 @@ void trap_def::trigger(actor& triggerer, bool flat_footed)
         return;
     }
     // Only magical traps affect flying critters.
-    if ((triggerer.airborne() || triggerer.is_wall_clinging())
-        && this->category() != DNGN_TRAP_MAGICAL)
+    if (!triggerer.ground_level() && this->category() != DNGN_TRAP_MAGICAL)
     {
         if (you_know && m && triggerer.airborne())
             simple_monster_message(m, " flies safely over a trap.");
@@ -559,7 +557,7 @@ void trap_def::trigger(actor& triggerer, bool flat_footed)
                 msg = std::string("You hear a ") +
                     ((in_sight) ? "" : "distant ")
                     + "blaring wail "
-                    + ((dir.length())? ("to the " + dir + ".") : "behind you!");
+                    + (!dir.empty()? ("to the " + dir + ".") : "behind you!");
             }
             // Monsters of normal or greater intelligence will realize that
             // they were the one to set off the trap.
@@ -1544,12 +1542,12 @@ trap_type random_trap(dungeon_feature_type feat)
 
 bool is_valid_shaft_level(const level_id &place)
 {
-    if (crawl_state.game_is_sprint())
+    if (crawl_state.test
+        || crawl_state.game_is_sprint()
+        || crawl_state.game_is_zotdef())
+    {
         return (false);
-
-    // Zot def - no shafts
-    if (crawl_state.game_is_zotdef())
-        return (false);
+    }
 
     if (place.level_type != LEVEL_DUNGEON)
         return (false);

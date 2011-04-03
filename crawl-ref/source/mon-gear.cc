@@ -1,7 +1,7 @@
-/*
- * File:       mon-gear.cc
- * Summary:    Monsters' starting equipment.
- */
+/**
+ * @file
+ * @brief Monsters' starting equipment.
+**/
 
 #include "AppHdr.h"
 
@@ -23,6 +23,7 @@
 #include "mon-util.h"
 #include "random.h"
 #include "spl-book.h"
+#include "state.h"
 
 
 static void _give_monster_item(monster* mon, int thing,
@@ -56,6 +57,22 @@ static void _give_monster_item(monster* mon, int thing,
             convert2bad(mthing);
         if (get_weapon_brand(mthing) == SPWPN_HOLY_WRATH)
             set_item_ego_type(mthing, OBJ_WEAPONS, SPWPN_NORMAL);
+    }
+
+    if (!is_artefact(mthing)
+        && (mthing.base_type == OBJ_WEAPONS
+         || mthing.base_type == OBJ_ARMOUR
+         || mthing.base_type == OBJ_MISSILES))
+    {
+        bool enchanted = mthing.plus
+                      || mthing.base_type == OBJ_WEAPONS && !mthing.plus2;
+
+        // The item could either lose or gain brand after being generated,
+        // adjust the glowing flag.
+        if (!mthing.special && !enchanted)
+            set_equip_desc(mthing, 0);
+        else if (mthing.special && !get_equip_desc(mthing))
+            set_equip_desc(mthing, ISFLAG_GLOWING);
     }
 
     unwind_var<int> save_speedinc(mon->speed_increment);
@@ -132,8 +149,10 @@ static void _give_wand(monster* mon, int level)
 
         item_def& wand = mitm[idx];
 
-        // Don't give top-tier wands before 5 HD.
-        if (mon->hit_dice < 5 || mons_class_flag(mon->type, M_NO_HT_WAND))
+        // Don't give top-tier wands before 5 HD, except to Ijyb and not in
+        // sprint.
+        if ((mon->hit_dice < 5 || mons_class_flag(mon->type, M_NO_HT_WAND))
+            && (mon->type != MONS_IJYB || crawl_state.game_is_sprint()))
         {
             // Technically these wands will be undercharged, but it
             // doesn't really matter.
@@ -145,6 +164,12 @@ static void _give_wand(monster* mon, int level)
 
             if (wand.sub_type == WAND_LIGHTNING)
                 wand.sub_type = (coinflip() ? WAND_FLAME : WAND_FROST);
+
+            if (wand.sub_type == WAND_PARALYSIS)
+                wand.sub_type = WAND_SLOWING;
+
+            if (wand.sub_type == WAND_DRAINING)
+                wand.sub_type = WAND_POLYMORPH_OTHER;
         }
 
         wand.flags = 0;
@@ -385,10 +410,10 @@ static item_make_species_type _give_weapon(monster* mon, int level,
         break;
 
     case MONS_PIKEL:
-        force_item = true; // guaranteed flaming or pain
+        force_item = true; // guaranteed flaming or elec
         item.base_type = OBJ_WEAPONS;
         item.sub_type  = WPN_WHIP;
-        set_item_ego_type(item, OBJ_WEAPONS, coinflip() ? SPWPN_PAIN : SPWPN_FLAMING);
+        set_item_ego_type(item, OBJ_WEAPONS, coinflip() ? SPWPN_ELECTROCUTION : SPWPN_FLAMING);
         item.plus  += random2(3);
         item.plus2 += random2(3);
         break;
@@ -425,18 +450,6 @@ static item_make_species_type _give_weapon(monster* mon, int level,
         item.base_type      = OBJ_WEAPONS;
         item.sub_type       = WPN_QUARTERSTAFF;
         break;
-
-    case MONS_GRINDER:
-        force_item = true; // guaranteed pain
-        item.base_type = OBJ_WEAPONS;
-        item.sub_type  = random_choose_weighted(
-                30, WPN_DAGGER,     20, WPN_HAMMER,
-                5, WPN_WHIP,
-                0);
-        set_item_ego_type(item, OBJ_WEAPONS, SPWPN_PAIN);
-
-        break;
-
 
     case MONS_ORC:
     case MONS_ORC_PRIEST:
@@ -1192,6 +1205,16 @@ static item_make_species_type _give_weapon(monster* mon, int level,
         }
         break;
 
+    case MONS_IGNACIO:
+        force_item = true;
+        item_race      = MAKE_ITEM_NO_RACE;
+        item.base_type = OBJ_WEAPONS;
+        item.sub_type  = WPN_EXECUTIONERS_AXE;
+        set_item_ego_type(item, OBJ_WEAPONS, SPWPN_PAIN);
+        item.plus      = 2 + random2(7);
+        item.plus2     = 2 + random2(7);
+        break;
+
     default:
         break;
     }
@@ -1564,7 +1587,10 @@ void give_shield(monster* mon, int level)
         {
             item_def *shield = mon->shield();
             if (shield)
+            {
                 set_item_ego_type(*shield, OBJ_ARMOUR, SPARM_REFLECTION);
+                set_equip_desc(*shield, ISFLAG_GLOWING);
+            }
         }
 
         break;
@@ -1900,6 +1926,7 @@ void give_armour(monster* mon, int level, bool spectral_orcs)
     case MONS_MARA:
     case MONS_MERFOLK_AQUAMANCER:
     case MONS_SPRIGGAN:
+    case MONS_SPRIGGAN_AIR_MAGE:
     case MONS_SPRIGGAN_DEFENDER:
         if (item_race == MAKE_ITEM_RANDOM_RACE)
             item_race = MAKE_ITEM_NO_RACE;
@@ -2010,15 +2037,6 @@ void give_armour(monster* mon, int level, bool spectral_orcs)
     // mv: All items with force_colour = 0 are colored via items().
     if (force_colour)
         mitm[thing_created].colour = force_colour;
-
-    switch (mon->type)
-    {
-    case MONS_NIKOLA:
-        mitm[thing_created].plus2 = TGLOV_DESC_GAUNTLETS;
-        break;
-    default:
-        break;
-    }
 }
 
 static void _give_gold(monster* mon, int level)

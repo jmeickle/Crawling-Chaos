@@ -1,8 +1,7 @@
-/*
- *  File:       mon-act.cc
- *  Summary:    Monsters doing stuff (monsters acting).
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Monsters doing stuff (monsters acting).
+**/
 
 #include "AppHdr.h"
 #include "mon-act.h"
@@ -87,11 +86,11 @@ static int _compass_idx(const coord_def& mov)
     return (-1);
 }
 
-static bool immobile_monster[MAX_MONSTERS];
-
 // A probably needless optimization: convert the C string "just seen" to
 // a C++ string just once, instead of twice every time a monster moves.
 static const std::string _just_seen("just seen");
+
+static bool immobile_monster[MAX_MONSTERS];
 
 static inline bool _mons_natural_regen_roll(monster* mons)
 {
@@ -222,8 +221,7 @@ static void _swim_or_move_energy(monster* mon)
 
     // FIXME: Replace check with mons_is_swimming()?
     mon->lose_energy((feat >= DNGN_LAVA && feat <= DNGN_SHALLOW_WATER
-                      && !(mon->airborne() || mon->is_wall_clinging())) ? EUT_SWIM
-                                                                        : EUT_MOVE);
+                      && mon->ground_level()) ? EUT_SWIM : EUT_MOVE);
 }
 
 // Check up to eight grids in the given direction for whether there's a
@@ -657,8 +655,6 @@ static void _handle_movement(monster* mons)
     if (mons->seen_context != _just_seen)
         return;
 
-    mons->seen_context.clear();
-
     // If the player can't see us, it doesn't matter.
     if (!(mons->flags & MF_WAS_IN_VIEW))
         return;
@@ -666,17 +662,18 @@ static void _handle_movement(monster* mons)
     const coord_def old_pos  = mons->pos();
     const int       old_dist = grid_distance(you.pos(), old_pos);
 
-    // We're not moving towards the player.
-    if (grid_distance(you.pos(), old_pos + mmov) >= old_dist)
-    {
-        // Give a message if we move back out of view.
-        mons->seen_context = _just_seen;
-        return;
-    }
-
     // We're already staying in the player's LOS.
     if (you.see_cell(old_pos + mmov))
         return;
+
+    // We're not moving towards the player.
+    if (grid_distance(you.pos(), old_pos + mmov) >= old_dist)
+    {
+        // Instead of moving out of view, we stay put.
+        if (you.see_cell(old_pos))
+            mmov.reset();
+        return;
+    }
 
     // Try to find a move that brings us closer to the player while
     // keeping us in view.
@@ -701,10 +698,10 @@ static void _handle_movement(monster* mons)
             }
         }
 
-    // The only way to get closer to the player is to step out of view;
-    // give a message so they player isn't confused about its being
-    // announced as coming into view but not being seen.
-    mons->seen_context = _just_seen;
+    // We haven't been able to find a visible cell to move to. If previous
+    // position was visible, we stay put.
+    if (you.see_cell(old_pos) && !you.see_cell(old_pos + mmov))
+        mmov.reset();
 }
 
 //---------------------------------------------------------------
@@ -1089,8 +1086,8 @@ static bool _handle_rod(monster *mons, bolt &beem)
         break;
 
     case SPELL_CALL_IMP:
+    case SPELL_CAUSE_FEAR:
     case SPELL_SUMMON_DEMON:
-    case SPELL_SUMMON_ELEMENTAL:
     case SPELL_SUMMON_SWARM:
         _rod_fired_pre(mons, nice_spell);
         mons_cast(mons, beem, mzap, false);
@@ -1308,9 +1305,15 @@ static bool _handle_wand(monster* mons, bolt &beem)
         if (was_visible)
         {
             if (niceWand || !beem.is_enchantment() || beem.obvious_effect)
+            {
                 set_ident_type(OBJ_WANDS, wand_type, ID_KNOWN_TYPE);
+                mons->props["wand_known"] = true;
+            }
             else
+            {
                 set_ident_type(OBJ_WANDS, wand_type, ID_MON_TRIED_TYPE);
+                mons->props["wand_known"] = false;
+            }
 
             // Increment zap count.
             if (wand.plus2 >= 0)
@@ -1344,6 +1347,7 @@ static bool _mons_throw(monster* mons, struct bolt &pbolt, int msl)
     std::string ammo_name;
 
     bool returning = false;
+    bool speed_brand = false;
 
     int baseHit = 0, baseDam = 0;       // from thrown or ammo
     int ammoHitBonus = 0, ammoDamBonus = 0;     // from thrown or ammo
@@ -1555,6 +1559,7 @@ static bool _mons_throw(monster* mons, struct bolt &pbolt, int msl)
             // Speed bows take 50% less time to use than
             // ordinary bows.
             speed_delta = div_rand_round(throw_energy, 2);
+            speed_brand = true;
         }
 
         mons->speed_increment += speed_delta;
@@ -1666,6 +1671,9 @@ static bool _mons_throw(monster* mons, struct bolt &pbolt, int msl)
         pbolt.hit         = pbolt.hit * 120 / 100;
         pbolt.damage.size = pbolt.damage.size * 120 / 100;
     }
+
+    if (speed_brand)
+        pbolt.damage.size = div_rand_round(pbolt.damage.size * 9, 10);
 
     scale_dice(pbolt.damage);
 
@@ -1883,9 +1891,9 @@ void handle_monster_move(monster* mons)
 
     // This seems to need to go here to actually get monsters to slow down.
     // XXX: Replace with a new ENCH_LIQUEFIED_GROUND or something.
-    if (liquefied(mons->pos()) && !mons->airborne() && !mons->is_insubstantial())
+    if (liquefied(mons->pos()) && mons->ground_level() && !mons->is_insubstantial())
     {
-        mon_enchant me = mon_enchant(ENCH_SLOW, 0, KC_OTHER, 20);
+        mon_enchant me = mon_enchant(ENCH_SLOW, 0, 0, 20);
         if (mons->has_ench(ENCH_SLOW))
             mons->update_ench(me);
         else
@@ -2054,6 +2062,13 @@ void handle_monster_move(monster* mons)
 
         if (mons->type == MONS_TIAMAT && one_chance_in(3))
             draconian_change_colour(mons);
+
+        if  (mons->type == MONS_ASMODEUS)
+        {
+            for (adjacent_iterator ai(mons->pos()); ai; ++ai)
+                if (!feat_is_solid(grd(*ai)) && env.cgrid(*ai) == EMPTY_CLOUD)
+                    place_cloud(CLOUD_FIRE, *ai, 1 + random2(6), mons);
+        }
 
         _monster_regenerate(mons);
 
@@ -2361,6 +2376,7 @@ void handle_monster_move(monster* mons)
         }
         you.update_beholder(mons);
         you.update_fearmonger(mons);
+        mons->check_clinging(true);
 
         // Reevaluate behaviour, since the monster's surroundings have
         // changed (it may have moved, or died for that matter).  Don't
@@ -2392,7 +2408,7 @@ void handle_monster_move(monster* mons)
 // This is the routine that controls monster AI.
 //
 //---------------------------------------------------------------
-void handle_monsters()
+void handle_monsters(bool with_noise)
 {
     // Keep track of monsters that have already moved and don't allow
     // them to move again.
@@ -2420,6 +2436,10 @@ void handle_monsters()
             break;
         }
     }
+
+    // Process noises now (before clearing the sleep flag).
+    if (with_noise)
+        apply_noises();
 
     // Clear one-turn deep sleep flag.
     // XXX: With the current handling, it would be cleaner to
@@ -2605,6 +2625,7 @@ static bool _monster_eat_item(monster* mons, bool nearby)
             // This is done manually instead of using heal_monster(),
             // because that function doesn't work quite this way. - bwr
             mons->hit_points += hps_changed;
+            mons->hit_points = std::min(mons->hit_points, MAX_MONSTER_HP);
             mons->max_hit_points = std::max(mons->hit_points,
                                                mons->max_hit_points);
         }
@@ -2633,9 +2654,7 @@ static bool _monster_eat_single_corpse(monster* mons, item_def& item,
     if (do_heal)
     {
         mons->hit_points += 1 + random2(mons_weight(mt)) / 100;
-
-        // Limited growth factor here - should 77 really be the cap? {dlb}:
-        mons->hit_points = std::min(100, mons->hit_points);
+        mons->hit_points = std::min(MAX_MONSTER_HP, mons->hit_points);
         mons->max_hit_points = std::max(mons->hit_points,
                                            mons->max_hit_points);
     }
@@ -2985,15 +3004,10 @@ static void _mons_open_door(monster* mons, const coord_def &pos)
     dungeon_events.fire_position_event(DET_DOOR_OPENED, pos);
 }
 
-static bool _habitat_okay(const monster* mons, dungeon_feature_type targ)
-{
-    return (monster_habitable_grid(mons, targ));
-}
-
 static bool _no_habitable_adjacent_grids(const monster* mon)
 {
     for (adjacent_iterator ai(mon->pos()); ai; ++ai)
-        if (_habitat_okay(mon, grd(*ai)))
+        if (monster_habitable_grid(mon, grd(*ai)))
             return (false);
 
     return (true);
@@ -3143,11 +3157,7 @@ bool mon_can_move_to_pos(const monster* mons, const coord_def& delta,
         return (false);
     }
 
-    // Effectively slows down monster movement across water.
-    // Fire elementals can't cross at all.
     bool no_water = false;
-    if (mons->type == MONS_FIRE_ELEMENTAL || one_chance_in(5))
-        no_water = true;
 
     const int targ_cloud_num = env.cgrid(targ);
     if (mons_avoids_cloud(mons, targ_cloud_num))
@@ -3169,7 +3179,7 @@ bool mon_can_move_to_pos(const monster* mons, const coord_def& delta,
     else if (no_water && feat_is_water(target_grid))
         return (false);
     else if (!mons_can_traverse(mons, targ, false)
-             && !_habitat_okay(mons, target_grid))
+             && !monster_habitable_grid(mons, target_grid))
     {
         // If the monster somehow ended up in this habitat (and is
         // not dead by now), give it a chance to get out again.
@@ -3356,6 +3366,8 @@ static void _jelly_grows(monster* mons)
     }
 
     mons->hit_points += 5;
+    // possible with ridiculous farming on a full level
+    mons->hit_points = std::min(mons->hit_points, MAX_MONSTER_HP);
 
     // note here, that this makes jellies "grow" {dlb}:
     if (mons->hit_points > mons->max_hit_points)
@@ -3395,8 +3407,11 @@ static bool _monster_swaps_places(monster* mon, const coord_def& delta)
     const coord_def c = mon->pos();
     const coord_def n = mon->pos() + delta;
 
-    if (!_habitat_okay(mon, grd(n)) || !_habitat_okay(m2, grd(c)))
+    if (!monster_habitable_grid(mon, grd(n))
+        || !monster_habitable_grid(m2, grd(c)))
+    {
         return (false);
+    }
 
     // Okay, do the swap!
     _swim_or_move_energy(mon);

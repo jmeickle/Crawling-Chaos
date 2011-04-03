@@ -1,10 +1,7 @@
-/*
- *  File:       hints.h
- *  Summary:    Stuff needed for hints mode
- *  Written by: j-p-e-g
- *
- *  Created on 2007-01-11.
- */
+/**
+ * @file
+ * @brief Stuff needed for hints mode
+**/
 
 #ifndef HINTS_H
 #define HINTS_H
@@ -92,6 +89,7 @@ enum hints_event_type
     HINT_YOU_RESIST,
     // status changes
     HINT_YOU_ENCHANTED,
+    HINT_CONTAMINATED_CHUNK,
     HINT_YOU_SICK,
     HINT_YOU_POISON,
     HINT_YOU_ROTTING,
@@ -135,6 +133,9 @@ enum hints_event_type
     HINT_GAINED_SPELLCASTING,
     HINT_FUMBLING_SHALLOW_WATER,
     HINT_EATING_ROTTEN_FOOD,
+    HINT_CLOUD_WARNING,
+    HINT_MEMORISE_FAILURE,
+    HINT_ANIMATE_CORPSE_SKELETON,
     HINT_EVENTS_NUM
 };
 

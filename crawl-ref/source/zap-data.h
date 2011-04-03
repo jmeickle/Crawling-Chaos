@@ -1,7 +1,7 @@
-/*
- * File:     zap-data.h
- * Summary:  Zap definitions. See zap_info struct in beam.cc.
- */
+/**
+ * @file
+ * @brief Zap definitions. See zap_info struct in beam.cc.
+**/
 
 #ifndef ZAP_DATA_H
 #define ZAP_DATA_H
@@ -422,6 +422,7 @@
     0
 },
 
+#if TAG_MAJOR_VERSION == 32
 {
     ZAP_BONE_SHARDS,
     "spray of bone shards",
@@ -441,6 +442,7 @@
     false,
     3
 },
+#endif
 
 {
     ZAP_BANISHMENT,
@@ -526,7 +528,7 @@
     ZAP_STRIKING,
     "force bolt",
     25,
-    new dicedef_calculator<1, 5, 0, 1>,
+    new dicedef_calculator<1, 8, 0, 1>,
     new tohit_calculator<8, 1, 10>,
     BLACK,
     false,
@@ -700,6 +702,7 @@
     6
 },
 
+#if TAG_MAJOR_VERSION == 32
 {
     ZAP_ENSLAVE_UNDEAD,
     "",
@@ -715,6 +718,7 @@
     false,
     0
 },
+#endif
 
 {
     ZAP_ENSLAVE_SOUL,
@@ -780,6 +784,7 @@
     0 // Explosion does the noise.
 },
 
+#if TAG_MAJOR_VERSION == 32
 {
     ZAP_CONTROL_DEMON,
     "",
@@ -795,6 +800,7 @@
     false,
     0
 },
+#endif
 
 {
     ZAP_ORB_OF_FRAGMENTATION,

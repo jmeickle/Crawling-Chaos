@@ -1,9 +1,7 @@
-/*
- *  File:       tiledoll.cc
- *  Summary:    Region system implementations
- *
- *  Created by: ennewalker on Sat Jan 5 01:33:53 2008 UTC
- */
+/**
+ * @file
+ * @brief Region system implementations
+**/
 
 #include "AppHdr.h"
 
@@ -14,6 +12,7 @@
 #include <sys/stat.h>
 
 #include "files.h"
+#include "syscalls.h"
 #include "tilebuf.h"
 #include "tiledef-player.h"
 #include "tilepick-p.h"
@@ -60,7 +59,7 @@ bool save_doll_data(int mode, int num, const dolls_data* dolls)
                             : dollsTxtString.c_str();
 
     FILE *fp = NULL;
-    if ((fp = fopen(dollsTxt, "w+")) != NULL)
+    if ((fp = fopen_u(dollsTxt, "w+")) != NULL)
     {
         fprintf(fp, "MODE=%s\n",
                     (mode == TILEP_MODE_EQUIP)   ? "EQUIP" :
@@ -106,7 +105,7 @@ bool load_doll_data(const char *fn, dolls_data *dolls, int max,
                             : dollsTxtString.c_str();
 
 
-    if ((fp = fopen(dollsTxt, "r")) == NULL)
+    if ((fp = fopen_u(dollsTxt, "r")) == NULL)
     {
         // File doesn't exist. By default, use equipment settings.
         *mode = TILEP_MODE_EQUIP;
@@ -262,9 +261,7 @@ void fill_doll_equipment(dolls_data &result)
 {
     // Base tile.
     if (result.parts[TILEP_PART_BASE] == TILEP_SHOW_EQUIP)
-    {
         tilep_race_default(you.species, you.experience_level, &result);
-    }
 
     // Main hand.
     if (result.parts[TILEP_PART_HAND1] == TILEP_SHOW_EQUIP)
@@ -330,15 +327,12 @@ void fill_doll_equipment(dolls_data &result)
             }
         }
         else
-        {
             result.parts[TILEP_PART_HELM] = 0;
-        }
     }
     // Leg.
     if (result.parts[TILEP_PART_LEG] == TILEP_SHOW_EQUIP)
-    {
         result.parts[TILEP_PART_LEG] = _random_trousers();
-    }
+
     // Boots.
     if (result.parts[TILEP_PART_BOOTS] == TILEP_SHOW_EQUIP)
     {

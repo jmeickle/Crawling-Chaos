@@ -1,8 +1,7 @@
-/*
- *  File:       artefact.cc
- *  Summary:    Random and unrandom artefact functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Random and unrandom artefact functions.
+**/
 
 #include "AppHdr.h"
 
@@ -78,7 +77,6 @@ static bool _god_fits_artefact(const god_type which_god, const item_def &item,
         break;
 
     case GOD_SIF_MUNA:
-    case GOD_KIKUBAAQUDGHA:
     case GOD_VEHUMET:
         // The magic gods: no weapons, no preventing spellcasting.
         if (item.base_type == OBJ_WEAPONS)
@@ -176,8 +174,11 @@ static bool _god_fits_artefact(const god_type which_god, const item_def &item,
             return (false);
         break;
 
-    case GOD_SIF_MUNA:
     case GOD_KIKUBAAQUDGHA:
+        // Necromancy god.
+        if (item.base_type == OBJ_WEAPONS && brand != SPWPN_PAIN)
+            return (false);
+    case GOD_SIF_MUNA:
     case GOD_VEHUMET:
         // The magic gods: no preventing spellcasting.
         if (artefact_wpn_property(item, ARTP_PREVENT_SPELLCASTING))
@@ -222,8 +223,7 @@ static bool _god_fits_artefact(const god_type which_god, const item_def &item,
     return (true);
 }
 
-static std::string _replace_name_parts(const std::string name_in,
-                                       const item_def& item)
+std::string replace_name_parts(const std::string name_in, const item_def& item)
 {
     std::string name = name_in;
 
@@ -1399,7 +1399,7 @@ static std::string _artefact_name_lookup(const item_def &item,
                                  const std::string &lookup)
 {
     const std::string name = getRandNameString(lookup);
-    return (!name.empty()? _replace_name_parts(name, item) : name);
+    return (!name.empty()? replace_name_parts(name, item) : name);
 }
 
 static bool _artefact_name_lookup(std::string &result,
@@ -1492,7 +1492,7 @@ std::string artefact_name(const item_def &item, bool appearance)
              // If still nothing found, try base type alone.
              || _artefact_name_lookup(name, item, _get_artefact_type(item)));
         }
-        while (--tries > 0 && name.length() > 25);
+        while (--tries > 0 && strwidth(name) > 25);
 
         if (name.empty()) // still nothing found?
             result += "of Bugginess";
@@ -1597,7 +1597,17 @@ int find_okay_unrandart(uint8_t aclass, uint8_t atype, bool in_abyss)
         }
 
         if (entry->base_type != aclass
-            || (atype != OBJ_RANDOM && entry->sub_type != atype))
+            || atype != OBJ_RANDOM && entry->sub_type != atype
+               // Acquirement.
+               && (aclass != OBJ_WEAPONS
+                   || weapon_skill(entry->base_type, atype) !=
+                      weapon_skill(entry->base_type, entry->sub_type)
+                   || hands_reqd(entry->base_type,
+                                 atype,
+                                 you.body_size()) !=
+                      hands_reqd(entry->base_type,
+                                 entry->sub_type,
+                                 you.body_size())))
         {
             continue;
         }

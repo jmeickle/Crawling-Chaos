@@ -1,15 +1,15 @@
-/*
- * Summary:   Monster-related enums.
+/**
+ * @file
+ * @brief Monster-related enums.
  *
  * Extracted from mon-util.h to cut down on mon-util.h
  * dependencies.
- */
+**/
 
 #ifndef MON_ENUM_H
 #define MON_ENUM_H
 
 #include "tag-version.h"
-#include <stdint.h>
 
 #define HERD_COMFORT_RANGE 6
 
@@ -102,7 +102,9 @@ enum mon_attack_flavour
     AF_CRUSH,
     AF_REACH,
     AF_HOLY,
-    AF_OVERRUN // Identical to trample but can be put on attacks of any type.
+    AF_ANTIMAGIC,
+    AF_PAIN,
+    AF_OVERRUN, // Identical to trample but can be put on attacks of any type.
 };
 
 // Non-spell "summoning" types to give to monster::mark_summoned(), or

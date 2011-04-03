@@ -1,8 +1,7 @@
-/*
- *  File:       player.cc
- *  Summary:    Player related functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Player related functions.
+**/
 
 
 #ifndef PLAYER_H
@@ -19,7 +18,6 @@
 #include "species.h"
 
 #include <vector>
-#include <stdint.h>
 
 #ifdef USE_TILE
 #include "tiledoll.h"
@@ -45,6 +43,7 @@ public:
 
   // Long-term state:
   int elapsed_time;        // total amount of elapsed time in the game
+  int elapsed_time_at_last_input; // used for elapsed_time delta display
 
   int hp;
   int hp_max;
@@ -129,6 +128,8 @@ public:
   int  skill_cost_level;
   int  total_skill_points;
   int  exp_available;
+
+  int exp_docked, exp_docked_total; // Ashenzari's wrath
 
   FixedArray<uint8_t, 6, 50> item_description;
   FixedVector<unique_item_status_type, MAX_UNRANDARTS> unique_items;
@@ -234,8 +235,6 @@ public:
   PlaceInfo global_info;
   player_quiver* m_quiver;
 
-  CrawlHashTable props;
-
   // monsters mesmerising player; should be protected, but needs to be saved
   // and restored.
   std::vector<int> beholders;
@@ -275,7 +274,6 @@ public:
 #endif
   bool xray_vision;
   int bondage_level;  // how much an Ash worshipper is into bondage
-
 
   // Volatile (same-turn) state:
   bool turn_is_over; // flag signaling that player has performed a timed action
@@ -335,10 +333,6 @@ public:
   // The save file itself.
   package *save;
 
-  // Is player clinging to the wall?
-  bool clinging;
-  // Array of walls which player is currently clinging to.
-  std::vector<coord_def>    cling_to;
   // The type of a zotdef wave, if any.
   std::string zotdef_wave_name;
   // The biggest assigned monster id so far.
@@ -346,6 +340,10 @@ public:
 
   // The last spell cast by the player.
   spell_type last_cast_spell;
+
+  // Has the player already been warned about an expiring effect?
+  bool lev_expire_warning;
+  bool form_expire_warning;
 
 protected:
     FixedVector<PlaceInfo, NUM_BRANCHES>             branch_info;
@@ -384,9 +382,7 @@ public:
     bool can_swim(bool permanently = false) const;
     int visible_igrd(const coord_def&) const;
     bool is_levitating() const;
-    bool is_wall_clinging() const;
-    bool can_cling_to(const coord_def& p) const;
-    void check_clinging();
+    bool can_cling_to_walls() const;
     bool cannot_speak() const;
     bool invisible() const;
     bool misled() const;
@@ -409,16 +405,17 @@ public:
     bool travelling_light() const;
 
     // Dealing with beholders. Implemented in behold.cc.
-    void add_beholder(const monster* mon);
+    void add_beholder(const monster* mon, bool axe = false);
     bool beheld() const;
     bool beheld_by(const monster* mon) const;
     monster* get_beholder(const coord_def &pos) const;
     monster* get_any_beholder() const;
     void remove_beholder(const monster* mon);
     void clear_beholders();
-    void beholders_check_noise(int loudness);
+    void beholders_check_noise(int loudness, bool axe = false);
     void update_beholders();
     void update_beholder(const monster* mon);
+    bool possible_beholder(const monster* mon) const;
 
     // Dealing with fearmongers. Implemented in fearmonger.cc.
     bool add_fearmonger(const monster* mon);
@@ -428,7 +425,7 @@ public:
     monster* get_any_fearmonger() const;
     void remove_fearmonger(const monster* mon);
     void clear_fearmongers();
-    void fearmongers_check_noise(int loudness);
+    void fearmongers_check_noise(int loudness, bool axe = false);
     void update_fearmongers();
     void update_fearmonger(const monster* mon);
 
@@ -528,7 +525,7 @@ public:
     int hunger_level() const { return hunger_state; }
     void make_hungry(int nutrition, bool silent = true);
     void poison(actor *agent, int amount = 1, bool force = false);
-    bool sicken(int amount);
+    bool sicken(int amount, bool allow_hint = true);
     void paralyse(actor *, int str);
     void petrify(actor *, int str);
     void slow_down(actor *, int str);
@@ -546,9 +543,9 @@ public:
 
     mon_holy_type holiness() const;
     bool undead_or_demonic() const;
-    bool is_holy() const;
-    bool is_unholy() const;
-    bool is_evil() const;
+    bool is_holy(bool spells = true) const;
+    bool is_unholy(bool spells = true) const;
+    bool is_evil(bool spells = true) const;
     bool is_chaotic() const;
     bool is_artificial() const;
     bool is_unbreathing() const;
@@ -733,6 +730,7 @@ int carrying_capacity(burden_state_type bs = BS_OVERLOADED);
 
 int player_energy(void);
 
+int player_raw_body_armour_evasion_penalty();
 int player_adjusted_shield_evasion_penalty(int scale);
 int player_adjusted_body_armour_evasion_penalty(int scale);
 int player_armour_shield_spell_penalty();
@@ -767,7 +765,6 @@ int player_mental_clarity(bool calc_unid = true, bool items = true);
 int player_spirit_shield(bool calc_unid = true);
 
 bool player_likes_chunks(bool permanently = false);
-bool species_likes_water();
 bool player_likes_water(bool permanently = false);
 
 int player_mutation_level(mutation_type mut);
@@ -811,6 +808,7 @@ int player_evokable_invis();
 int player_spell_levels(void);
 
 int player_sust_abil(bool calc_unid = true);
+int player_warding(bool calc_unid = true);
 
 int player_teleport(bool calc_unid = true);
 
@@ -839,6 +837,7 @@ inline bool player_can_handle_equipment()
 }
 
 void level_change(bool skip_attribute_increase = false);
+void adjust_level(int diff, bool just_xp = false);
 
 bool player_genus(genus_type which_genus,
                    species_type species = SP_UNKNOWN);
@@ -922,4 +921,5 @@ bool is_feat_dangerous(dungeon_feature_type feat, bool permanently = false);
 void run_macro(const char *macroname = NULL);
 
 int count_worn_ego(int which_ego);
+bool need_expiration_warning(duration_type dur);
 #endif

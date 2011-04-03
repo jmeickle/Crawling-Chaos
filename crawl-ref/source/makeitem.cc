@@ -1,8 +1,7 @@
-/*
- * File:       makeitem.cc
- * Summary:    Item creation routines.
- * Created by: haranp on Sat Apr 21 11:31:42 2007 UTC
- */
+/**
+ * @file
+ * @brief Item creation routines.
+**/
 
 #include "AppHdr.h"
 
@@ -719,7 +718,6 @@ void item_colour(item_def &item)
 
         case MISC_AIR_ELEMENTAL_FAN:
         case MISC_CRYSTAL_BALL_OF_ENERGY:
-        case MISC_CRYSTAL_BALL_OF_FIXATION:
         case MISC_CRYSTAL_BALL_OF_SEEING:
         case MISC_DISC_OF_STORMS:
         case MISC_HORN_OF_GERYON:
@@ -940,20 +938,24 @@ static bool _try_make_item_unrand(item_def& item, int force_type)
 static bool _try_make_weapon_artefact(item_def& item, int force_type,
                                       int item_level, bool force_randart = false)
 {
-    if (item.sub_type != WPN_CLUB && item_level > 2
-          && x_chance_in_y(101 + item_level * 3, 4000)
+    if (item_level > 2 && x_chance_in_y(101 + item_level * 3, 4000)
         || force_randart)
     {
         // Make a randart or unrandart.
 
-        // 1 in 50 randarts are unrandarts.
-        if (one_chance_in(50) && !force_randart)
+        // 1 in 12 randarts are unrandarts.
+        if (one_chance_in(item_level == MAKE_GOOD_ITEM ? 7 : 12)
+            && !force_randart)
         {
             if (_try_make_item_unrand(item, force_type))
                 return (true);
         }
 
-        // The other 98% are normal randarts.
+        // Small clubs are never randarts.
+        if (item.sub_type == WPN_CLUB)
+            return false;
+
+        // The rest are normal randarts.
         make_item_randart(item);
         item.plus  = random2(7);
         item.plus2 = random2(7);
@@ -1203,7 +1205,7 @@ static brand_type _determine_weapon_brand(const item_def& item, int item_level)
     if (item.special != 0)
         return static_cast<brand_type>(item.special);
 
-    const bool force_good = (item_level == MAKE_GOOD_ITEM);
+    const bool force_good = item_level >= MAKE_GIFT_ITEM;
     const int tries       = force_good ? 5 : 1;
     brand_type rc         = SPWPN_NORMAL;
 
@@ -1709,7 +1711,7 @@ brand_ok:
     ASSERT(!is_artefact(item));
 
     // Artefacts handled, let's make a normal item.
-    const bool force_good = (item_level == MAKE_GOOD_ITEM);
+    const bool force_good = item_level >= MAKE_GIFT_ITEM;
     const bool forced_ego = item.special > 0;
     const bool no_brand   = item.special == SPWPN_FORBID_BRAND;
 
@@ -1826,7 +1828,7 @@ static special_missile_type _determine_missile_brand(const item_def& item,
     if (item.special != 0)
         return static_cast<special_missile_type>(item.special);
 
-    const bool force_good = (item_level == MAKE_GOOD_ITEM);
+    const bool force_good = item_level >= MAKE_GIFT_ITEM;
     special_missile_type rc = SPMSL_NORMAL;
 
     // "Normal weight" of SPMSL_NORMAL.
@@ -2068,14 +2070,15 @@ static bool _try_make_armour_artefact(item_def& item, int force_type,
     {
         // Make a randart or unrandart.
 
-        // 1 in 50 randarts are unrandarts.
-        if (one_chance_in(50) && !force_randart)
+        // 1 in 12 randarts are unrandarts.
+        if (one_chance_in(item_level == MAKE_GOOD_ITEM ? 7 : 12)
+            && !force_randart)
         {
             if (_try_make_item_unrand(item, force_type))
                 return (true);
         }
 
-        // The other 98% are normal randarts.
+        // The rest are normal randarts.
 
         // 10% of boots become barding.
         if (item.sub_type == ARM_BOOTS && one_chance_in(10))
@@ -2474,7 +2477,7 @@ static void _generate_armour_item(item_def& item, bool allow_uniques,
     if (get_equip_race(item) == ISFLAG_DWARVEN && coinflip())
         item.plus++;
 
-    const bool force_good = (item_level == MAKE_GOOD_ITEM);
+    const bool force_good = item_level >= MAKE_GIFT_ITEM;
     const bool forced_ego = (item.special > 0);
     const bool no_ego     = (item.special == SPARM_FORBID_EGO);
 
@@ -3084,6 +3087,9 @@ static void _generate_misc_item(item_def& item, int force_type, int item_race)
              || item.sub_type == MISC_HORN_OF_GERYON
              || item.sub_type == MISC_DECK_OF_PUNISHMENT
              || item.sub_type == MISC_QUAD_DAMAGE
+#if TAG_MAJOR_VERSION == 32
+             || item.sub_type == MISC_CRYSTAL_BALL_OF_FIXATION
+#endif
              // Pure decks are rare in the dungeon.
              || (item.sub_type == MISC_DECK_OF_ESCAPE
                     || item.sub_type == MISC_DECK_OF_DESTRUCTION
@@ -3144,7 +3150,7 @@ int items(int allow_uniques,       // not just true-false,
     if (agent != -1)
         origin_acquired(item, agent);
 
-    const bool force_good = (item_level == MAKE_GOOD_ITEM);
+    const bool force_good = item_level >= MAKE_GIFT_ITEM;
 
     if (force_ego != 0)
         allow_uniques = false;
@@ -3359,7 +3365,7 @@ static int _roll_rod_enchant(int item_level)
     if (one_chance_in(4))
         value -= random_range(1, 3);
 
-    if (item_level == MAKE_GOOD_ITEM)
+    if (item_level >= MAKE_GIFT_ITEM)
         value += 2;
 
     int pr = 20 + item_level * 2;
@@ -3592,6 +3598,10 @@ armour_type get_random_armour_type(int item_level)
 // Sets item appearance to match brands, if any.
 void item_set_appearance(item_def &item)
 {
+    // Artefact appearance overrides cosmetic flags anyway.
+    if (is_artefact(item))
+        return;
+
     if (get_equip_desc(item) != ISFLAG_NO_DESC)
         return;
 

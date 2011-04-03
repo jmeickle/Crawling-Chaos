@@ -1,7 +1,7 @@
-/*
- *  File:       acquire.cc
- *  Summary:    Acquirement and Trog/Oka/Sif gifts.
- */
+/**
+ * @file
+ * @brief Acquirement and Trog/Oka/Sif gifts.
+**/
 
 #include "AppHdr.h"
 
@@ -115,7 +115,8 @@ static armour_type _pick_wearable_armour(const armour_type arm)
         break;
     }
 
-    // Mutation specific problems (horns allow caps).
+    // Mutation specific problems (horns and antennae allow caps, but not
+    // Horns 3 or Antennae 3 (checked below)).
     if (result == ARM_BOOTS && !player_has_feet()
         || result == ARM_GLOVES && you.has_claws(false) >= 3)
     {
@@ -132,7 +133,12 @@ static armour_type _pick_wearable_armour(const armour_type arm)
             || you.mutation[MUT_HORNS]
             || you.mutation[MUT_ANTENNAE]))
     {
-        result = coinflip() ? ARM_CAP : ARM_WIZARD_HAT;
+        // Check for Horns 3 & Antennae 3 - Don't give a cap if those mutation
+        // levels have been reached.
+        if (you.mutation[MUT_HORNS] <= 2 || you.mutation[MUT_ANTENNAE] <= 2)
+          result = coinflip() ? ARM_CAP : ARM_WIZARD_HAT;
+        else
+          result = NUM_ARMOURS;
     }
 
     return (result);
@@ -509,6 +515,9 @@ static int _acquirement_weapon_subtype(bool divine)
         {
             if (acqweight < 500)
                 acqweight = 500;
+            // Quick blades get unproportionately hit by damage weighting.
+            if (i == WPN_QUICK_BLADE)
+                acqweight = acqweight * 25 / 9;
             int damage = property(item_considered, PWPN_DAMAGE);
             if (!two_handed)
                 damage = damage * 3 / 2;
@@ -667,7 +676,7 @@ static int _acquirement_staff_subtype(const has_vector& already_has)
             && result < STAFF_FIRST_ROD
             && !one_chance_in(4)))
     {
-        result = coinflip() ? STAFF_STRIKING : random_rod_subtype();
+        result = random_rod_subtype();
     }
 
     return (result);
@@ -682,7 +691,9 @@ static int _acquirement_misc_subtype()
     }
     while (result == MISC_HORN_OF_GERYON
            || result == MISC_RUNE_OF_ZOT
+#if TAG_MAJOR_VERSION == 32
            || result == MISC_CRYSTAL_BALL_OF_FIXATION
+#endif
            || result == MISC_EMPTY_EBONY_CASKET
            || result == MISC_QUAD_DAMAGE
            || result == MISC_DECK_OF_PUNISHMENT);
@@ -883,6 +894,10 @@ static bool _skill_useless_with_god(int skill)
         return (skill == SK_NECROMANCY);
     case GOD_XOM:
     case GOD_NEMELEX_XOBEH:
+    case GOD_KIKUBAAQUDGHA:
+    case GOD_VEHUMET:
+    case GOD_ASHENZARI:
+    case GOD_NO_GOD:
         return (skill == SK_INVOCATIONS);
     default:
         return (false);
@@ -1041,7 +1056,7 @@ static bool _do_book_acquirement(item_def &book, int agent)
 
             int skl = you.skills[sk];
 
-            if (skl == 27 || you.species == SP_DEMIGOD && sk == SK_INVOCATIONS)
+            if (skl == 27 || is_useless_skill(sk))
             {
                 weights[sk] = 0;
                 continue;
@@ -1145,6 +1160,7 @@ int acquirement_create_item(object_class_type class_wanted,
                          || agent == GOD_TROG);
     int thing_created = NON_ITEM;
     int quant = 1;
+#define ITEM_LEVEL (divine ? MAKE_GIFT_ITEM : MAKE_GOOD_ITEM)
 #define MAX_ACQ_TRIES 40
     for (int item_tries = 0; item_tries < MAX_ACQ_TRIES; item_tries++)
     {
@@ -1160,7 +1176,7 @@ int acquirement_create_item(object_class_type class_wanted,
         int want_arts = (class_wanted == OBJ_BOOKS ? 0 : 1);
 
         thing_created = items(want_arts, class_wanted, type_wanted, true,
-                               MAKE_GOOD_ITEM, MAKE_ITEM_RANDOM_RACE,
+                               ITEM_LEVEL, MAKE_ITEM_RANDOM_RACE,
                                0, 0, agent);
 
         if (thing_created == NON_ITEM)
@@ -1174,7 +1190,7 @@ int acquirement_create_item(object_class_type class_wanted,
             while (_weapon_brand_quality(get_weapon_brand(doodad),
                                         is_range_weapon(doodad)) < random2(6))
             {
-                reroll_brand(doodad, MAKE_GOOD_ITEM);
+                reroll_brand(doodad, ITEM_LEVEL);
             }
         }
 
@@ -1189,7 +1205,7 @@ int acquirement_create_item(object_class_type class_wanted,
                         & (1<<get_armour_ego_type(doodad)))
                && !one_chance_in(5))
         {
-            reroll_brand(doodad, MAKE_GOOD_ITEM);
+            reroll_brand(doodad, ITEM_LEVEL);
         }
 
         // For plain armour, try to change the subtype to something
@@ -1247,15 +1263,6 @@ int acquirement_create_item(object_class_type class_wanted,
                && !can_wield(&doodad, false, true)
             || doodad.base_type == OBJ_ARMOUR
                && !can_wear_armour(doodad, false, true))
-        {
-            destroy_item(thing_created, true);
-            thing_created = NON_ITEM;
-            continue;
-        }
-
-        // Only TSO gifts blessed weapons, and currently not through
-        // acquirement, but make sure of this anyway.
-        if (agent != GOD_SHINING_ONE && is_blessed(doodad))
         {
             destroy_item(thing_created, true);
             thing_created = NON_ITEM;

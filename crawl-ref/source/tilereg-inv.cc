@@ -1,9 +1,3 @@
-/*
- *  File:       tilereg-inv.cc
- *
- *  Created by: ennewalker on Sat Jan 5 01:33:53 2008 UTC
- */
-
 #include "AppHdr.h"
 
 #ifdef USE_TILE
@@ -457,9 +451,7 @@ bool InventoryRegion::update_tip_text(std::string& tip)
                 }
                 break;
             case OBJ_BOOKS:
-                if (item_type_known(item)
-                    && item.sub_type != BOOK_MANUAL
-                    && item.sub_type != BOOK_DESTRUCTION
+                if (item_type_known(item) && item_is_spellbook(item)
                     && can_learn_spell(true))
                 {
                     if (player_can_memorise_from_spellbook(item)

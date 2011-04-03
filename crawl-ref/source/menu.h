@@ -1,8 +1,7 @@
-/*
- *  File:       menu.h
- *  Summary:    Menus and associated malarkey.
- *  Written by: Darshan Shaligram
- */
+/**
+ * @file
+ * @brief Menus and associated malarkey.
+**/
 
 #ifndef __MENU_H__
 #define __MENU_H__
@@ -64,6 +63,7 @@ int menu_colour(const std::string &itemtext,
                 const std::string &prefix = "",
                 const std::string &tag = "");
 
+const int MENU_ITEM_STOCK_COLOUR = LIGHTGREY;
 class MenuEntry
 {
 public:
@@ -89,7 +89,7 @@ public:
         text(txt), quantity(qty), selected_qty(0), colour(-1),
         hotkeys(), level(lev), preselected(preselect), data(NULL)
     {
-        colour = (lev == MEL_ITEM     ?  LIGHTGREY :
+        colour = (lev == MEL_ITEM     ?  MENU_ITEM_STOCK_COLOUR :
                   lev == MEL_SUBTITLE ?  BLUE  :
                                          WHITE);
         if (hotk)

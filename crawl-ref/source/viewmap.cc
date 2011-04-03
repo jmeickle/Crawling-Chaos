@@ -1,7 +1,7 @@
-/*
- * File:     viewmap.cc
- * Summary:  Showing the level map (X and background).
- */
+/**
+ * @file
+ * @brief Showing the level map (X and background).
+**/
 
 #include "AppHdr.h"
 
@@ -90,6 +90,27 @@ static bool _travel_colour_override(const coord_def& p)
     }
     else
         return false;
+}
+
+static bool _is_explore_horizon(const coord_def& c)
+{
+    if (env.map_knowledge(c).feat() != DNGN_UNSEEN)
+        return false;
+
+    // Note: c might be on map edge, walkable squares not really.
+    for (adjacent_iterator ai(c); ai; ++ai)
+        if (in_bounds(*ai))
+        {
+            dungeon_feature_type feat = env.map_knowledge(*ai).feat();
+            if (feat != DNGN_UNSEEN
+                && !feat_is_solid(feat)
+                && !feat_is_door(feat))
+            {
+                return true;
+            }
+        }
+
+    return false;
 }
 #endif
 
@@ -436,6 +457,13 @@ static void _draw_level_map(int start_x, int start_y, bool travel_mode,
                 glyph g = get_cell_glyph(c, Options.clean_map, -1);
                 cell->glyph = g.ch;
                 cell->colour = g.col;
+
+                if (_is_explore_horizon(c))
+                {
+                    const feature_def& fd = get_feature_def(DNGN_EXPLORE_HORIZON);
+                    cell->glyph = fd.symbol;
+                    cell->colour = fd.colour;
+                }
 
                 if (travel_mode && _travel_colour_override(c))
                     cell->colour = _get_travel_colour(c);

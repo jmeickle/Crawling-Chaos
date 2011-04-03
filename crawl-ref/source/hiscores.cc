@@ -1,8 +1,7 @@
-/*
- *  File: highscore.cc
- *  Summary: deal with reading and writing of highscore file
- *  Written by: Gordon Lipford
- */
+/**
+ * @file
+ * @brief deal with reading and writing of highscore file
+**/
 
 /*
  * ----------- MODIFYING THE PRINTED SCORE FORMAT ---------------------
@@ -913,6 +912,7 @@ void scorefile_entry::init_death_cause(int dam, int dsrc,
             || death_type == KILLED_BY_BEAM
             || death_type == KILLED_BY_DISINT
             || death_type == KILLED_BY_SPORE
+            || death_type == KILLED_BY_CLOUD
             || death_type == KILLED_BY_REFLECTION)
         && !invalid_monster_index(death_source)
         && menv[death_source].type != -1)
@@ -986,9 +986,12 @@ void scorefile_entry::init_death_cause(int dam, int dsrc,
             killerpath = "";
         }
     }
-    else if (death_type == KILLED_BY_DISINT)
+    else if (death_type == KILLED_BY_DISINT
+             || death_type == KILLED_BY_CLOUD)
     {
-        death_source_name = dsrc_name ? dsrc_name : "you";
+        death_source_name = dsrc_name ? dsrc_name :
+                            dsrc == MHITYOU ? "you" :
+                            "";
         indirectkiller = killerpath = "";
     }
     else
@@ -1229,11 +1232,11 @@ void scorefile_entry::init(time_t dt)
         DUR_TRANSFORMATION, DUR_PARALYSIS, DUR_PETRIFIED, DUR_SLEEP,
         STATUS_BEHELD, DUR_LIQUID_FLAMES, DUR_ICY_ARMOUR, STATUS_BURDEN,
         DUR_DEFLECT_MISSILES, DUR_REPEL_MISSILES, DUR_JELLY_PRAYER,
-        STATUS_REGENERATION, DUR_DEATHS_DOOR, DUR_STONEMAIL, DUR_STONESKIN,
-        DUR_TELEPORT, DUR_DEATH_CHANNEL, DUR_PHASE_SHIFT, DUR_SILENCE,
-        DUR_INVIS, DUR_CONF, DUR_DIVINE_VIGOUR, DUR_DIVINE_STAMINA, DUR_BERSERK,
-        STATUS_AIRBORNE, DUR_POISONING, STATUS_NET, STATUS_SPEED, DUR_AFRAID,
-        DUR_MIRROR_DAMAGE, DUR_SCRYING,
+        STATUS_REGENERATION, DUR_DEATHS_DOOR, DUR_STONESKIN, DUR_TELEPORT,
+        DUR_DEATH_CHANNEL, DUR_PHASE_SHIFT, DUR_SILENCE, DUR_INVIS, DUR_CONF,
+        DUR_DIVINE_VIGOUR, DUR_DIVINE_STAMINA, DUR_BERSERK, STATUS_AIRBORNE,
+        DUR_POISONING, STATUS_NET, STATUS_SPEED, DUR_AFRAID, DUR_MIRROR_DAMAGE,
+        DUR_SCRYING,
     };
 
     status_info inf;
@@ -1404,7 +1407,7 @@ std::string scorefile_entry::terse_missile_cause() const
 
     std::string missile = terse_missile_name();
 
-    if (missile.length())
+    if (!missile.empty())
         mcause += "/" + missile;
 
     return (mcause);
@@ -1436,11 +1439,10 @@ void scorefile_entry::fixup_char_name()
 
 std::string scorefile_entry::single_cdesc() const
 {
-    std::string scname = name;
-    if (scname.length() > 10)
-        scname = scname.substr(0, 10);
+    std::string scname;
+    scname = chop_string(name, 10);
 
-    return make_stringf("%8d %-10s %s-%02d%s", points, scname.c_str(),
+    return make_stringf("%8d %s %s-%02d%s", points, scname.c_str(),
                          race_class_name.c_str(), lvl, (wiz_mode == 1) ? "W" : "");
 }
 
@@ -1677,13 +1679,22 @@ std::string scorefile_entry::death_description(death_desc_verbosity verbosity)
         break;
 
     case KILLED_BY_CLOUD:
-        if (auxkilldata.empty())
-            desc += terse? "cloud" : "Engulfed by a cloud";
+        ASSERT(!auxkilldata.empty()); // there are no nameless clouds
+        if (terse)
+            if (death_source_name.empty())
+                desc += "cloud of " + auxkilldata;
+            else
+                desc += "cloud of " +auxkilldata + " [" +
+                        death_source_name == "you" ? "self" : death_source_name
+                        + "]";
         else
         {
-            snprintf(scratch, sizeof(scratch), "%scloud of %s",
-                      terse? "" : "Engulfed by a ",
-                      auxkilldata.c_str());
+            snprintf(scratch, sizeof(scratch), "Engulfed by %s%s %s",
+                death_source_name.empty() ? "a" :
+                  death_source_name == "you" ? "own" :
+                  apostrophise(death_source_name).c_str(),
+                death_source_name.empty() ? " cloud of" : "",
+                auxkilldata.c_str());
             desc += scratch;
         }
         needs_damage = true;
@@ -1941,12 +1952,12 @@ std::string scorefile_entry::death_description(death_desc_verbosity verbosity)
         break;
 
     case KILLED_BY_TSO_SMITING:
-        desc += terse? "smote by Shining One" : "Smote by the Shining One";
+        desc += terse? "smitten by Shining One" : "Smitten by the Shining One";
         needs_damage = true;
         break;
 
     case KILLED_BY_BEOGH_SMITING:
-        desc += terse? "smote by Beogh" : "Smote by Beogh";
+        desc += terse? "smitten by Beogh" : "Smitten by Beogh";
         needs_damage = true;
         break;
 
@@ -2172,6 +2183,10 @@ std::string scorefile_entry::death_description(death_desc_verbosity verbosity)
 
                 if (needs_damage)
                     desc += _hiscore_newline_string();
+
+                if (you.duration[DUR_PARALYSIS])
+                    desc += "... while paralysed" + _hiscore_newline_string();
+
             }
         }
     }

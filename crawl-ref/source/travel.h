@@ -1,8 +1,7 @@
-/*
- *  File:       travel.h
- *  Summary:    Travel stuff
- *  Written by: Darshan Shaligram
- */
+/**
+ * @file
+ * @brief Travel stuff
+**/
 #ifndef TRAVEL_H
 #define TRAVEL_H
 
@@ -608,7 +607,9 @@ void do_interlevel_travel();
 
 // Travel from a mouse click.  Take one step if not safe.  Attack if adjacent.
 // If force is true, then the player will attack empty squares/open doors.
+#ifdef USE_TILE
 int click_travel(const coord_def &gc, bool force);
+#endif
 
 bool check_for_interesting_features();
 

@@ -44,6 +44,7 @@ enum band_type
     BAND_HOGS,
     BAND_HELL_HOGS,
     BAND_VAMPIRE_MOSQUITOES,
+    BAND_FIRE_BATS,
     BAND_BOGGARTS,
     BAND_BLINK_FROGS,
     BAND_SKELETAL_WARRIORS,
@@ -63,7 +64,7 @@ enum band_type
     BAND_ELEPHANT,
     BAND_DEEP_DWARF,
     BAND_SHEDU,
-    BAND_TUKIMA,
+    BAND_TERPSICHORE,
     NUM_BANDS                   // always last
 };
 
