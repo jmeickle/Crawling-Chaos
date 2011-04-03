@@ -1,16 +1,9 @@
-/*
- *  File:       mon-data.h
- */
-
 #ifndef MONDATA_H
 #define MONDATA_H
 
 #define AT_NO_ATK       {AT_NONE, AF_PLAIN, 0}
 
 #include "enum.h"
-
-// This whole file was very generously condensed from its initial ugly form
-// by Wladimir van der Laan ($pellbinder).
 
 /* ******************************************************************
 
@@ -1977,9 +1970,7 @@ static monsterentry mondata[] = {
     240, 10, MONS_SPIDER, MONS_TRAPDOOR_SPIDER, MH_NATURAL, -3,
     { {AT_BITE, AF_POISON_MEDIUM, 20}, AT_NO_ATK, AT_NO_ATK, AT_NO_ATK },
     { 8, 3, 5, 0 },
-    // XXX: Will be Z_SMALL, but is Z_NOZOMBIE until code for zombie
-    // spawns is no longer based on zombie size.
-    3, 10, MST_NO_SPELLS, CE_POISON_CONTAM, Z_NOZOMBIE, S_HISS,
+    3, 10, MST_NO_SPELLS, CE_POISON_CONTAM, Z_SMALL, S_HISS,
     I_INSECT, HT_LAND, FL_NONE, 15, DEFAULT_ENERGY,
     MONUSE_NOTHING, MONEAT_NOTHING, SIZE_LITTLE
 },
@@ -3556,7 +3547,7 @@ static monsterentry mondata[] = {
     { 1, 0, 0, 1 },
     0, 30, MST_NO_SPELLS, CE_NOCORPSE, Z_NOZOMBIE, S_ROAR,
     I_PLANT, HT_LAND, FL_NONE, 10, DEFAULT_ENERGY,
-    MONUSE_NOTHING, MONEAT_NOTHING, SIZE_MEDIUM
+    MONUSE_WEAPONS_ARMOUR, MONEAT_NOTHING, SIZE_MEDIUM
 },
 
 // snakes ('S')

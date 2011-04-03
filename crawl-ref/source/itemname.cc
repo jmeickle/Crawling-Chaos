@@ -55,9 +55,9 @@ static bool _is_random_name_vowel(char let);
 static char _random_vowel(int seed);
 static char _random_cons(int seed);
 
-bool is_vowel(const char chr)
+bool is_vowel(const ucs_t chr)
 {
-    const char low = tolower(chr);
+    const char low = towlower(chr);
     return (low == 'a' || low == 'e' || low == 'i' || low == 'o' || low == 'u');
 }
 
@@ -960,7 +960,7 @@ static const char* book_primary_string(int p)
     }
 }
 
-static const char* book_type_name(int booktype)
+static const char* _book_type_name(int booktype)
 {
     switch (static_cast<book_type>(booktype))
     {
@@ -1010,6 +1010,7 @@ static const char* book_type_name(int booktype)
     case BOOK_BURGLARY:               return "Burglary";
     case BOOK_DREAMS:                 return "Dreams";
     case BOOK_CHEMISTRY:              return "Chemistry";
+    case BOOK_ZOOLOGY:                return "Zoology";
     case BOOK_RANDART_LEVEL:          return "Fixed Level";
     case BOOK_RANDART_THEME:          return "Fixed Theme";
     default:                          return "Bugginess";
@@ -1161,7 +1162,7 @@ std::string sub_type_string(object_class_type type, int sub_type,
         else if (sub_type == BOOK_YOUNG_POISONERS)
             return "Young Poisoner's Handbook";
 
-        return book_type_name(sub_type);
+        return _book_type_name(sub_type);
     }
     case OBJ_STAVES: return staff_type_name(sub_type);
     case OBJ_MISCELLANY:
@@ -1804,7 +1805,7 @@ std::string item_def::name_aux(description_level_type desc,
         else if (item_typ == BOOK_YOUNG_POISONERS)
             buff << "Young Poisoner's Handbook";
         else
-            buff << "book of " << book_type_name(item_typ);
+            buff << "book of " << _book_type_name(item_typ);
         break;
 
     case OBJ_STAVES:

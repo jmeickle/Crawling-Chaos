@@ -1036,7 +1036,10 @@ static void _finish_delay(const delay_queue_item &delay)
         if (is_vampire_feeding())
         {
             if (mons_skeleton(item.plus) && one_chance_in(3))
+            {
                 turn_corpse_into_skeleton(item);
+                item_check(false);
+            }
             else
             {
                 if (delay.parm1)
@@ -1233,7 +1236,7 @@ static void _finish_delay(const delay_queue_item &delay)
                                              : "bottling this corpse's blood");
             _pop_delay();
         }
-        StashTrack.update_stash(you.pos()); // Stash-track the generbated items.
+        StashTrack.update_stash(you.pos()); // Stash-track the generated items.
         break;
     }
 
@@ -1343,7 +1346,8 @@ static void _armour_wear_effects(const int item_slot)
 
 static command_type _get_running_command()
 {
-    if (kbhit() || !in_bounds(you.pos() + you.running.pos))
+    if (Options.travel_key_stop && kbhit()
+        || !in_bounds(you.pos() + you.running.pos))
     {
         stop_running();
         return CMD_NO_CMD;
@@ -1455,7 +1459,7 @@ void run_macro(const char *macroname)
 
     if (!clua.callbooleanfn(false, "c_macro", "s", macroname))
     {
-        if (clua.error.length())
+        if (!clua.error.empty())
             mprf(MSGCH_ERROR, "Lua error: %s", clua.error.c_str());
 
         stop_delay();

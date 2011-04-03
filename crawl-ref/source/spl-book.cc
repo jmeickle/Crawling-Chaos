@@ -276,6 +276,7 @@ int book_rarity(uint8_t which_book)
         return 7;
 
     case BOOK_TRANSFIGURATIONS:
+    case BOOK_ZOOLOGY:
         return 8;
 
     case BOOK_FIRE:
@@ -436,14 +437,19 @@ void mark_had_book(const item_def &book)
     if (book.sub_type == BOOK_RANDART_LEVEL)
     {
         god_type god;
-        int      level = book.plus;
-        ASSERT(level > 0 && level <= 9);
-
-        if (origin_is_acquirement(book)
-            || origin_is_god_gift(book, &god) && god == GOD_SIF_MUNA)
+        const int level = book.plus;
+#if TAG_MAJOR_VERSION == 32
+        if (level > 0 && level <= 9)
         {
-            you.attribute[ATTR_RND_LVL_BOOKS] |= (1 << level);
+            if (origin_is_acquirement(book)
+                || origin_is_god_gift(book, &god) && god == GOD_SIF_MUNA)
+            {
+                you.attribute[ATTR_RND_LVL_BOOKS] |= (1 << level);
+            }
         }
+#else
+        ASSERT(level > 0 && level <= 9);
+#endif
     }
 
     if (!book.props.exists(SPELL_LIST_KEY))
@@ -1013,14 +1019,14 @@ static spell_type _choose_mem_spell(spell_list &spells,
         desc << "<" << colour_to_str(colour) << ">";
 
         desc << std::left;
-        desc << std::setw(30) << spell_title(spell);
+        desc << chop_string(spell_title(spell), 30);
         desc << spell_schools_string(spell);
 
-        int so_far = desc.str().length() - (colour_to_str(colour).length()+2);
+        int so_far = strwidth(desc.str()) - (colour_to_str(colour).length()+2);
         if (so_far < 60)
             desc << std::string(60 - so_far, ' ');
 
-        desc << std::setw(12) << failure_rate_to_string(spell_fail(spell))
+        desc << chop_string(failure_rate_to_string(spell_fail(spell)), 12)
              << spell_difficulty(spell);
 
         desc << "</" << colour_to_str(colour) << ">";

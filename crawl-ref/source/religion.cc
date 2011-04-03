@@ -847,8 +847,8 @@ std::string get_god_dislikes(god_type which_god, bool /*verbose*/)
         break;
 
     case GOD_ELYVILON:
-        dislikes.push_back("you kill living things while asking for sparing "
-                           "your life yourself");
+        dislikes.push_back("you kill living things while asking for "
+                           "your life to be spared");
         break;
 
     case GOD_YREDELEMNUL:
@@ -3037,7 +3037,11 @@ void excommunication(god_type new_god)
     case GOD_ASHENZARI:
         if (you.transfer_skill_points > 0)
             ashenzari_end_transfer(false, true);
-        _inc_penance(old_god, 25);
+        // max_level can be much higher, multi-Zig felids may lose millions
+        you.exp_docked = exp_needed(you.max_level + 1)
+                       - exp_needed(you.max_level);
+        you.exp_docked_total = you.exp_docked;
+        _inc_penance(old_god, 50);
         break;
 
     case GOD_CHEIBRIADOS:

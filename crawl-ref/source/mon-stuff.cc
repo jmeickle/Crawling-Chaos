@@ -254,7 +254,7 @@ bool curse_an_item(bool destroy_potions, bool quiet)
             mprf(MSGCH_GOD, "The curse is absorbed by %s.",
                  god_name(GOD_ASHENZARI).c_str());
         }
-        return false;
+        return (false);
     }
 
     int count = 0;

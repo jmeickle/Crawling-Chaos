@@ -1,8 +1,3 @@
-/*
- *  File:       format.h
- *  Created by: haranp on Sat Feb 17 13:35:54 2007 UTC
- */
-
 #ifndef __FORMAT_H__
 #define __FORMAT_H__
 
@@ -103,7 +98,6 @@ public:
 int count_linebreaks(const formatted_string& fs);
 
 int tagged_string_tag_length(const std::string& s);
-int tagged_string_printable_length(const std::string& s);
 std::string tagged_string_substr(const std::string& s, int start, int end);
 void display_tagged_block(const std::string& s);
 

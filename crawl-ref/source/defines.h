@@ -28,6 +28,8 @@
     #endif
 #endif
 
+typedef uint32_t ucs_t;
+
 // length of a single zot defence cycle
 #define CYCLE_LENGTH 200
 
@@ -223,6 +225,8 @@ const int ANTITRAIN_PENALTY = 2;
 // Haste/slow boost.
 #define haste_mul(x) div_rand_round((x) * 3, 2)
 #define haste_div(x) div_rand_round((x) * 2, 3)
+
+#define MAX_MONSTER_HP 10000
 
 // some shortcuts:
 #define menv   env.mons

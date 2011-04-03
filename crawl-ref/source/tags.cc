@@ -51,6 +51,7 @@
 #include "state.h"
 #include "stuff.h"
 #include "env.h"
+#include "syscalls.h"
 #include "tags.h"
 #include "tutorial.h"
 #ifdef USE_TILE
@@ -83,7 +84,7 @@ reader::reader(const std::string &_read_filename, int minorVersion)
     : _filename(_read_filename), _chunk(0), _pbuf(NULL), _read_offset(0),
       _minorVersion(minorVersion), seen_enums()
 {
-    _file       = fopen(_filename.c_str(), "rb");
+    _file       = fopen_u(_filename.c_str(), "rb");
     opened_file = !!_file;
 }
 
@@ -1114,6 +1115,9 @@ static void tag_construct_you(writer &th)
     marshallByte(th, you.hell_exit);
     marshallByte(th, you.hell_branch);
 
+    marshallInt(th, you.exp_docked);
+    marshallInt(th, you.exp_docked_total);
+
     // elapsed time
     marshallInt(th, you.elapsed_time);
 
@@ -1723,6 +1727,16 @@ static void tag_read_you(reader &th)
     you.hell_exit      = unmarshallByte(th);
     you.hell_branch = static_cast<branch_type>(unmarshallByte(th));
 
+#if TAG_MAJOR_VERSION == 32
+    if (th.getMinorVersion() >= TAG_MINOR_ASH_PENANCE)
+    {
+#endif
+    you.exp_docked       = unmarshallInt(th);
+    you.exp_docked_total = unmarshallInt(th);
+#if TAG_MAJOR_VERSION == 32
+    }
+#endif
+
     // elapsed time
     you.elapsed_time   = unmarshallInt(th);
     you.elapsed_time_at_last_input = you.elapsed_time;
@@ -2163,6 +2177,13 @@ void unmarshallItem(reader &th, item_def &item)
     if (item.base_type == OBJ_UNASSIGNED)
         return;
     item.sub_type    = unmarshallUByte(th);
+#if TAG_MAJOR_VERSION == 32
+    if (th.getMinorVersion() < TAG_MINOR_BOOK_ZOOLOGY
+        && item.base_type == OBJ_BOOKS && item.sub_type >= BOOK_ZOOLOGY)
+    {
+        ++item.sub_type;
+    }
+#endif
     item.plus        = unmarshallShort(th);
     item.plus2       = unmarshallShort(th);
     item.special     = unmarshallInt(th);
@@ -2418,8 +2439,8 @@ void marshallMonster(writer &th, const monster& m)
     }
     marshallByte(th, m.ench_countdown);
 
-    marshallShort(th, m.hit_points);
-    marshallShort(th, m.max_hit_points);
+    marshallShort(th, std::min(m.hit_points, MAX_MONSTER_HP));
+    marshallShort(th, std::min(m.max_hit_points, MAX_MONSTER_HP));
     marshallInt(th, m.number);
     marshallShort(th, m.base_monster);
     marshallShort(th, m.colour);

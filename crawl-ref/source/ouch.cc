@@ -73,6 +73,7 @@
 #include "tutorial.h"
 #include "view.h"
 #include "shout.h"
+#include "syscalls.h"
 #include "xom.h"
 
 
@@ -1221,7 +1222,7 @@ void ouch(int dam, int death_source, kill_method_type death_type,
         you.reset_escaped_death();
 
         // Ensure some minimal information about Xom's involvement.
-        if (aux == NULL || strlen(aux) == 0)
+        if (aux == NULL || !*aux)
         {
             if (death_type != KILLED_BY_XOM)
                 aux = "Xom";

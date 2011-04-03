@@ -2971,7 +2971,7 @@ bool monster::heal(int amount, bool max_too)
 
             // Limit HP growth.
             if (random2(3 * maxhp) > 2 * max_hit_points)
-                max_hit_points++;
+                max_hit_points = std::min(max_hit_points + 1, MAX_MONSTER_HP);
             else
                 success = false;
         }
@@ -3020,22 +3020,22 @@ bool monster::undead_or_demonic() const
     return (holi == MH_UNDEAD || holi == MH_DEMONIC);
 }
 
-bool monster::is_holy() const
+bool monster::is_holy(bool check_spells) const
 {
     if (holiness() == MH_HOLY)
         return (true);
 
     // Assume that all unknown gods (GOD_NAMELESS) are not holy.
-    if (is_priest() && is_good_god(god))
+    if (is_priest() && is_good_god(god) && check_spells)
         return (true);
 
-    if (has_holy_spell())
+    if (has_holy_spell() && (check_spells || !is_actual_spellcaster()))
         return (true);
 
     return (false);
 }
 
-bool monster::is_unholy() const
+bool monster::is_unholy(bool check_spells) const
 {
     if (type == MONS_SILVER_STATUE)
         return (true);
@@ -3043,22 +3043,25 @@ bool monster::is_unholy() const
     if (holiness() == MH_DEMONIC)
         return (true);
 
-    if (has_unholy_spell())
+    if (has_unholy_spell() && check_spells)
         return (true);
 
     return (false);
 }
 
-bool monster::is_evil() const
+bool monster::is_evil(bool check_spells) const
 {
     if (holiness() == MH_UNDEAD)
         return (true);
 
     // Assume that all unknown gods (GOD_NAMELESS) are evil.
-    if (is_priest() && (is_evil_god(god) || god == GOD_NAMELESS))
+    if (is_priest() && (is_evil_god(god) || god == GOD_NAMELESS)
+        && check_spells)
+    {
         return (true);
+    }
 
-    if (has_evil_spell())
+    if (has_evil_spell() && check_spells)
         return (true);
 
     if (has_attack_flavour(AF_DRAIN_XP)
@@ -3070,9 +3073,9 @@ bool monster::is_evil() const
     return (false);
 }
 
-bool monster::is_unclean() const
+bool monster::is_unclean(bool check_spells) const
 {
-    if (has_unclean_spell())
+    if (has_unclean_spell() && check_spells)
         return (true);
 
     if (has_attack_flavour(AF_DISEASE)
@@ -3096,17 +3099,17 @@ bool monster::is_unclean() const
     // Being a worshipper of a chaotic god doesn't yet make you
     // physically/essentially chaotic (so you don't get hurt by silver),
     // but Zin does mind.
-    if (is_priest() && is_chaotic_god(god))
+    if (is_priest() && is_chaotic_god(god) && check_spells)
         return (true);
 
-    if (has_chaotic_spell() && is_actual_spellcaster())
+    if (has_chaotic_spell() && is_actual_spellcaster() && check_spells)
         return (true);
 
     corpse_effect_type ce = mons_corpse_effect(type);
     if ((ce == CE_HCL || ce == CE_MUTAGEN_RANDOM || ce == CE_MUTAGEN_GOOD
          || ce == CE_MUTAGEN_BAD || ce == CE_RANDOM) && !is_chaotic())
     {
-        return true;
+        return (true);
     }
 
     return (false);
@@ -3697,7 +3700,7 @@ void monster::set_ghost(const ghost_demon &g, bool has_name)
 void monster::pandemon_init()
 {
     hit_dice        = ghost->xl;
-    max_hit_points  = ghost->max_hp;
+    max_hit_points  = std::min<int>(ghost->max_hp, MAX_MONSTER_HP);
     hit_points      = max_hit_points;
     ac              = ghost->ac;
     ev              = ghost->ev;
@@ -3732,7 +3735,7 @@ void monster::ghost_init(bool need_pos)
     type            = MONS_PLAYER_GHOST;
     god             = ghost->religion;
     hit_dice        = ghost->xl;
-    max_hit_points  = ghost->max_hp;
+    max_hit_points  = std::min<int>(ghost->max_hp, MAX_MONSTER_HP);
     hit_points      = max_hit_points;
     ac              = ghost->ac;
     ev              = ghost->ev;

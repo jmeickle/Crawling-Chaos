@@ -34,6 +34,7 @@
 #include "godabil.h"
 #include "godconduct.h"
 #include "godpassive.h"
+#include "godwrath.h"
 #include "hints.h"
 #include "hiscores.h"
 #include "item_use.h"
@@ -2169,7 +2170,7 @@ int player_adjusted_shield_evasion_penalty(int scale)
     return std::max(0,
                     (base_shield_penalty * scale
                      - you.skill(SK_SHIELDS) * scale
-                     / (5 + player_evasion_size_factor())));
+                     / std::max(1, 5 + player_evasion_size_factor())));
 }
 
 int player_raw_body_armour_evasion_penalty()
@@ -2665,6 +2666,7 @@ void gain_exp(unsigned int exp_gained, unsigned int* actual_gain,
 
     if (you.religion == GOD_ASHENZARI && you.piety > piety_breakpoint(0))
         exp_gained = div_rand_round(exp_gained * (8 + ash_bondage_level()), 8);
+    exp_gained -= ash_reduce_xp(exp_gained);
 
     const unsigned int  old_exp   = you.experience;
     const int           old_avail = you.exp_available;
@@ -5983,25 +5985,25 @@ bool player::undead_or_demonic() const
     return (holi == MH_UNDEAD || holi == MH_DEMONIC);
 }
 
-bool player::is_holy() const
+bool player::is_holy(bool check_spells) const
 {
-    if (is_good_god(religion))
+    if (is_good_god(religion) && check_spells)
         return (true);
 
     return (false);
 }
 
-bool player::is_unholy() const
+bool player::is_unholy(bool check_spells) const
 {
     return (holiness() == MH_DEMONIC);
 }
 
-bool player::is_evil() const
+bool player::is_evil(bool check_spells) const
 {
     if (holiness() == MH_UNDEAD)
         return (true);
 
-    if (is_evil_god(religion))
+    if (is_evil_god(religion) && check_spells)
         return (true);
 
     return (false);

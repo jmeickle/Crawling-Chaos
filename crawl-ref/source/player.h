@@ -18,7 +18,6 @@
 #include "species.h"
 
 #include <vector>
-#include <stdint.h>
 
 #ifdef USE_TILE
 #include "tiledoll.h"
@@ -129,6 +128,8 @@ public:
   int  skill_cost_level;
   int  total_skill_points;
   int  exp_available;
+
+  int exp_docked, exp_docked_total; // Ashenzari's wrath
 
   FixedArray<uint8_t, 6, 50> item_description;
   FixedVector<unique_item_status_type, MAX_UNRANDARTS> unique_items;
@@ -542,9 +543,9 @@ public:
 
     mon_holy_type holiness() const;
     bool undead_or_demonic() const;
-    bool is_holy() const;
-    bool is_unholy() const;
-    bool is_evil() const;
+    bool is_holy(bool spells = true) const;
+    bool is_unholy(bool spells = true) const;
+    bool is_evil(bool spells = true) const;
     bool is_chaotic() const;
     bool is_artificial() const;
     bool is_unbreathing() const;

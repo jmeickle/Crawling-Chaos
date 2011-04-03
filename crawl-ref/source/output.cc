@@ -113,27 +113,27 @@ class colour_bar
                 textcolor(BLACK + m_default * 16);
             else if (old_disp > disp && cx < old_disp)
                 textcolor(BLACK + m_change_neg * 16);
-            putch(' ');
+            putwch(' ');
 #else
             if (cx < disp && cx < old_disp)
             {
                 textcolor(m_default);
-                putch('=');
+                putwch('=');
             }
             else if (cx < disp)
             {
                 textcolor(m_change_pos);
-                putch('=');
+                putwch('=');
             }
             else if (cx < old_disp)
             {
                 textcolor(m_change_neg);
-                putch('-');
+                putwch('-');
             }
             else
             {
                 textcolor(m_empty);
-                putch('-');
+                putwch('-');
             }
 #endif
 
@@ -174,7 +174,7 @@ colour_bar MP_Bar(LIGHTBLUE, BLUE, MAGENTA, DARKGREY);
 void update_message_status()
 {
     static const char *msg = "(Hit _)";
-    static const int len = strlen(msg);
+    static const int len = strwidth(msg);
     static const std::string spc(len, ' ');
 
     textcolor(LIGHTBLUE);
@@ -453,7 +453,7 @@ static void _print_stats_wp(int y)
     cprintf("Wp: ");
     textcolor(col);
     int w = crawl_view.hudsz.x - 4;
-    cprintf("%-*s", w, text.substr(0, w).c_str());
+    cprintf("%s", chop_string(text, w).c_str());
     textcolor(LIGHTGREY);
 }
 
@@ -486,7 +486,7 @@ static void _print_stats_qv(int y)
     cprintf("Qv: ");
     textcolor(col);
     int w = crawl_view.hudsz.x - 4;
-    cprintf("%-*s", w, text.substr(0, w).c_str());
+    cprintf("%s", chop_string(text, w).c_str());
     textcolor(LIGHTGREY);
 }
 
@@ -582,7 +582,7 @@ static void _print_status_lights(int y)
     while (true)
     {
         const int end_x = (wherex() - crawl_view.hudp.x)
-                + (i_light < lights.size() ? lights[i_light].text.length()
+                + (i_light < lights.size() ? strwidth(lights[i_light].text)
                                            : 10000);
 
         if (end_x <= crawl_view.hudsz.x)
@@ -770,20 +770,20 @@ void redraw_skill(const std::string &your_name, const std::string &job_name)
 {
     std::string title = your_name + " the " + job_name;
 
-    unsigned int in_len = title.length();
+    unsigned int in_len = strwidth(title);
     const unsigned int WIDTH = crawl_view.hudsz.x;
     if (in_len > WIDTH)
     {
         in_len -= 3;  // What we're getting back from removing "the".
 
-        const unsigned int name_len = your_name.length();
+        const unsigned int name_len = strwidth(your_name);
         std::string trimmed_name = your_name;
 
         // Squeeze name if required, the "- 8" is to not squeeze too much.
         if (in_len > WIDTH && (name_len - 8) > (in_len - WIDTH))
         {
-            trimmed_name =
-                trimmed_name.substr(0, name_len - (in_len - WIDTH) - 1);
+            trimmed_name = chop_string(trimmed_name,
+                                       name_len - (in_len - WIDTH) - 1);
         }
 
         title = trimmed_name + ", " + job_name;
@@ -821,9 +821,13 @@ void redraw_skill(const std::string &your_name, const std::string &job_name)
         std::string piety = _god_powers(true);
         if (player_under_penance())
             textcolor(RED);
-        if ((species.length() + god.length() + piety.length() + 1) <= WIDTH)
+        if ((unsigned int)(strwidth(species) + strwidth(god) + strwidth(piety) + 1)
+            <= WIDTH)
+        {
             nowrap_eol_cprintf(" %s", piety.c_str());
-        else if ((species.length() + god.length() + piety.length() + 1) == (WIDTH + 1))
+        }
+        else if ((unsigned int)(strwidth(species) + strwidth(god) + strwidth(piety) + 1)
+                  == (WIDTH + 1))
         {
             //mottled draconian of TSO doesn't fit by one symbol,
             //so we remove leading space.
@@ -1294,7 +1298,7 @@ static void _print_overview_screen_equip(column_composer& cols,
                      equip_char,
                      colname,
                      melded ? "melded " : "",
-                     item.name(DESC_PLAIN, true).substr(0,42).c_str(),
+                     chop_string(item.name(DESC_PLAIN, true), 42, false).c_str(),
                      colname);
             equip_chars.push_back(equip_char);
         }
@@ -1357,8 +1361,8 @@ static std::string _overview_screen_title()
              " Turns: %d, Time: %s",
              you.num_turns, make_time_string(you.real_time, true).c_str());
 
-    int linelength = you.your_name.length() + strlen(title)
-                     + strlen(species_job) + strlen(time_turns);
+    int linelength = strwidth(you.your_name) + strwidth(title)
+                     + strwidth(species_job) + strwidth(time_turns);
     for (int count = 0; linelength >= get_number_of_cols() && count < 2;
          count++)
     {
@@ -1376,8 +1380,8 @@ static std::string _overview_screen_title()
           default:
               break;
         }
-        linelength = you.your_name.length() + strlen(title)
-                     + strlen(species_job) + strlen(time_turns);
+        linelength = strwidth(you.your_name) + strwidth(title)
+                     + strwidth(species_job) + strwidth(time_turns);
     }
 
     std::string text;
@@ -1436,7 +1440,8 @@ static std::string _god_powers(bool simple)
                                     + std::string(6 - prank, '.');
             if (simple)
                 return(asterisks);
-            godpowers = godpowers.substr(0, 20) + " [" + asterisks + "]";
+            godpowers = chop_string(godpowers, 20, false)
+                      + " [" + asterisks + "]";
             return (colour_string(godpowers, god_colour(you.religion)));
         }
     }

@@ -391,7 +391,7 @@ void cast_toxic_radiance(bool non_player)
             make_stringf("%s %s poisoned.",
                          _describe_monsters(affected_monsters).c_str(),
                          _monster_count(affected_monsters) == 1? "is" : "are");
-        if (static_cast<int>(message.length()) < get_number_of_cols() - 2)
+        if (strwidth(message) < get_number_of_cols() - 2)
             mpr(message.c_str());
         else
         {
@@ -448,7 +448,7 @@ void cast_refrigeration(int pow, bool non_player, bool freeze_potions)
             make_stringf("%s %s frozen.",
                          _describe_monsters(affected_monsters).c_str(),
                          _monster_count(affected_monsters) == 1? "is" : "are");
-        if (static_cast<int>(message.length()) < get_number_of_cols() - 2)
+        if (strwidth(message) < get_number_of_cols() - 2)
             mpr(message.c_str());
         else
         {
@@ -1589,15 +1589,17 @@ bool cast_fragmentation(int pow, const dist& spd)
     // Stone and rock terrain
     //
     case DNGN_ROCK_WALL:
-    case DNGN_CLEAR_ROCK_WALL:
     case DNGN_SECRET_DOOR:
         beam.colour = env.rock_colour;
         // fall-through
-    case DNGN_CLEAR_STONE_WALL:
     case DNGN_STONE_WALL:
-        what = "wall";
         if (player_in_branch(BRANCH_HALL_OF_ZOT))
             beam.colour = env.rock_colour;
+    case DNGN_CLEAR_ROCK_WALL:
+    case DNGN_CLEAR_STONE_WALL:
+        if (beam.colour == 0)
+            beam.colour = LIGHTCYAN;
+        what = "wall";
         // fall-through
     case DNGN_ORCISH_IDOL:
         if (what == NULL)
@@ -1736,6 +1738,10 @@ bool cast_fragmentation(int pow, const dist& spd)
         // FIXME: cute message for water?
         break;
     }
+
+    // If it was recoloured, use that colour instead.
+    if (env.grid_colours(spd.target))
+        beam.colour = env.grid_colours(spd.target);
 
   all_done:
     if (explode && beam.damage.num > 0)

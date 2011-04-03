@@ -441,7 +441,7 @@ static void _draw_ray_glyph(const coord_def &pos, int colour,
     const coord_def vp = grid2view(pos);
     cgotoxy(vp.x, vp.y, GOTO_DNGN);
     textcolor(real_colour(colour));
-    putch(glych);
+    putwch(glych);
 }
 #endif
 
@@ -3706,12 +3706,12 @@ std::string get_monster_equipment_desc(const monster_info& mi,
                 mon_alt = 0;
         }
 
-        const bool mon_has_wand = mi.props.exists("wand_known");
-        const bool mon_carry = mon_alt || mon_has_wand;
-
         // _describe_monster_weapon already took care of this
         if (mi.two_weapons)
             mon_alt = 0;
+
+        const bool mon_has_wand = mi.props.exists("wand_known");
+        const bool mon_carry = mon_alt || mon_has_wand;
 
         bool found_sth    = !weap.empty();
 

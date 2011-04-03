@@ -1,8 +1,3 @@
-/*
- *  File:       tilepick.cc
- *  Created by: ennewalker on Sat Jan 5 01:33:53 2008 UTC
- */
-
 #include "AppHdr.h"
 
 #ifdef USE_TILE
@@ -804,7 +799,7 @@ static tileidx_t _tileidx_monster_base(int type, bool in_water, int colour,
     case MONS_QUEEN_ANT:
         return TILEP_MONS_QUEEN_ANT;
 
-    // batty monsters ('b')
+    // bats and birds ('b')
     case MONS_BAT:
     case MONS_MEGABAT:
         return TILEP_MONS_MEGABAT;
@@ -816,6 +811,8 @@ static tileidx_t _tileidx_monster_base(int type, bool in_water, int colour,
         return TILEP_MONS_FIRE_BAT;
     case MONS_RAVEN:
         return TILEP_MONS_RAVEN;
+    case MONS_PHOENIX:
+        return TILEP_MONS_PHOENIX;
 
     // centaurs ('c')
     case MONS_CENTAUR:
@@ -1655,6 +1652,8 @@ static tileidx_t _tileidx_monster_base(int type, bool in_water, int colour,
         return TILEP_MONS_ELECTRIC_GOLEM;
 
     // statues (also '8')
+    case MONS_SALT_PILLAR:
+        return TILEP_MONS_PILLAR_OF_SALT;
     case MONS_TRAINING_DUMMY:
         return TILEP_MONS_TRAINING_DUMMY;
     case MONS_ICE_STATUE:
@@ -3202,7 +3201,7 @@ static tileidx_t _tileidx_corpse(const item_def &item)
     case MONS_QUEEN_ANT:
         return TILE_CORPSE_QUEEN_ANT;
 
-    // batty monsters ('b')
+    // bats and birds ('b')
     case MONS_BAT:
     case MONS_MEGABAT:
         return TILE_CORPSE_MEGABAT;
@@ -3210,6 +3209,8 @@ static tileidx_t _tileidx_corpse(const item_def &item)
         return TILE_CORPSE_BUTTERFLY;
     case MONS_RAVEN:
         return TILE_CORPSE_RAVEN;
+    case MONS_PHOENIX:
+        return TILE_CORPSE_PHOENIX;
 
     // centaurs ('c')
     case MONS_CENTAUR:
@@ -4190,8 +4191,8 @@ tileidx_t tileidx_cloud(const cloud_struct &cl, bool disturbance)
                 break;
 
             case CLOUD_TORNADO:
-                ch = get_tornado_phase(cl.pos) ? TILE_CLOUD_BLUE_SMOKE
-                                               : TILE_CLOUD_GREY_SMOKE;
+                ch = get_tornado_phase(cl.pos) ? TILE_CLOUD_RAGING_WINDS_0
+                                               : TILE_CLOUD_RAGING_WINDS_1;
                 break;
 
             case CLOUD_HOLY_FLAMES:
@@ -4229,26 +4230,22 @@ tileidx_t tileidx_bolt(const bolt &bolt)
 
 tileidx_t tileidx_zap(int colour)
 {
-    int col;
-
     switch (colour)
     {
-    case ETC_MAGIC:
-        col = element_colour(ETC_MAGIC);
-        break;
     case ETC_HOLY:
-        col = YELLOW;
+        colour = YELLOW;
         break;
     default:
-        col = colour;
+        colour = element_colour(colour);
         break;
     }
 
-    if (col > 8)
-        col -= 8;
-    if (col < 1)
-        col = 7;
-    return (TILE_SYM_BOLT_OFS - 1 + col);
+    if (colour < 1)
+        colour = 7;
+    else if (colour > 8)
+        colour -= 8;
+
+    return (TILE_SYM_BOLT_OFS - 1 + colour);
 }
 
 tileidx_t tileidx_spell(spell_type spell)
@@ -4352,6 +4349,7 @@ tileidx_t tileidx_spell(spell_type spell)
     case SPELL_HASTE:                    return TILEG_HASTE;
     case SPELL_INVISIBILITY:             return TILEG_INVISIBILITY;
     case SPELL_MASS_CONFUSION:           return TILEG_MASS_CONFUSION;
+    case SPELL_DARKNESS:                 return TILEG_DARKNESS;
 
     // Translocation
     case SPELL_APPORTATION:              return TILEG_APPORTATION;
