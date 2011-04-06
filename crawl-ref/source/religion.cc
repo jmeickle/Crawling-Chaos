@@ -4172,14 +4172,13 @@ int get_tension(god_type god)
     if (!nearby_monster)
         return 0;
 
-    const int scale = 1;
-
     int tension = total;
 
     // Tension goes up inversely proportional to the percentage of max
-    // hp you have.
-    tension *= (scale + 1) * you.hp_max;
-    tension /= max(you.hp_max + scale * you.hp, 1);
+    // hp you have: * sqrt(% HP), where % HP is expressed from 0 to 100,
+    // so up to ~10x normal tension value at very low HP.
+    float pct = 100 * (1 - ((float) you.hp / ((float) you.hp_max + 1)));
+    tension *= (int) sqrt(pct);
 
     // Divides by 1 at level 1, 200 at level 27.
     const int exp_lev  = you.get_experience_level();
