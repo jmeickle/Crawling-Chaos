@@ -1133,7 +1133,7 @@ bool spell_is_useless(spell_type spell, bool transient)
             return true;
         }
 
-        if (you.species == SP_LAVA_ORC && temperature_effect(LORC_STONESKIN))
+        if (you.species == SP_LAVA_ORC && !temperature_effect(LORC_STONESKIN))
         {
             switch (spell)
             {
