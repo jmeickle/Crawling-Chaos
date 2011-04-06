@@ -852,7 +852,7 @@ static bool _too_hot_to_cast(spell_type spell)
         return (false);
 
     // Lava orcs can never benefit from casting stoneskin.
-    case SPELL_STONESKIN:
+    if (spell == SPELL_STONESKIN)
         return (true);
 
     // Lava orcs have no restrictions if their skin is
