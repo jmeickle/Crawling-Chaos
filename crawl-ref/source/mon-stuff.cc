@@ -47,6 +47,7 @@
 #include "mon-speak.h"
 #include "mon-util.h"
 #include "notes.h"
+#include "ouch.h"
 #include "player.h"
 #include "random.h"
 #include "religion.h"
@@ -4700,7 +4701,7 @@ void temperature_changed(bool inc_temp) {
         mpr("Your stony skin melts.", MSGCH_DURATION);
 
         // Handles condensation shield, ozo's armour, icemail.
-        _maybe_melt_player_enchantments(BEAM_FIRE);
+        expose_player_to_element(BEAM_FIRE, 0);
 
         // Handled separately because normally heat doesn't affect this.
         if (you.form == TRAN_ICE_BEAST || you.form == TRAN_STATUE)
