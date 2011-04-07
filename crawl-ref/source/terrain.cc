@@ -346,6 +346,11 @@ bool feat_is_trap(dungeon_feature_type feat, bool undiscovered_too)
             || undiscovered_too && feat == DNGN_UNDISCOVERED_TRAP);
 }
 
+bool feat_is_lava(dungeon_feature_type feat)
+{
+    return (feat == DNGN_LAVA);
+}
+
 bool feat_is_water(dungeon_feature_type feat)
 {
     return (feat == DNGN_SHALLOW_WATER
