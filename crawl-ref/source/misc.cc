@@ -1448,6 +1448,11 @@ bool go_berserk(bool intentional, bool potion)
 
     you.redraw_quiver = true; // Account for no firing.
 
+    if (you.species == SP_LAVA_ORC)
+    {
+        mpr("You burn with rage!");
+        temperature_increment(16);
+    }
     return true;
 }
 
