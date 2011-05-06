@@ -1,8 +1,7 @@
-/*
- *  File:       spl-book.cc
- *  Summary:    Spellbook/Staff contents array and management functions
- *  Written by: Josh Fishman
- */
+/**
+ * @file
+ * @brief Spellbook/Staff contents array and management functions
+**/
 
 #include "AppHdr.h"
 
@@ -26,6 +25,7 @@
 #include "format.h"
 #include "godconduct.h"
 #include "goditem.h"
+#include "hints.h"
 #include "invent.h"
 #include "itemname.h"
 #include "itemprop.h"
@@ -163,7 +163,7 @@ int spellbook_contents(item_def &book, read_book_action_type action,
         out.cprintf(strng);
         out.cprintf(" - ");
 
-        out.cprintf("%-29s", spell_title(stype));
+        out.cprintf("%s", chop_string(spell_title(stype), 29).c_str());
 
         std::string schools;
         if (action == RBOOK_USE_STAFF)
@@ -182,12 +182,7 @@ int spellbook_contents(item_def &book, read_book_action_type action,
                 }
             }
         }
-        out.cprintf("%-30s", schools.c_str());
-
-        char sval[3];
-        itoa(level_diff, sval, 10);
-        out.cprintf(sval);
-        out.cprintf("\n");
+        out.cprintf("%s%d\n", chop_string(schools, 30).c_str(), level_diff);
         spelcount++;
     }
 
@@ -240,9 +235,7 @@ int book_rarity(uint8_t which_book)
 {
     switch (which_book)
     {
-    case BOOK_MINOR_MAGIC_I:
-    case BOOK_MINOR_MAGIC_II:
-    case BOOK_MINOR_MAGIC_III:
+    case BOOK_MINOR_MAGIC:
     case BOOK_HINDERANCE:
     case BOOK_CANTRIPS: //jmf: added 04jan2000
         return 1;
@@ -267,7 +260,6 @@ int book_rarity(uint8_t which_book)
     case BOOK_YOUNG_POISONERS:
     case BOOK_STALKING:    //jmf: added 24jun2000
     case BOOK_WAR_CHANTS:
-    case BOOK_BRANDS:
         return 5;
 
     case BOOK_CLOUDS:
@@ -279,6 +271,7 @@ int book_rarity(uint8_t which_book)
         return 7;
 
     case BOOK_TRANSFIGURATIONS:
+    case BOOK_ZOOLOGY:
         return 8;
 
     case BOOK_FIRE:
@@ -309,13 +302,20 @@ int book_rarity(uint8_t which_book)
         return 18;
 
     case BOOK_ANNIHILATIONS: // Vehumet special
-    case BOOK_DEMONOLOGY:    // Vehumet special
+    case BOOK_GRAND_GRIMOIRE:    // Vehumet special
     case BOOK_NECRONOMICON:  // Kikubaaqudgha special
     case BOOK_MANUAL:
         return 20;
 
     case BOOK_DESTRUCTION:
         return 30;
+
+    case BOOK_BRANDS:        // XXX: Temporarily disabled along with AM
+#if TAG_MAJOR_VERSION == 32
+    case BOOK_MINOR_MAGIC_II:
+    case BOOK_MINOR_MAGIC_III:
+#endif
+       return 100;
 
     default:
         return 1;
@@ -396,16 +396,16 @@ bool player_can_memorise_from_spellbook(const item_def &book)
 
     if ((book.sub_type == BOOK_ANNIHILATIONS
             && you.religion != GOD_VEHUMET
-            && (you.skills[SK_CONJURATIONS] < 10
-                || you.skills[SK_SPELLCASTING] < 6))
-        || (book.sub_type == BOOK_DEMONOLOGY
+            && (you.skill(SK_CONJURATIONS) < 10
+                || you.skill(SK_SPELLCASTING) < 6))
+        || (book.sub_type == BOOK_GRAND_GRIMOIRE
             && you.religion != GOD_VEHUMET
-            && (you.skills[SK_SUMMONINGS] < 10
-                || you.skills[SK_SPELLCASTING] < 6))
+            && (you.skill(SK_SUMMONINGS) < 10
+                || you.skill(SK_SPELLCASTING) < 6))
         || (book.sub_type == BOOK_NECRONOMICON
             && you.religion != GOD_KIKUBAAQUDGHA
-            && (you.skills[SK_NECROMANCY] < 10
-                || you.skills[SK_SPELLCASTING] < 6)))
+            && (you.skill(SK_NECROMANCY) < 10
+                || you.skill(SK_SPELLCASTING) < 6)))
     {
         return (false);
     }
@@ -432,14 +432,19 @@ void mark_had_book(const item_def &book)
     if (book.sub_type == BOOK_RANDART_LEVEL)
     {
         god_type god;
-        int      level = book.plus;
-        ASSERT(level > 0 && level <= 9);
-
-        if (origin_is_acquirement(book)
-            || origin_is_god_gift(book, &god) && god == GOD_SIF_MUNA)
+        const int level = book.plus;
+#if TAG_MAJOR_VERSION == 32
+        if (level > 0 && level <= 9)
         {
-            you.attribute[ATTR_RND_LVL_BOOKS] |= (1 << level);
+            if (origin_is_acquirement(book)
+                || origin_is_god_gift(book, &god) && god == GOD_SIF_MUNA)
+            {
+                you.attribute[ATTR_RND_LVL_BOOKS] |= (1 << level);
+            }
         }
+#else
+        ASSERT(level > 0 && level <= 9);
+#endif
     }
 
     if (!book.props.exists(SPELL_LIST_KEY))
@@ -452,16 +457,8 @@ void mark_had_book(int booktype)
 
     you.had_book[booktype] = true;
 
-    if (booktype == BOOK_MINOR_MAGIC_I
-        || booktype == BOOK_MINOR_MAGIC_II
-        || booktype == BOOK_MINOR_MAGIC_III)
-    {
-        you.had_book[BOOK_MINOR_MAGIC_I]   = true;
-        you.had_book[BOOK_MINOR_MAGIC_II]  = true;
-        you.had_book[BOOK_MINOR_MAGIC_III] = true;
-    }
-    else if (booktype == BOOK_CONJURATIONS_I
-             || booktype == BOOK_CONJURATIONS_II)
+    if (booktype == BOOK_CONJURATIONS_I
+        || booktype == BOOK_CONJURATIONS_II)
     {
         you.had_book[BOOK_CONJURATIONS_I]  = true;
         you.had_book[BOOK_CONJURATIONS_II] = true;
@@ -523,7 +520,6 @@ bool you_cannot_memorise(spell_type spell, bool &undead)
     case US_HUNGRY_DEAD: // Ghouls
         switch (spell)
         {
-        case SPELL_ALTER_SELF:
         case SPELL_BERSERKER_RAGE:
         case SPELL_BLADE_HANDS:
         case SPELL_BORGNJORS_REVIVIFICATION:
@@ -532,11 +528,9 @@ bool you_cannot_memorise(spell_type spell, bool &undead)
         case SPELL_DRAGON_FORM:
         case SPELL_ICE_FORM:
         case SPELL_NECROMUTATION:
-        case SPELL_RESIST_POISON:
         case SPELL_SPIDER_FORM:
         case SPELL_STATUE_FORM:
         case SPELL_STONESKIN:
-        case SPELL_SYMBOL_OF_TORMENT:
             rc = true;
             break;
         default:
@@ -562,7 +556,6 @@ bool you_cannot_memorise(spell_type spell, bool &undead)
     case US_UNDEAD: // Mummies
         switch (spell)
         {
-        case SPELL_ALTER_SELF:
         case SPELL_BERSERKER_RAGE:
         case SPELL_BLADE_HANDS:
         case SPELL_BORGNJORS_REVIVIFICATION:
@@ -572,13 +565,10 @@ bool you_cannot_memorise(spell_type spell, bool &undead)
         case SPELL_ICE_FORM:
         case SPELL_INTOXICATE:
         case SPELL_NECROMUTATION:
-        case SPELL_PASSWALL:
         case SPELL_REGENERATION:
-        case SPELL_RESIST_POISON:
         case SPELL_SPIDER_FORM:
         case SPELL_STATUE_FORM:
         case SPELL_STONESKIN:
-        case SPELL_SYMBOL_OF_TORMENT:
             rc = true;
             break;
         default:
@@ -686,6 +676,7 @@ static bool _get_mem_list(spell_list &mem_spells,
     bool          book_errors    = false;
     unsigned int  num_on_ground  = 0;
     unsigned int  num_books      = 0;
+    unsigned int  num_unknown    = 0;
                   num_unreadable = 0;
 
     // Collect the list of all spells in all available spellbooks.
@@ -707,8 +698,14 @@ static bool _get_mem_list(spell_list &mem_spells,
     for (unsigned int i = 0; i < items.size(); ++i)
     {
         item_def book(*items[i]);
-        if (!item_is_spellbook(book) || !item_type_known(book))
+        if (!item_is_spellbook(book))
             continue;
+
+        if (!item_type_known(book))
+        {
+            num_unknown++;
+            continue;
+        }
 
         num_books++;
         num_on_ground++;
@@ -721,7 +718,23 @@ static bool _get_mem_list(spell_list &mem_spells,
     if (num_books == 0)
     {
         if (!just_check)
-            mpr("You aren't carrying any spellbooks.", MSGCH_PROMPT);
+        {
+            if (num_unknown > 1)
+            {
+                mpr("You must pick those books before reading them.",
+                    MSGCH_PROMPT);
+            }
+            else if (num_unknown == 1)
+            {
+                mpr("You must pick this book before reading it.",
+                    MSGCH_PROMPT);
+            }
+            else
+            {
+                mpr("You aren't carrying or standing over any spellbooks.",
+                    MSGCH_PROMPT);
+            }
+        }
         return (false);
     }
     else if (num_unreadable == num_books)
@@ -1022,14 +1035,14 @@ static spell_type _choose_mem_spell(spell_list &spells,
         desc << "<" << colour_to_str(colour) << ">";
 
         desc << std::left;
-        desc << std::setw(30) << spell_title(spell);
+        desc << chop_string(spell_title(spell), 30);
         desc << spell_schools_string(spell);
 
-        int so_far = desc.str().length() - (colour_to_str(colour).length()+2);
+        int so_far = strwidth(desc.str()) - (colour_to_str(colour).length()+2);
         if (so_far < 60)
             desc << std::string(60 - so_far, ' ');
 
-        desc << std::setw(12) << failure_rate_to_string(spell_fail(spell))
+        desc << chop_string(failure_rate_to_string(spell_fail(spell)), 12)
              << spell_difficulty(spell);
 
         desc << "</" << colour_to_str(colour) << ">";
@@ -1281,6 +1294,7 @@ bool learn_spell(spell_type specspell, int book, bool is_safest_book)
     if (random2(40) + random2(40) + random2(40) < chance)
     {
         mpr("You fail to memorise the spell.");
+        learned_something_new(HINT_MEMORISE_FAILURE);
         you.turn_is_over = true;
 
         if (book == BOOK_NECRONOMICON)
@@ -1290,12 +1304,12 @@ bool learn_spell(spell_type specspell, int book, bool is_safest_book)
                            8, random2avg(88, 3),
                            "reading the Necronomicon");
         }
-        else if (book == BOOK_DEMONOLOGY)
+        else if (book == BOOK_GRAND_GRIMOIRE)
         {
             mpr("This book does not appreciate being disturbed by one of your ineptitude!");
             MiscastEffect(&you, MISC_MISCAST, SPTYP_SUMMONING,
                            7, random2avg(88, 3),
-                           "reading the book of Demonology");
+                           "reading the Grand Grimoire");
         }
         else if (book == BOOK_ANNIHILATIONS)
         {
@@ -1401,9 +1415,7 @@ int staff_spell(int staff)
         return (0);
     }
     else if (num_spells == 1)
-    {
         keyin = 'a';  // automatically selected if it's the only option
-    }
     else
     {
         mprf(MSGCH_PROMPT,
@@ -1656,8 +1668,6 @@ static void _make_book_randart(item_def &book)
 {
     if (!is_artefact(book))
     {
-        // This may need to get re-initialized at some point.
-        book.special = (random_int() & RANDART_SEED_MASK);
         book.flags |= ISFLAG_RANDART;
         if (!book.props.exists(ARTEFACT_APPEAR_KEY))
         {
@@ -1829,6 +1839,7 @@ bool make_book_level_randart(item_def &book, int level, int num_spells,
     {
         bookname = getRandNameString("book_noun") + " of "
                    + getRandNameString("Xom_book_title");
+        bookname = replace_name_parts(bookname, book);
     }
     else
     {
@@ -2434,6 +2445,7 @@ bool make_book_theme_randart(item_def &book,
             bookname = getRandNameString("Xom_book_title");
         else if (one_chance_in(20) && (owner.empty() || one_chance_in(3)))
             bookname = getRandNameString("random_book_title");
+        bookname = replace_name_parts(bookname, book);
     }
 
     if (!bookname.empty())
@@ -2529,7 +2541,7 @@ bool is_dangerous_spellbook(const int book_type)
     switch(book_type)
     {
     case BOOK_NECRONOMICON:
-    case BOOK_DEMONOLOGY:
+    case BOOK_GRAND_GRIMOIRE:
     case BOOK_ANNIHILATIONS:
         return (true);
     default:

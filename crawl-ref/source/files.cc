@@ -1,8 +1,7 @@
-/*
- *  File:       files.cc
- *  Summary:    Functions used to save and load levels/games.
- *  Written by: Linley Henzell and Alexey Guzeev
- */
+/**
+ * @file
+ * @brief Functions used to save and load levels/games.
+**/
 
 #include "AppHdr.h"
 
@@ -38,6 +37,7 @@
 
 #include "abyss.h"
 #include "act-iter.h"
+#include "areas.h"
 #include "artefact.h"
 #include "chardump.h"
 #include "cloud.h"
@@ -92,15 +92,10 @@
 #include "terrain.h"
 #include "travel.h"
 #include "hints.h"
+#include "view.h"
 #include "viewgeom.h"
 
 #include <dirent.h>
-
-#ifndef HAVE_STAT
-#if defined(UNIX) || defined(TARGET_COMPILER_MINGW) || defined(TARGET_OS_DOS)
-#define HAVE_STAT
-#endif
-#endif
 
 static std::vector<SavefileCallback::callback>* _callback_list = NULL;
 
@@ -110,6 +105,7 @@ static bool _ghost_version_compatible(reader &ghost_reader);
 
 static bool _restore_tagged_chunk(package *save, const std::string name,
                                   tag_type tag, const char* complaint);
+static bool _read_char_chunk(package *save);
 
 const short GHOST_SIGNATURE = short(0xDC55);
 
@@ -126,31 +122,17 @@ static void _redraw_all(void)
         REDRAW_LINE_1_MASK | REDRAW_LINE_2_MASK | REDRAW_LINE_3_MASK;
 }
 
-static bool _is_uid_file(const std::string &name, const std::string &ext)
+static bool is_save_file_name(const std::string &name)
 {
-    std::string save_suffix = get_savedir_filename("", "", "");
-    save_suffix += ext;
-#ifdef TARGET_OS_DOS
-    // Grumble grumble. Hang all retarded operating systems.
-    uppercase(save_suffix);
-#endif
-
-    save_suffix = save_suffix.substr(get_savefile_directory().length());
-
-    std::string::size_type suffix_pos = name.find(save_suffix);
-    return (suffix_pos != std::string::npos
-            && suffix_pos == name.length() - save_suffix.length()
-            && suffix_pos != 0);
+    int off = name.length() - strlen(SAVE_SUFFIX);
+    if (off <= 0)
+        return false;
+    return !strcasecmp(name.c_str() + off, SAVE_SUFFIX);
 }
 
-bool is_save_file_name(const std::string &name)
+bool save_exists(const std::string& filename)
 {
-    return _is_uid_file(name, SAVE_SUFFIX);
-}
-
-bool save_exists(const std::string& name)
-{
-    return (file_exists(get_savedir_filename(name, "", "") + SAVE_SUFFIX));
+    return file_exists(get_savefile_directory() + filename);
 }
 
 // Returns the save_info from the save.
@@ -164,84 +146,14 @@ player_save_info read_character_info(package *save)
 
     try // need a redundant try block just so we can restore the backup
     {   // (or risk an = operator on you getting misused)
-        if (_restore_tagged_chunk(save, "chr", TAG_CHR, 0))
-            fromfile = you;
+        fromfile.save_loadable = _read_char_chunk(save);
+        fromfile = you;
     }
     catch (ext_fail_exception &E) {}
 
     you.copy_from(backup);
 
     return fromfile;
-}
-
-static inline bool _is_good_filename(const std::string &s)
-{
-    return (s != "." && s != "..");
-}
-
-#if defined(TARGET_OS_DOS)
-// Abbreviates a given file name to DOS style "xxxxxx~1.txt".
-// Does not take into account files with differing suffixes or files
-// with a prepended path with more than one separator.
-// (It does handle all files included with the distribution except
-//  changes.stone_soup.)
-bool get_dos_compatible_file_name(std::string *fname)
-{
-    std::string::size_type pos1 = fname->find("\\");
-    if (pos1 == std::string::npos)
-        pos1 = 0;
-
-    const std::string::size_type pos2 = fname->find(".txt");
-    // Name already fits DOS requirements, nothing to be done.
-    if (fname->substr(pos1, pos2).length() <= 8)
-        return (false);
-
-    *fname = fname->substr(0,pos1) + fname->substr(pos1, pos1 + 6) + "~1.txt";
-
-    return (true);
-}
-#endif
-
-// Returns the names of all files in the given directory. Note that the
-// filenames returned are relative to the directory.
-std::vector<std::string> get_dir_files(const std::string &dirname)
-{
-    std::vector<std::string> files;
-
-#ifdef TARGET_COMPILER_VC
-    WIN32_FIND_DATA lData;
-    std::string dir = dirname;
-    if (!dir.empty() && dir[dir.length() - 1] != FILE_SEPARATOR)
-        dir += FILE_SEPARATOR;
-    dir += "*";
-    HANDLE hFind = FindFirstFile(dir.c_str(), &lData);
-    if (hFind != INVALID_HANDLE_VALUE)
-    {
-        if (_is_good_filename(lData.cFileName))
-            files.push_back(lData.cFileName);
-        while (FindNextFile(hFind, &lData))
-        {
-            if (_is_good_filename(lData.cFileName))
-                files.push_back(lData.cFileName);
-        }
-        FindClose(hFind);
-    }
-#else // non-MS VC++ compilers
-
-    DIR *dir = opendir(dirname.c_str());
-    if (!dir)
-        return (files);
-
-    while (dirent *entry = readdir(dir))
-    {
-        std::string name = entry->d_name;
-        if (_is_good_filename(name))
-            files.push_back(name);
-    }
-    closedir(dir);
-#endif
-
-    return (files);
 }
 
 // Returns a vector of files (including directories if requested) in
@@ -404,59 +316,9 @@ bool is_newer(const std::string &a, const std::string &b)
     return (file_modtime(a) > file_modtime(b));
 }
 
-void check_newer(const std::string &target,
-                 const std::string &dependency,
-                 void (*action)())
-{
-    if (is_newer(dependency, target))
-        action();
-}
-
-bool file_exists(const std::string &name)
-{
-#ifdef HAVE_STAT
-    struct stat st;
-    const int err = ::stat(name.c_str(), &st);
-    return (!err && S_ISREG(st.st_mode));
-#else
-    FILE *f = fopen(name.c_str(), "r");
-    const bool exists = !!f;
-    if (f)
-        fclose(f);
-    return (exists);
-#endif
-}
-
-// Low-tech existence check.
-bool dir_exists(const std::string &dir)
-{
-#ifdef TARGET_OS_WINDOWS
-    DWORD lAttr = GetFileAttributes(dir.c_str());
-    return (lAttr != INVALID_FILE_ATTRIBUTES
-            && (lAttr & FILE_ATTRIBUTE_DIRECTORY));
-#elif defined(HAVE_STAT)
-    struct stat st;
-    const int err = ::stat(dir.c_str(), &st);
-    return (!err && S_ISDIR(st.st_mode));
-#else
-    DIR *d = opendir(dir.c_str());
-    const bool exists = !!d;
-    if (d)
-        closedir(d);
-
-    return (exists);
-#endif
-}
-
 static int _create_directory(const char *dir)
 {
-#if defined(TARGET_COMPILER_VC)
-    return _mkdir(dir);
-#elif defined(TARGET_OS_WINDOWS)
-    return mkdir(dir);
-#else
-    return mkdir(dir, 0755);
-#endif
+    return mkdir_u(dir, 0755);
 }
 
 static bool _create_dirs(const std::string &dir)
@@ -825,6 +687,7 @@ std::vector<player_save_info> find_saved_characters()
                 player_save_info p = read_character_info(&save);
                 if (!p.name.empty())
                 {
+                    p.filename = filename;
 #ifdef USE_TILE
                     if (Options.tile_menu_icons && save.has_chunk("tdl"))
                         _fill_player_doll(p, &save);
@@ -845,52 +708,24 @@ std::vector<player_save_info> find_saved_characters()
     return (chars);
 }
 
-std::string get_savedir_filename(const std::string &prefix,
-                                 const std::string &suffix,
-                                 const std::string &extension,
-                                 bool suppress_uid)
+std::string get_savedir_filename(const std::string &name)
 {
-    std::string result = get_savefile_directory();
-    result += get_save_filename(prefix, suffix, extension, suppress_uid);
-
-#ifdef TARGET_OS_DOS
-    uppercase(result);
-#endif
-
-    return result;
+    return get_savefile_directory() + get_save_filename(name);
 }
 
-std::string get_save_filename(const std::string &prefix,
-                              const std::string &suffix,
-                              const std::string &extension,
-                              bool suppress_uid)
+std::string get_save_filename(const std::string &name)
 {
-    std::string result = "";
-
-    // Shorten string as appropriate
-    result += strip_filename_unsafe_chars(prefix).substr(0, kFileNameLen);
-
-    result += suffix;
-
-    if (!extension.empty())
-    {
-        result += '.';
-        result += extension;
-    }
-
-#ifdef TARGET_OS_DOS
-    uppercase(result);
-#endif
-    return result;
+    return chop_string(strip_filename_unsafe_chars(name), kFileNameLen, false)
+           + SAVE_SUFFIX;
 }
 
 std::string get_prefs_filename()
 {
 #ifdef DGL_STARTUP_PREFS_BY_NAME
-    return get_savedir_filename("start-" + Options.game.name + "-",
-                                "ns", "prf", true);
+    return get_savefile_directory() + "start-"
+           + strip_filename_unsafe_chars(Options.game.name) + "-ns.prf";
 #else
-    return get_savedir_filename("start", "-ns", "prf");
+    return get_savefile_directory() + "start-ns.prf";
 #endif
 }
 
@@ -925,9 +760,7 @@ public:
         : target_filename(filename), tmp_filename(target_filename),
           filemode(mode), lock(_lock), filep(NULL)
     {
-#ifndef SHORT_FILE_NAMES
         tmp_filename = target_filename + ".tmp";
-#endif
     }
 
     ~safe_file_writer()
@@ -935,7 +768,7 @@ public:
         close();
         if (tmp_filename != target_filename)
         {
-            if (rename(tmp_filename.c_str(), target_filename.c_str()))
+            if (rename_u(tmp_filename.c_str(), target_filename.c_str()))
                 end(1, true, "failed to rename %s -> %s",
                     tmp_filename.c_str(), target_filename.c_str());
         }
@@ -946,7 +779,7 @@ public:
         if (!filep)
         {
             filep = (lock? lk_open(filemode, tmp_filename)
-                     : fopen(tmp_filename.c_str(), filemode));
+                     : fopen_u(tmp_filename.c_str(), filemode));
             if (!filep)
                 end(-1, true,
                     "Failed to open \"%s\" (%s; locking:%s)",
@@ -1153,14 +986,14 @@ static bool _grab_follower_at(const coord_def &pos)
     if (you.char_direction == GDT_GAME_START)
         dest.depth = 1;
 
-#ifdef DEBUG_DIAGNOSTICS
-    mprf(MSGCH_DIAGNOSTICS, "%s is following to %s.",
-         fmenv->name(DESC_CAP_THE, true).c_str(),
+    dprf("%s is following to %s.", fmenv->name(DESC_CAP_THE, true).c_str(),
          dest.describe().c_str());
-#endif
+    bool could_see = you.can_see(fmenv);
     fmenv->set_transit(dest);
     fmenv->destroy_inventory();
     monster_cleanup(fmenv);
+    if (could_see)
+        view_update_at(pos);
     return (true);
 }
 
@@ -1640,6 +1473,8 @@ bool load(dungeon_feature_type stair_taken, load_mode_type load_mode,
 
         ash_detect_portals(player_in_mappable_area());
     }
+    // Initialize halos, etc.
+    invalidate_agrid(true);
 
     return just_created_level;
 }
@@ -1914,17 +1749,48 @@ bool load_ghost(bool creating_level)
     return (true);
 }
 
-void restore_game(const std::string& name)
+// returns false if a new game should start instead
+bool restore_game(const std::string& filename)
 {
     // [ds] Set up branch depths for the current game type before
     // trying to load the game. This is important for Sprint because
     // it reduces the dungeon to 1 level, making D:1's place name "D"
     // in save chunks.
     initialise_branches_for_game_type();
-    you.save = new package((get_savedir_filename(name, "", "")
-                           + SAVE_SUFFIX).c_str(), true);
+    you.save = new package((get_savefile_directory() + filename).c_str(), true);
 
-    _restore_tagged_chunk(you.save, "chr", TAG_CHR, "Player data is invalid.");
+    if (!_read_char_chunk(you.save))
+    {
+        // Note: if we are here, the save info was properly read, it would
+        // raise an exception otherwise.
+        if (yesno(("This game comes from an incompatible version of Crawl ("
+                   + you.prev_save_version + ").\n"
+                   "Unless you reinstall that version, you can't load it.\n"
+                   "Do you want to DELETE that game and start a new one?"
+                  ).c_str(),
+                  true, 'n'))
+        {
+            you.save->unlink();
+            you.save = 0;
+            return false;
+        }
+        fail("Cannot load an incompatible save from version %s",
+             you.prev_save_version.c_str());
+    }
+
+    if (numcmp(you.prev_save_version.c_str(), Version::Long().c_str(), 2) == -1)
+    {
+        if (!yesno("This game comes from a previous release of Crawl.  If you "
+                   "load it now, you won't be able to go back.  Continue?",
+                   true, 'n'))
+        {
+            you.save->abort(); // don't even rewrite the header
+            delete you.save;
+            you.save = 0;
+            end(0, false, "Please reinstall the stable version then.\n");
+        }
+    }
+
     _restore_tagged_chunk(you.save, "you", TAG_YOU, "Save data is invalid.");
 
     const int minorVersion = crawl_state.minorVersion;
@@ -1979,6 +1845,7 @@ void restore_game(const std::string& name)
     }
 
     SavefileCallback::post_restore();
+    return true;
 }
 
 static void _load_level(const level_id &level)
@@ -2061,12 +1928,53 @@ bool get_save_version(reader &file, int &major, int &minor)
     return (true);
 }
 
+static bool _read_char_chunk(package *save)
+{
+    reader inf(save, "chr");
+
+    try
+    {
+        uint8_t format, major, minor;
+        inf.read(&major, 1);
+        inf.read(&minor, 1);
+
+        unsigned int len = unmarshallInt(inf);
+        if (len > 1024) // something is fishy
+            fail("Save file corrupted (info > 1KB)");
+        std::vector<unsigned char> buf;
+        buf.resize(len);
+        inf.read(&buf[0], len);
+        inf.fail_if_not_eof("chr");
+        reader th(buf);
+
+        // 0.8 trunks (30.0 .. 32.12) were format 0 but without the marker.
+        if (major > 32 || major == 32 && minor >= 13)
+            th.read(&format, 1);
+        else
+            format = 0;
+
+        if (format > TAG_CHR_FORMAT)
+            fail("Incompatible character data");
+
+        tag_read_char(th, format, major, minor);
+
+        // Check if we read everything only on the exact same version,
+        // but that's the common case.
+        if (major == TAG_MAJOR_VERSION && minor == TAG_MINOR_VERSION)
+            inf.fail_if_not_eof("chr");
+
+        return (major == TAG_MAJOR_VERSION && minor <= TAG_MINOR_VERSION);
+    }
+    catch (short_read_exception &E)
+    {
+        fail("Save file corrupted");
+    };
+}
+
 static bool _tagged_chunk_version_compatible(reader &inf, std::string* reason)
 {
     int major = 0, minor = TAG_MINOR_INVALID;
-    std::string dummy;
-    if (reason == 0)
-        reason = &dummy;
+    ASSERT(reason);
 
     if (!get_save_version(inf, major, minor))
     {
@@ -2076,7 +1984,7 @@ static bool _tagged_chunk_version_compatible(reader &inf, std::string* reason)
 
     if (major != TAG_MAJOR_VERSION)
     {
-        if (Version::ReleaseType() == Version::FINAL)
+        if (Version::ReleaseType())
         {
             *reason = (CRAWL " " + Version::Short() + " is not compatible with "
                        "save files from older versions. You can continue your "
@@ -2199,7 +2107,7 @@ void save_ghost(bool force)
     }
 
     const std::string cha_fil = _make_ghost_filename();
-    FILE *gfile = fopen(cha_fil.c_str(), "rb");
+    FILE *gfile = fopen_u(cha_fil.c_str(), "rb");
 
     // Don't overwrite existing bones!
     if (gfile != NULL)
@@ -2238,10 +2146,7 @@ void save_ghost(bool force)
 }
 
 ////////////////////////////////////////////////////////////////////////////
-// Locking for multiuser systems
-
-// first, some file locking stuff for multiuser crawl
-#ifdef USE_FILE_LOCKING
+// Locking
 
 bool lock_file_handle(FILE *handle, bool write)
 {
@@ -2253,15 +2158,12 @@ bool unlock_file_handle(FILE *handle)
     return unlock_file(fileno(handle));
 }
 
-#endif
-
 FILE *lk_open(const char *mode, const std::string &file)
 {
-    FILE *handle = fopen(file.c_str(), mode);
+    FILE *handle = fopen_u(file.c_str(), mode);
     if (!handle)
         return NULL;
 
-#ifdef USE_FILE_LOCKING
     bool locktype = false;
     if (mode && mode[0] != 'r')
         locktype = true;
@@ -2272,7 +2174,7 @@ FILE *lk_open(const char *mode, const std::string &file)
         fclose(handle);
         handle = NULL;
     }
-#endif
+
     return handle;
 }
 
@@ -2283,9 +2185,7 @@ void lk_close(FILE *handle, const char *mode, const std::string &file)
     if (handle == NULL || handle == stdin)
         return;
 
-#ifdef USE_FILE_LOCKING
     unlock_file_handle(handle);
-#endif
 
     // actually close
     fclose(handle);
@@ -2299,18 +2199,14 @@ void lk_close(FILE *handle, const char *mode, const std::string &file)
 file_lock::file_lock(const std::string &s, const char *_mode, bool die_on_fail)
     : handle(NULL), mode(_mode), filename(s)
 {
-#ifdef USE_FILE_LOCKING
     if (!(handle = lk_open(mode, filename)) && die_on_fail)
         end(1, true, "Unable to open lock file \"%s\"", filename.c_str());
-#endif
 }
 
 file_lock::~file_lock()
 {
-#ifdef USE_FILE_LOCKING
     if (handle)
         lk_close(handle, mode, filename);
-#endif
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2374,11 +2270,19 @@ FILE *fopen_replace(const char *name)
     int fd;
 
     // Stave off symlink attacks.  Races will be handled with O_EXCL.
-    unlink(name);
-    fd = open(name, O_CREAT|O_EXCL|O_WRONLY, 0666);
+    unlink_u(name);
+    fd = open_u(name, O_CREAT|O_EXCL|O_WRONLY, 0666);
     if (fd == -1)
         return 0;
     return fdopen(fd, "w");
+}
+
+// Returns the size of the opened file with the give FILE* handle.
+unsigned long file_size(FILE *handle)
+{
+    struct stat fs;
+    const int err = fstat(fileno(handle), &fs);
+    return err? 0 : fs.st_size;
 }
 
 std::vector<std::string> get_title_files()
@@ -2393,4 +2297,39 @@ std::vector<std::string> get_title_files()
                 titles.push_back(files[j]);
     }
     return (titles);
+}
+
+void sighup_save_and_exit()
+{
+    if (crawl_state.seen_hups == 0)
+    {
+        mpr("sighup_save_and_exit() called without a HUP signal; please"
+            "file a bug report", MSGCH_ERROR);
+        return;
+    }
+
+    if (crawl_state.saving_game || crawl_state.updating_scores)
+        return;
+
+#ifdef UNIX
+    // Set up an alarm to force-kill Crawl if it rudely ignores the
+    // hangup signal.
+    alarm(10);
+#else
+    #warning FIXME -- hanging process if anything bad happens during shutdown
+#endif
+
+    interrupt_activity(AI_FORCE_INTERRUPT);
+
+    crawl_state.saving_game = true;
+    if (crawl_state.need_save)
+    {
+        mpr("Received HUP signal, saved and exited game.", MSGCH_ERROR);
+
+        // save_game(true) exits from the game. The "true" is also required
+        // to save changes to the current level.
+        save_game(true, "Received HUP signal, saved game.");
+    }
+    else
+        end(0, false, "Received HUP signal, game already saved.");
 }

@@ -1,8 +1,7 @@
-/*
- *  File:       tags.cc
- *  Summary:    Auxilary functions to make savefile versioning simpler.
- *  Written by: Gordon Lipford
- */
+/**
+ * @file
+ * @brief Auxilary functions to make savefile versioning simpler.
+**/
 
 /*
    The marshalling and unmarshalling of data is done in big endian and
@@ -52,6 +51,7 @@
 #include "state.h"
 #include "stuff.h"
 #include "env.h"
+#include "syscalls.h"
 #include "tags.h"
 #include "tutorial.h"
 #ifdef USE_TILE
@@ -84,7 +84,7 @@ reader::reader(const std::string &_read_filename, int minorVersion)
     : _filename(_read_filename), _chunk(0), _pbuf(NULL), _read_offset(0),
       _minorVersion(minorVersion), seen_enums()
 {
-    _file       = fopen(_filename.c_str(), "rb");
+    _file       = fopen_u(_filename.c_str(), "rb");
     opened_file = !!_file;
 }
 
@@ -261,14 +261,11 @@ static void tag_construct_you_items(writer &th);
 static void tag_construct_you_dungeon(writer &th);
 static void tag_construct_lost_monsters(writer &th);
 static void tag_construct_lost_items(writer &th);
-static void tag_construct_game_state(writer &th);
-static void tag_read_char(reader &th);
 static void tag_read_you(reader &th);
 static void tag_read_you_items(reader &th);
 static void tag_read_you_dungeon(reader &th);
 static void tag_read_lost_monsters(reader &th);
 static void tag_read_lost_items(reader &th);
-static void tag_read_game_state(reader &th);
 
 static void tag_construct_level(writer &th);
 static void tag_construct_level_items(writer &th);
@@ -863,7 +860,6 @@ void tag_write(tag_type tagID, writer &outf)
     {
     case TAG_CHR:
         tag_construct_char(th);
-        tag_construct_game_state(th);
         break;
     case TAG_YOU:
         tag_construct_you(th);
@@ -913,10 +909,6 @@ void tag_read(reader &inf, tag_type tag_id)
     reader th(buf, inf.getMinorVersion());
     switch (tag_id)
     {
-    case TAG_CHR:
-        tag_read_char(th);
-        tag_read_game_state(th);
-        break;
     case TAG_YOU:
         tag_read_you(th);
         tag_read_you_items(th);
@@ -941,6 +933,13 @@ void tag_read(reader &inf, tag_type tag_id)
 
 static void tag_construct_char(writer &th)
 {
+    marshallByte(th, TAG_CHR_FORMAT);
+    // Important: you may never remove or alter a field without bumping
+    // CHR_FORMAT.  Bumping it makes all saves invisible when browsed in an
+    // older version.
+
+    // Appending fields is fine.
+
     marshallString(th, you.your_name);
     marshallString(th, Version::Long());
 
@@ -952,6 +951,10 @@ static void tag_construct_char(writer &th)
     marshallString(th, you.jiyva_second_name);
 
     marshallByte(th, you.wizard);
+
+    marshallByte(th, crawl_state.type);
+    if (crawl_state.game_is_tutorial())
+        marshallString(th, get_tutorial_map());
 }
 
 static void tag_construct_you(writer &th)
@@ -1114,6 +1117,9 @@ static void tag_construct_you(writer &th)
     marshallByte(th, you.gift_timeout);
     marshallByte(th, you.hell_exit);
     marshallByte(th, you.hell_branch);
+
+    marshallInt(th, you.exp_docked);
+    marshallInt(th, you.exp_docked_total);
 
     // elapsed time
     marshallInt(th, you.elapsed_time);
@@ -1505,18 +1511,11 @@ static void tag_construct_lost_items(writer &th)
                  marshall_item_list);
 }
 
-static void tag_construct_game_state(writer &th)
-{
-    marshallByte(th, crawl_state.type);
-    if (crawl_state.game_is_tutorial())
-        marshallString(th, get_tutorial_map());
-}
-
-static void tag_read_char(reader &th)
+void tag_read_char(reader &th, uint8_t format, uint8_t major, uint8_t minor)
 {
     you.your_name         = unmarshallString(th);
-    const std::string old_version = unmarshallString(th);
-    dprf("Last save Crawl version: %s", old_version.c_str());
+    you.prev_save_version = unmarshallString(th);
+    dprf("Last save Crawl version: %s", you.prev_save_version.c_str());
 
     you.species           = static_cast<species_type>(unmarshallByte(th));
     you.char_class        = static_cast<job_type>(unmarshallByte(th));
@@ -1526,6 +1525,10 @@ static void tag_read_char(reader &th)
     you.jiyva_second_name = unmarshallString(th);
 
     you.wizard            = unmarshallBoolean(th);
+
+    crawl_state.type = (game_type) unmarshallByte(th);
+    if (crawl_state.game_is_tutorial())
+        set_tutorial_map(unmarshallString(th));
 }
 
 static void tag_read_you(reader &th)
@@ -1724,8 +1727,19 @@ static void tag_read_you(reader &th)
     you.hell_exit      = unmarshallByte(th);
     you.hell_branch = static_cast<branch_type>(unmarshallByte(th));
 
+#if TAG_MAJOR_VERSION == 32
+    if (th.getMinorVersion() >= TAG_MINOR_ASH_PENANCE)
+    {
+#endif
+    you.exp_docked       = unmarshallInt(th);
+    you.exp_docked_total = unmarshallInt(th);
+#if TAG_MAJOR_VERSION == 32
+    }
+#endif
+
     // elapsed time
     you.elapsed_time   = unmarshallInt(th);
+    you.elapsed_time_at_last_input = you.elapsed_time;
 
     // time of character creation
     you.birth_time = unmarshallInt(th);
@@ -2014,13 +2028,6 @@ static void tag_read_lost_items(reader &th)
                   unmarshall_level_id, unmarshall_item_list);
 }
 
-static void tag_read_game_state(reader &th)
-{
-    crawl_state.type = (game_type) unmarshallByte(th);
-    if (crawl_state.game_is_tutorial())
-        set_tutorial_map(unmarshallString(th));
-}
-
 template <typename Z>
 static int _last_used_index(const Z &thinglist, int max_things)
 {
@@ -2164,6 +2171,13 @@ void unmarshallItem(reader &th, item_def &item)
     if (item.base_type == OBJ_UNASSIGNED)
         return;
     item.sub_type    = unmarshallUByte(th);
+#if TAG_MAJOR_VERSION == 32
+    if (th.getMinorVersion() < TAG_MINOR_BOOK_ZOOLOGY
+        && item.base_type == OBJ_BOOKS && item.sub_type >= BOOK_ZOOLOGY)
+    {
+        ++item.sub_type;
+    }
+#endif
     item.plus        = unmarshallShort(th);
     item.plus2       = unmarshallShort(th);
     item.special     = unmarshallInt(th);
@@ -2357,6 +2371,7 @@ static void marshall_mon_enchant(writer &th, const mon_enchant &me)
     marshallShort(th, me.ench);
     marshallShort(th, me.degree);
     marshallShort(th, me.who);
+    marshallInt(th, me.source);
     marshallShort(th, me.duration);
     marshallShort(th, me.maxduration);
 }
@@ -2367,6 +2382,10 @@ static mon_enchant unmarshall_mon_enchant(reader &th)
     me.ench        = static_cast<enchant_type>(unmarshallShort(th));
     me.degree      = unmarshallShort(th);
     me.who         = static_cast<kill_category>(unmarshallShort(th));
+#if TAG_MAJOR_VERSION == 32
+    if (th.getMinorVersion() >= TAG_MINOR_ENCH_MID)
+#endif
+    me.source      = unmarshallInt(th);
     me.duration    = unmarshallShort(th);
     me.maxduration = unmarshallShort(th);
     return (me);
@@ -2414,8 +2433,8 @@ void marshallMonster(writer &th, const monster& m)
     }
     marshallByte(th, m.ench_countdown);
 
-    marshallShort(th, m.hit_points);
-    marshallShort(th, m.max_hit_points);
+    marshallShort(th, std::min(m.hit_points, MAX_MONSTER_HP));
+    marshallShort(th, std::min(m.max_hit_points, MAX_MONSTER_HP));
     marshallInt(th, m.number);
     marshallShort(th, m.base_monster);
     marshallShort(th, m.colour);
@@ -2457,6 +2476,8 @@ void marshallMonsterInfo(writer &th, const monster_info& mi)
     marshallString(th, mi.quote);
     marshallUnsigned(th, mi.fly);
     marshallUnsigned(th, mi.mimic_feature);
+
+    mi.props.write(th);
 }
 
 void unmarshallMonsterInfo(reader &th, monster_info& mi)
@@ -2475,6 +2496,14 @@ void unmarshallMonsterInfo(reader &th, monster_info& mi)
     mi.quote = unmarshallString(th);
     unmarshallUnsigned(th, mi.fly);
     unmarshallUnsigned(th, mi.mimic_feature);
+
+    mi.props.clear();
+#if TAG_MAJOR_VERSION == 32
+    if (th.getMinorVersion() >= TAG_MINOR_MINFO_PROP)
+#endif
+        mi.props.read(th);
+#if TAG_MAJOR_VERSION == 32
+#endif
 }
 
 static void tag_construct_level_monsters(writer &th)
@@ -2718,6 +2747,16 @@ static void tag_read_level(reader &th)
         env.cloud[i].name   = unmarshallString(th);
         env.cloud[i].tile   = unmarshallString(th);
         env.cloud[i].swarm  = unmarshallInt(th);
+
+#if TAG_MAJOR_VERSION == 32
+        if (th.getMinorVersion() < TAG_MINOR_CLOUD_BUG
+            && !in_bounds(env.cloud[i].pos))
+        {
+            env.cloud[i].type = CLOUD_NONE;
+            continue;
+        }
+#endif
+
         ASSERT(in_bounds(env.cloud[i].pos));
         env.cgrid(env.cloud[i].pos) = i;
         env.cloud_no++;
@@ -2878,6 +2917,7 @@ void unmarshallMonster(reader &th, monster& m)
     {
         mon_enchant me = unmarshall_mon_enchant(th);
         m.enchantments[me.ench] = me;
+        m.ench_cache.set(me.ench, true);
     }
     m.ench_countdown = unmarshallByte(th);
 
@@ -2888,6 +2928,18 @@ void unmarshallMonster(reader &th, monster& m)
     m.colour         = unmarshallShort(th);
 
     for (int j = 0; j < NUM_MONSTER_SLOTS; j++)
+#if TAG_MAJOR_VERSION == 32
+        if (th.getMinorVersion() < TAG_MINOR_MON_INV_ORDER)
+        {
+            if (j == MSLOT_WAND || j == MSLOT_MISCELLANY)
+                m.inv[j + 1] = unmarshallShort(th);
+            else if (j == MSLOT_POTION)
+                m.inv[MSLOT_WAND] = unmarshallShort(th);
+            else
+                m.inv[j] = unmarshallShort(th);
+        }
+        else
+#endif
         m.inv[j] = unmarshallShort(th);
 
     unmarshallSpells(th, m.spells);

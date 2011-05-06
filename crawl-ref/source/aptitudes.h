@@ -363,11 +363,11 @@ static const species_skill_aptitude species_skill_aptitudes[] =
     APT(SP_NAGA,            SK_EVOCATIONS,      0),
 
     // SP_OGRE
-    APT(SP_OGRE,            SK_FIGHTING,        2),
+    APT(SP_OGRE,            SK_FIGHTING,        3),
     APT(SP_OGRE,            SK_SHORT_BLADES,   -4),
     APT(SP_OGRE,            SK_LONG_BLADES,    -3),
     APT(SP_OGRE,            SK_AXES,           -3),
-    APT(SP_OGRE,            SK_MACES_FLAILS,    1),
+    APT(SP_OGRE,            SK_MACES_FLAILS,    3),
     APT(SP_OGRE,            SK_POLEARMS,        0),
     APT(SP_OGRE,            SK_STAVES,         -1),
     APT(SP_OGRE,            SK_SLINGS,         -3),
@@ -1133,7 +1133,7 @@ static const species_skill_aptitude species_skill_aptitudes[] =
     APT(SP_DEEP_DWARF,      SK_EVOCATIONS,      3),
 
     // SP_CAT
-    APT(SP_CAT,             SK_FIGHTING,        0),
+    APT(SP_CAT,             SK_FIGHTING,       -2),
     APT(SP_CAT,             SK_SHORT_BLADES,    0),
     APT(SP_CAT,             SK_LONG_BLADES,     0),
     APT(SP_CAT,             SK_AXES,            0),
@@ -1150,7 +1150,7 @@ static const species_skill_aptitude species_skill_aptitudes[] =
     APT(SP_CAT,             SK_STABBING,        3),
     APT(SP_CAT,             SK_SHIELDS,         0),
     APT(SP_CAT,             SK_TRAPS_DOORS,     2),
-    APT(SP_CAT,             SK_UNARMED_COMBAT,  0),
+    APT(SP_CAT,             SK_UNARMED_COMBAT, -2),
     APT(SP_CAT,             SK_SPELLCASTING,    0),
     APT(SP_CAT,             SK_CONJURATIONS,   -1),
     APT(SP_CAT,             SK_HEXES,           3),
@@ -1160,9 +1160,9 @@ static const species_skill_aptitude species_skill_aptitudes[] =
     APT(SP_CAT,             SK_TRANSLOCATIONS,  2),
     APT(SP_CAT,             SK_TRANSMUTATIONS,  1),
     APT(SP_CAT,             SK_FIRE_MAGIC,     -1),
-    APT(SP_CAT,             SK_ICE_MAGIC,      -1),
+    APT(SP_CAT,             SK_ICE_MAGIC,      -2),
     APT(SP_CAT,             SK_AIR_MAGIC,      -1),
-    APT(SP_CAT,             SK_EARTH_MAGIC,    -1),
+    APT(SP_CAT,             SK_EARTH_MAGIC,    -2),
     APT(SP_CAT,             SK_POISON_MAGIC,   -1),
     APT(SP_CAT,             SK_INVOCATIONS,    -1),
     APT(SP_CAT,             SK_EVOCATIONS,     -2),

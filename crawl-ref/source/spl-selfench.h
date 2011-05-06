@@ -3,7 +3,6 @@
 
 int allowed_deaths_door_hp(void);
 bool cast_deaths_door(int pow);
-void extension(int pow);
 void remove_ice_armour();
 void ice_armour(int pow, bool extending);
 void missile_prot(int pow);
@@ -17,7 +16,6 @@ void cast_swiftness(int power);
 void cast_fly(int power);
 void cast_insulation(int power);
 
-void cast_resist_poison(int power);
 void cast_teleport_control(int power);
 int cast_selective_amnesia(std::string *pre_msg = NULL);
 void cast_see_invisible(int pow);

@@ -7,12 +7,29 @@
 #               Pits of Slime - slime.des
 ################################################################################
 
+{{
+function lair_small_ending(e)
+    e.tags('lair_end_small')
+    e.weight(5)
+
+    if e.is_validating() then return end
+
+    e.hook("post_place", function ()
+        if not dgn.persist.lair_second_ending_built then
+            dgn.persist.lair_second_ending_built = true
+            dgn.place_maps { tag = "lair_end_small" }
+            dgn.persist.lair_second_ending_built = nil
+        end
+    end)
+end
+}}
+
 ################################################################################
 # Lair entries
 ################################################################################
 # Dummy Lair entry
 NAME:   lair_0_dummy
-TAGS:   lair_entry dummy
+TAGS:   lair_entry
 WEIGHT: 30
 ORIENT: float
 KFEAT:  O = enter_lair
@@ -1198,7 +1215,7 @@ ENDMAP
 NAME:   minmay_lair_goldilocks
 WEIGHT: 5
 DEPTH:  Lair
-MONS:   black bear, bear, grizzly bear
+MONS:   black bear, grizzly bear, polar bear
 ITEM:   potion of porridge / honeycomb
 MAP
 .......
@@ -1229,9 +1246,9 @@ SUBST:  T = tttxxc
 KFEAT:  S = deep_water
 KMONS:  S = anaconda
 # The anaconda's name is Kaa.
-MARKER: S = lua:MonPropsMarker:new { anaconda_guard="anaconda_guard" }
 KITEM:  U = superb_item
 KITEM:  Q = acquire any
+MARKER: S = lua:MonPropsMarker:new { anaconda_guard="anaconda_guard" }
 KFEAT:  o = granite_statue
 {{
 function elephant_statue()
@@ -1263,10 +1280,10 @@ xxxxXt....PPXxx
 xxttttt......Xxx                           xxxx
 xttttxx.X..X..Xxx                         xxT.xxx...@
 xtUttxccc+cc++ccccccccccccccccccccccccccccTT.TT.xxx..
-xtttxccco.Gc.....ccPWWcco.%|cccP..ccP....P.G.o.TTxxx.
-xttxcccc...c.P...=P.WwW+..%*Qc.....+.....c.c...TTTx..
-xxccccccPc.ccccP.c.WwwS+..%*|c.22..c.Pcccc.P.cTTccc..
-xccccccc+c.P.PccccPwwwwco.%|cc.22..cccc.P..c+ccccccc.
+xtttxccco.Gc.....ccPWWcco..%cccP..ccP....P.G.o.TTxxx.
+xttxcccc...c.P...=P.WwW+...%Qc.....+.....c.c...TTTx..
+xxccccccPc.ccccP.c.WwwS+...%|c.22..c.Pcccc.P.cTTccc..
+xccccccc+c.P.PccccPwwwwco..%cc.22..cccc.P..c+ccccccc.
 xcc1...PPccccP.P.cWwWWPccccccc%...PcP.PPccccPP1..%cc.
 xcc......cccccccPcccW.ccco.occcP.ccc.ccccccc......cc.
 xccP.1..%ccttTccP.PcccccG.V.GcccccP.PccTttcc1....Pcc.
@@ -1289,13 +1306,14 @@ KFEAT:  : = floor
 KFEAT:  Q = granite_statue
 KFEAT:  _ = altar_makhleb
 KPROP:  Q = bloody
+KFEAT:  L = endless_lava
 MONS:   smoke demon
 MONS:   red devil / rotting devil / hairy devil / hellwing w:50
 MONS:   orange demon
 MONS:   sun demon
 MONS:   hydra / fire drake / dire elephant
 MONS:   wizard col:red hd:13 name:crazed n_adj
-KITEM:  / = acquire any / star_item
+KITEM:  / = acquire any
 MARKER: = = lua:restrict_door {}
 MAP
    ...TTTT....  .............................
@@ -1311,17 +1329,17 @@ MAP
  .Tttttttttttttt..ttt...ttt....ttttttttttT.5Tttttttx
  ...Ttttttttttt..ttttt.......tttttttttttT....Ttttttx
  ...tttttttttt..ttttttt0tt.tttttttttcccccc++cccccccx
- ..Tttttttttt..tttttttttttt=ccccccccc:::::::::::::cl
- ..Ttttttttt.0t..ttttttttttc::::::::c:::Q;;;;Q::::cl
- .Tttttttttt..tt..tttttttttc::G:G:::c:::::::::::::cl
- ..Tttttttt..tttt.tttttttttc:::G:G::cccccccccccccccl
- .Tttttttt..ttttt..ttttttttc::G:G:::c;;;;;;;2lllllll
- ..Ttttt.0ttttttt...tttttttc:::G:G::c;;;;;;;222lllll
- ....T..tttttttt....tttttttc::G:G:::=;;;;_;3142/llll
- ...T0tttttttttt.Q5ttttttttc:::G:G::c;;;;;2222llllll
- ..Ttttttttttttttttttttttttc:::::::6c;;;;2llllllllll
- ttttttttttttttttttttttttttcccccccccccccllllllllllll
- xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxllllllllllllllllll
+ ..Tttttttttt..tttttttttttt=ccccccccc:::::::::::::cL
+ ..Ttttttttt.0t..ttttttttttc::::::::c:::Q;;;;Q::::cL
+ .Tttttttttt..tt..tttttttttc::G:G:::c:::::::::::::cL
+ ..Tttttttt..tttt.tttttttttc:::G:G::cccccccccccccccL
+ .Tttttttt..ttttt..ttttttttc::G:G:::c;;;;;;;2llllllL
+ ..Ttttt.0ttttttt...tttttttc:::G:G::c;;;;;;;222llllL
+ ....T..tttttttt....tttttttc::G:G:::=;;;;_;3142/lllL
+ ...T0tttttttttt.Q5ttttttttc:::G:G::c;;;;;2222lllllL
+ ..Ttttttttttttttttttttttttc:::::::6c;;;;2lllllllllL
+ ttttttttttttttttttttttttttccccccccccccclllllllllllL
+ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxLLLLLLLLLLLLLLLLLL
 ENDMAP
 
 #######################################################################
@@ -1331,7 +1349,8 @@ PLACE:  Lair:$
 TAGS:   no_pool_fixup no_wall_fixup no_monster_gen no_rotate no_item_gen
 ORIENT: southeast
 MONS:   plant
-MONS:   spiny worm, brain worm, worm, giant leech, lindwurm, dragon
+MONS:   spiny worm, brain worm, worm, giant leech, lindwurm
+KMONS:  7 = dragon
 KMONS:  8 = giant firefly
 KMONS:  9 = rock worm
 KFEAT:  9 = rock_wall
@@ -1349,6 +1368,7 @@ KPROP:  = = bloody
 : end
 SUBST:  C = x
 SUBST:  _ = .
+: lair_small_ending(_G)
 MAP
             XXXXXxxXXxxXXxxxxXXxxxXXXxxx
  @........@xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -1380,10 +1400,11 @@ PLACE:  Lair:$
 TAGS:   no_pool_fixup no_wall_fixup no_monster_gen no_rotate no_item_gen
 ORIENT: southeast
 MONS:   plant
-MONS:   bear, grizzly bear, polar bear, black bear
+MONS:   grizzly bear, polar bear, black bear
 SUBST:  X = xx.
 SUBST:  P = 1111.
-KITEM:  % = honeycomb, honeycomb, honeycomb
+KITEM:  % = honeycomb q:3
+: lair_small_ending(_G)
 MAP
             xXXxxxXXXxxx
        @...xxxxxxxxxxxxx
@@ -1416,7 +1437,8 @@ MONS:   plant
 MONS:   jackal, hound, warg, wolf, war dog, hell hound
 SUBST:  X = xx.
 SUBST:  P = 1111.
-KITEM:  $ = gold, acquire any, superb_item
+KITEM:  $ = gold, acquire any
+: lair_small_ending(_G)
 MAP
 @   @  @  XXXXXxxxxXXxxxxxxxxxxxxxxx
  ...P..Pxxxxxxxx.3xxxxxxxxxxxxxxxxxx
@@ -1438,7 +1460,7 @@ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 #######################################################################
-# Frog pound
+# Frog pond
 #
 NAME:   minmay_lair_end_frog_pond
 PLACE:  Lair:$
@@ -1450,9 +1472,10 @@ MONS:   plant
 SUBST:  p = 44W2
 SUBST:  w = W:40 w:10 1:2 3:1 4:5
 SUBST:  . = .:40 W:10 1:2 3:1 4:5
-SUBST:  % = %*|
 KFEAT:  W = W
 KMONS:  W = giant leech / nothing w:1000
+SUBST:  % = %%*|
+: lair_small_ending(_G)
 MAP
           ..............
        ....................
@@ -1488,16 +1511,17 @@ ENDMAP
 NAME:   minmay_lair_end_enchanted_forest
 PLACE:  Lair:$
 ORIENT: northwest
-MONS:   black bear / bear / grizzly bear, wolf, spriggan
+MONS:   black bear / grizzly bear, wolf, spriggan
 MONS:   spriggan rider / spriggan druid
 SUBST:  T : T:20 .:1 t:1
 SUBST:  T = t.
 SUBST:  2 = 2., 3 = 3., 4 = 4., . = .:190 1
+KITEM:  $ = gold, star_item
 MAP
 ttttttttttttttttttttttttttttttttttttttttttttttttttt
 tttttttttttttttttttttttttttttttttttttttttttttttttt
-tttttttttT.I.Ttttttt....ttttttttt.....ttTTtttttTT
-ttttttttt3....TTT....ttT...TTT....ttT.2222TTtt..@
+tttttttttT$G$Ttttttt....ttttttttt.....ttTTtttttTT
+ttttttttt3.$..TTT....ttT...TTT....ttT.2222TTtt..@
 tttttttTT.3.3....TTttttttT..3...TttttttTT222..ttT
 tttttT.....4..3TtttttttttT3...3ttttttttt22ttttttt
 ttttt..ttT3.3.TtttttttttT....3.tttttttt..tttttttT

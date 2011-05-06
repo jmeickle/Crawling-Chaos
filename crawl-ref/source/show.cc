@@ -1,14 +1,9 @@
 /**
  * @file
- * @section DESCRIPTION
- *
- * Filename: show.cc
- * Summary: updates the screen via map_knowledge.
+ * @brief Updates the screen via map_knowledge.
 **/
 
 #include "AppHdr.h"
-
-#include <stdint.h>
 
 #include "show.h"
 
@@ -119,6 +114,9 @@ bool show_type::is_cleanable_monster() const
 
 static void _update_feat_at(const coord_def &gp)
 {
+    if (!you.see_cell(gp))
+        return;
+
     dungeon_feature_type feat = grid_appearance(gp);
     unsigned colour = env.grid_colours(gp);
 
@@ -159,9 +157,11 @@ static void _update_feat_at(const coord_def &gp)
         env.map_knowledge(gp).flags |= MAP_WITHHELD;
 
     if (feat >= DNGN_STONE_STAIRS_DOWN_I
-                            && feat <= DNGN_ESCAPE_HATCH_UP
-                            && is_exclude_root(gp))
+        && feat <= DNGN_ESCAPE_HATCH_UP
+        && is_exclude_root(gp))
+    {
         env.map_knowledge(gp).flags |= MAP_EXCLUDED_STAIRS;
+    }
 
     if (is_bloodcovered(gp))
         env.map_knowledge(gp).flags |= MAP_BLOODY;
@@ -214,30 +214,46 @@ static show_item_type _item_to_show_code(const item_def &item)
 
 static void _update_item_at(const coord_def &gp)
 {
-    const item_def *eitem;
-    bool more_items = false;
-    // Check for mimics.
-    const monster* m = monster_at(gp);
-    if (m && mons_is_unknown_mimic(m) && mons_is_item_mimic(m->type))
-        eitem = &get_mimic_item(m);
-    else if (you.visible_igrd(gp) != NON_ITEM)
-        eitem = &mitm[you.visible_igrd(gp)];
-    else
+    if (!in_bounds(gp))
         return;
 
-    // monster(mimic)-owned items have link = NON_ITEM+1+midx
-    if (eitem->link > NON_ITEM && you.visible_igrd(gp) != NON_ITEM)
-        more_items = true;
-    else if (eitem->link < NON_ITEM && !crawl_state.game_is_arena())
-        more_items = true;
+    item_def eitem;
+    bool more_items = false;
 
-    env.map_knowledge(gp).set_item(get_item_info(*eitem), more_items);
+    if (you.see_cell(gp))
+    {
+        // Check for mimics.
+        const monster* m = monster_at(gp);
+        if (m && mons_is_unknown_mimic(m) && mons_is_item_mimic(m->type))
+            eitem = get_mimic_item(m);
+        else if (you.visible_igrd(gp) != NON_ITEM)
+            eitem = mitm[you.visible_igrd(gp)];
+        else
+            return;
+
+        // monster(mimic)-owned items have link = NON_ITEM+1+midx
+        if (eitem.link > NON_ITEM && you.visible_igrd(gp) != NON_ITEM)
+            more_items = true;
+        else if (eitem.link < NON_ITEM && !crawl_state.game_is_arena())
+            more_items = true;
+    }
+    else
+    {
+        const std::vector<item_def> stash = item_list_in_stash(gp);
+        if (stash.empty())
+            return;
+
+        eitem = stash[0];
+        if (stash.size() > 1)
+            more_items = true;
+    }
+    env.map_knowledge(gp).set_item(get_item_info(eitem), more_items);
 
 #ifdef USE_TILE
     if (feat_is_stair(env.grid(gp)))
-        tile_place_item_marker(grid2show(gp), *eitem);
+        tile_place_item_marker(gp, eitem);
     else
-        tile_place_item(grid2show(gp), *eitem);
+        tile_place_item(gp, eitem);
 #endif
 }
 
@@ -404,7 +420,13 @@ static void _update_monster(const monster* mons)
 
 void show_update_at(const coord_def &gp, bool terrain_only)
 {
-    env.map_knowledge(gp).clear_data();
+
+    if (you.see_cell(gp))
+        env.map_knowledge(gp).clear_data();
+    else if (!env.map_knowledge(gp).known())
+        return;
+    else
+        env.map_knowledge(gp).clear_monster();
 
     // The sequence is grid, items, clouds, monsters.
     _update_feat_at(gp);

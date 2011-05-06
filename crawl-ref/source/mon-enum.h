@@ -1,15 +1,15 @@
-/*
- * Summary:   Monster-related enums.
+/**
+ * @file
+ * @brief Monster-related enums.
  *
  * Extracted from mon-util.h to cut down on mon-util.h
  * dependencies.
- */
+**/
 
 #ifndef MON_ENUM_H
 #define MON_ENUM_H
 
 #include "tag-version.h"
-#include <stdint.h>
 
 #define HERD_COMFORT_RANGE 6
 
@@ -101,7 +101,9 @@ enum mon_attack_flavour
     AF_STEAL_FOOD,
     AF_CRUSH,
     AF_REACH,
-    AF_HOLY
+    AF_HOLY,
+    AF_ANTIMAGIC,
+    AF_PAIN
 };
 
 // Non-spell "summoning" types to give to monster::mark_summoned(), or

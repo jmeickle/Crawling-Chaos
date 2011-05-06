@@ -1,8 +1,8 @@
-/*
- * File:      areas.cc
- * Summary:   Tracking effects that affect areas for durations.
- *            Silence, sanctuary, halos, ...
- */
+/**
+ * @file
+ * @brief Tracking effects that affect areas for durations.
+ *           Silence, sanctuary, halos, ...
+**/
 
 #include "AppHdr.h"
 
@@ -136,7 +136,7 @@ static void _update_agrid()
 
                 _set_agrid_flag(*ri, APROP_LIQUID);
 
-                if (feat_has_solid_floor(f))
+                if (feat_has_solid_floor(f) && !feat_is_water(f))
                     _set_agrid_flag(*ri, APROP_ACTUAL_LIQUID);
             }
             no_areas = false;
@@ -552,6 +552,8 @@ int monster::halo_radius2() const
         return (17);
     case MONS_SILVER_STAR:
         return (40); // dumb but with an immense power
+    case MONS_HOLY_SWINE:
+        return (1);  // only notionally holy
     default:
         return (4);
     }
@@ -584,6 +586,9 @@ bool liquefied(const coord_def& p, bool check_actual)
 
     if (!_agrid_valid)
         _update_agrid();
+
+    if (feat_is_water(grd(p)))
+        return false;
 
     // "actually" liquified (ie, check for movement)
     if (check_actual)

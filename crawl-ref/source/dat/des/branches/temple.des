@@ -566,11 +566,10 @@ c...c...c...c
 ccBcccBcccBcc
 ENDMAP
 
-NAME:   minmay_temple_entry_steam
+NAME:   minmay_temple_entry_mist
 TAGS:   temple_entry
 ORIENT: float
-# This steam is essentially harmless; hopefully players will figure that out.
-MARKER: l = lua:fog_machine { cloud_type = "steam", pow_min = 1, \
+MARKER: l = lua:fog_machine { cloud_type = "thin mist", pow_min = 1, \
         pow_max = 3, delay = 10, start_clouds = 1, size_min = 1, \
         size_max = 3, spread_rate = -1 }
 KMASK:  W = no_monster_gen
@@ -578,11 +577,11 @@ KMASK:  l = no_monster_gen
 KFEAT:  O = enter_temple
 MAP
 ..WWW..
-.WWlWW.
+.WWWWW.
 WWWWWWW
-WlWOWlW
+WWWOWWW
 WWWWWWW
-.WWlWW.
+.WWWWW.
 ..WWW..
 ENDMAP
 
@@ -713,7 +712,6 @@ ENDMAP
 
 NAME:   minmay_temple_entry_levitate
 TAGS:   temple_entry
-DEPTH:  D:6-7
 WEIGHT: 1
 ORIENT: float
 SUBST:  < : <>
@@ -735,10 +733,9 @@ ENDMAP
 
 NAME:   minmay_temple_entry_oklob
 TAGS:   temple_entry
-DEPTH:  D:7
 WEIGHT: 1
 ORIENT: float
-MONS:   plant, oklob plant
+MONS:   plant, oklob sapling
 KFEAT:  O = enter_temple
 MAP
 ....1..
@@ -1224,7 +1221,7 @@ tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
 ENDMAP
 
 # 8 gods
-NAME:    minmay_temple_alley_garden
+NAME:    jpeg_temple_alley_garden
 PLACE:   Temple
 TAGS:    no_rotate
 WEIGHT:  5
@@ -1266,7 +1263,7 @@ tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
 ENDMAP
 
 # 12 gods
-NAME:    minmay_temple_clearing_a
+NAME:    jpeg_temple_clearing_a
 WEIGHT:  2
 PLACE:   Temple
 TAGS:    no_rotate
@@ -1307,7 +1304,7 @@ ttttttt'tt.....tt""ttt""tt.....tt'ttttttt
 ENDMAP
 
 # 9 gods
-NAME:    minmay_temple_clearing_b
+NAME:    jpeg_temple_clearing_b
 WEIGHT:  2
 PLACE:   Temple
 TAGS:    no_rotate
@@ -1401,7 +1398,6 @@ ENDMAP
 # 13 gods
 #
 # XXX: The tiles for floor around the altars might be better.
-#      Cutting a plant leaves grey floor, which is not ideal either.
 NAME:    cyrus_temple_forest
 WEIGHT:  3
 PLACE:   Temple
@@ -1414,7 +1410,7 @@ SUBST:   Y : Y.
 SUBST:   Y = 1112..
 SUBST:   _ = .
 SUBST:   " : """.
-COLOUR:  . = green
+COLOUR:  .12 = green
 COLOUR:  " : darkgrey
 COLOUR:  ' : white / lightgrey
 FTILE:   .t12 = floor_grass
@@ -1572,7 +1568,7 @@ ORIENT: encompass
 WEIGHT: 7
 : if crawl.one_chance_in(10) then
 SUBST:  w = l
-:   set_border_fill_type("lava")
+:   set_border_fill_type("endless_lava")
 : else
 :   set_border_fill_type("open_sea")
 : end
@@ -1619,7 +1615,7 @@ ORIENT: encompass
 WEIGHT: 1
 : if crawl.one_chance_in(10) then
 SUBST:  w = l
-:   set_border_fill_type("lava")
+:   set_border_fill_type("endless_lava")
 : else
 :   set_border_fill_type("open_sea")
 : end
@@ -1666,7 +1662,7 @@ ORIENT: encompass
 WEIGHT: 1
 : if crawl.one_chance_in(10) then
 SUBST:  w = l
-:   set_border_fill_type("lava")
+:   set_border_fill_type("endless_lava")
 : else
 :   set_border_fill_type("open_sea")
 : end
@@ -1713,7 +1709,7 @@ ORIENT: encompass
 WEIGHT: 1
 : if crawl.one_chance_in(10) then
 SUBST:  w = l
-:   set_border_fill_type("lava")
+:   set_border_fill_type("endless_lava")
 : else
 :   set_border_fill_type("open_sea")
 : end
@@ -2841,6 +2837,58 @@ xx.O.xxx.'.xxx.O.xx
        x[.(x
        x1{1x
        xxxxx
+ENDMAP
+
+# 15 gods
+NAME:       temple_of_Zot
+PLACE:      Temple
+WEIGHT:     1
+ORIENT:     encompass
+LFLOORCOL:  magenta
+LROCKCOL:   lightmagenta
+LFLOORTILE: floor_tomb
+LROCKTILE:  wall_zot_magenta
+SUBST:      C = X:900 c:100
+COLOUR:     c = lightmagenta
+
+MAP
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxcccccccccccxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxcccccccccccccxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxcccccccccccccccccxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxXXXXXXXXXXXXXXXxxxcccccccccccccccccxxxXXXXXXXXXXXXXXXxxxxxxxxxxxxx
+xxxxxxxxxxxXXXX.............XXXXcccccccccccccccccXXXX.............XXXXxxxxxxxxxx
+xxxxxxxxxxXX...................XXXcccccccccccccXXX...................XXxxxxxxxxx
+xxxxxxxxxXX......................XXcccccccccccXX......................XXxxxxxxxx
+xxxxxxxxxX........................XXXXXXXXXXXXX........................Xxxxxxxxx
+xxxxxxxxxX........................XXX.B...B.XXX........................Xxxxxxxxx
+xxxxxxxxxXX.......................XXB...B...BXX.......................XXxxxxxxxx
+xxxxxxxxxxXX......................X...B...B...X......................XXxxxxxxxxx
+xxxxxxxxxxxXX...........................B...........................XXxxxxxxxxxx
+xxxxxxxxxxXX......................X...B...B...X......................XXxxxxxxxxx
+xxxxxxxxxXX.......................XXB...B...BXX.......................XXxxxxxxxx
+xxxxxxxxxX........................XXX.B...B.XXX........................Xxxxxxxxx
+xxxxxxxxxX........................cXXXXXXXXXXXc........................Xxxxxxxxx
+xxxxxxxxxXX......................ccccccccccccccc......................XXxxxxxxxx
+xxxxxxxxxxXX...................XcccccccccccccccccX...................XXxxxxxxxxx
+xxxxxxxxxxxXX...............XXXXcccccccccccccccccXXXX...............XXxxxxxxxxxx
+xxxxxxxxxxxxXX.....ccCCCCCCXXXXXcccccccccccccccccXXXXXCCCCCCcc.....XXxxxxxxxxxxx
+xxxxxxxxxxxcc...................ccccccccccccccccc...................ccxxxxxxxxxx
+xxxxxxxxxxcc................cc....ccccccccccccc....cc................ccxxxxxxxxx
+xxxxxxxxxcc..................ccc...ccccccccccc...ccc..................ccxxxxxxxx
+xxxxxxxxxc....................ccc...............ccc....................cxxxxxxxx
+xxxxxxxxxc....................cxcc.............ccxc....................cxxxxxxxx
+xxxxxxxxxc....................cxxc.............cxxc....................cxxxxxxxx
+xxxxxxxxxc....................cxxcc...........ccxxc....................cxxxxxxxx
+xxxxxxxxxc....................cxxxc...........cxxxc....................cxxxxxxxx
+xxxxxxxxxc....................cxxcc...........ccxxc....................cxxxxxxxx
+xxxxxxxxxcc..................ccxxc.............cxxcc..................ccxxxxxxxx
+xxxxxxxxxxcc................ccxxcc.............ccxxcc................ccxxxxxxxxx
+xxxxxxxxxxxcc..............ccxxxc......(.{......cxxxcc..............ccxxxxxxxxxx
+xxxxxxxxxxxxccccccccccccccccxxxxcccccccc[ccccccccxxxxccccccccccccccccxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ENDMAP
 
 

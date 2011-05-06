@@ -409,11 +409,12 @@ WEIGHT: 2
 ORIENT: float
 MONS:   kobold; dart ego:dispersal q:3
 MAP
-xxxxxxxxxx..
-=.llllll{l@.
-x.xxxxxx=x..
-x1xxxxxx....
-xxx
+xxxxxxxxx=x..
+x.llllll{.l@.
+x.llllll>.l..
+x1xxxxxxx=x..
+x=xxxxxx.....
+.............
 ENDMAP
 
 ##############################################################
@@ -1531,7 +1532,7 @@ TAGS:    entry no_monster_gen
 ORIENT:  float
 SUBST:   ? : xxcvG.
 ITEM:    meat ration / bread ration / beef jerky / spear / potion of water / \
-         apple / club / hammer / knife
+         apple / club / hammer / dagger
 SHUFFLE: {[(
 WEIGHT:  3
 MAP
@@ -1557,7 +1558,7 @@ TAGS:    entry no_monster_gen
 ORIENT:  float
 SUBST:   ? : xxcvG.
 ITEM:    meat ration / bread ration / beef jerky / spear / potion of water / \
-         apple / club / hammer / knife
+         apple / club / hammer / dagger
 SHUFFLE: {[(
 WEIGHT:  3
 MAP
@@ -2558,6 +2559,7 @@ ENDMAP
 ###########################################################
 # Eye to eye with the dorky.
 NAME:    lordsloth_entry_two_stooges
+ORIENT:  float
 TAGS:    entry no_rotate no_monster_gen no_item_gen
 : if crawl.one_chance_in(4) then
 SUBST:   [ = l, ( = l
@@ -2640,7 +2642,7 @@ MONS:    giant cockroach / worker ant / butterfly / killer bee / bumblebee /\
          redback / giant mite
 MONS:    swamp worm / lindwurm / worm / spiny worm
 MONS:    swamp drake / hydra / wyvern / fire drake
-MONS:    bear / polar bear / grizzly bear / black bear
+MONS:    polar bear / grizzly bear / black bear
 MONS:    black mamba / water moccasin / anaconda / salamander / viper
 : end
 MAP

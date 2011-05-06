@@ -1,8 +1,7 @@
-/*
- * File:       makeitem.cc
- * Summary:    Item creation routines.
- * Created by: haranp on Sat Apr 21 11:31:42 2007 UTC
- */
+/**
+ * @file
+ * @brief Item creation routines.
+**/
 
 #include "AppHdr.h"
 
@@ -92,10 +91,7 @@ static int _newwave_weapon_colour(const item_def &item)
     std::string itname = item.name(DESC_PLAIN);
     lowercase(itname);
 
-    const bool item_runed = itname.find(" runed ") != std::string::npos;
-    const bool heav_runed = itname.find(" heavily ") != std::string::npos;
-
-    if (is_random_artefact(item) && (!item_runed || heav_runed))
+    if (is_artefact(item))
         return _exciting_colour();
 
     if (is_range_weapon(item))
@@ -271,10 +267,7 @@ static int _newwave_armour_colour(const item_def &item)
     std::string itname = item.name(DESC_PLAIN);
     lowercase(itname);
 
-    const bool item_runed = itname.find(" runed ") != std::string::npos;
-    const bool heav_runed = itname.find(" heavily ") != std::string::npos;
-
-    if (is_random_artefact(item) && (!item_runed || heav_runed))
+    if (is_artefact(item))
         return (_exciting_colour());
 
     switch (item.sub_type)
@@ -374,7 +367,7 @@ void item_colour(item_def &item)
     switch (item.base_type)
     {
     case OBJ_WEAPONS:
-        if (is_unrandom_artefact(item))
+        if (is_unrandom_artefact(item) && !is_randapp_artefact(item))
             break;              // unrandarts have already been coloured
 
         if (is_demonic(item))
@@ -394,7 +387,7 @@ void item_colour(item_def &item)
         break;
 
     case OBJ_ARMOUR:
-        if (is_unrandom_artefact(item))
+        if (is_unrandom_artefact(item) && !is_randapp_artefact(item))
             break;              // unrandarts have already been coloured
 
         switch (item.sub_type)
@@ -719,7 +712,6 @@ void item_colour(item_def &item)
 
         case MISC_AIR_ELEMENTAL_FAN:
         case MISC_CRYSTAL_BALL_OF_ENERGY:
-        case MISC_CRYSTAL_BALL_OF_FIXATION:
         case MISC_CRYSTAL_BALL_OF_SEEING:
         case MISC_DISC_OF_STORMS:
         case MISC_HORN_OF_GERYON:
@@ -883,7 +875,7 @@ static weapon_type _determine_weapon_subtype(int item_level)
     weapon_type rc = WPN_UNKNOWN;
 
     const weapon_type common_subtypes[] = {
-        WPN_KNIFE, WPN_QUARTERSTAFF, WPN_SLING,
+        WPN_QUARTERSTAFF, WPN_SLING,
         WPN_SPEAR, WPN_HAND_AXE, WPN_MACE,
         WPN_DAGGER, WPN_DAGGER, WPN_CLUB,
         WPN_HAMMER, WPN_WHIP, WPN_SABRE
@@ -892,8 +884,7 @@ static weapon_type _determine_weapon_subtype(int item_level)
     const weapon_type rare_subtypes[] = {
         WPN_LAJATANG, WPN_DEMON_WHIP, WPN_DEMON_BLADE,
         WPN_DEMON_TRIDENT, WPN_DOUBLE_SWORD, WPN_EVENINGSTAR,
-        WPN_EXECUTIONERS_AXE, WPN_KATANA, WPN_QUICK_BLADE,
-        WPN_TRIPLE_SWORD
+        WPN_EXECUTIONERS_AXE, WPN_QUICK_BLADE, WPN_TRIPLE_SWORD,
     };
 
     if (item_level > 6 && one_chance_in(30)
@@ -945,8 +936,8 @@ static bool _try_make_weapon_artefact(item_def& item, int force_type,
     {
         // Make a randart or unrandart.
 
-        // 1 in 12 randarts are unrandarts.
-        if (one_chance_in(item_level == MAKE_GOOD_ITEM ? 7 : 12)
+        // 1 in 20 randarts are unrandarts.
+        if (one_chance_in(item_level == MAKE_GOOD_ITEM ? 7 : 20)
             && !force_randart)
         {
             if (_try_make_item_unrand(item, force_type))
@@ -1207,7 +1198,7 @@ static brand_type _determine_weapon_brand(const item_def& item, int item_level)
     if (item.special != 0)
         return static_cast<brand_type>(item.special);
 
-    const bool force_good = (item_level == MAKE_GOOD_ITEM);
+    const bool force_good = item_level >= MAKE_GIFT_ITEM;
     const int tries       = force_good ? 5 : 1;
     brand_type rc         = SPWPN_NORMAL;
 
@@ -1713,7 +1704,7 @@ brand_ok:
     ASSERT(!is_artefact(item));
 
     // Artefacts handled, let's make a normal item.
-    const bool force_good = (item_level == MAKE_GOOD_ITEM);
+    const bool force_good = item_level >= MAKE_GIFT_ITEM;
     const bool forced_ego = item.special > 0;
     const bool no_brand   = item.special == SPWPN_FORBID_BRAND;
 
@@ -1830,7 +1821,7 @@ static special_missile_type _determine_missile_brand(const item_def& item,
     if (item.special != 0)
         return static_cast<special_missile_type>(item.special);
 
-    const bool force_good = (item_level == MAKE_GOOD_ITEM);
+    const bool force_good = item_level >= MAKE_GIFT_ITEM;
     special_missile_type rc = SPMSL_NORMAL;
 
     // "Normal weight" of SPMSL_NORMAL.
@@ -2072,8 +2063,8 @@ static bool _try_make_armour_artefact(item_def& item, int force_type,
     {
         // Make a randart or unrandart.
 
-        // 1 in 12 randarts are unrandarts.
-        if (one_chance_in(item_level == MAKE_GOOD_ITEM ? 7 : 12)
+        // 1 in 20 randarts are unrandarts.
+        if (one_chance_in(item_level == MAKE_GOOD_ITEM ? 7 : 20)
             && !force_randart)
         {
             if (_try_make_item_unrand(item, force_type))
@@ -2479,7 +2470,7 @@ static void _generate_armour_item(item_def& item, bool allow_uniques,
     if (get_equip_race(item) == ISFLAG_DWARVEN && coinflip())
         item.plus++;
 
-    const bool force_good = (item_level == MAKE_GOOD_ITEM);
+    const bool force_good = item_level >= MAKE_GIFT_ITEM;
     const bool forced_ego = (item.special > 0);
     const bool no_ego     = (item.special == SPARM_FORBID_EGO);
 
@@ -3089,6 +3080,9 @@ static void _generate_misc_item(item_def& item, int force_type, int item_race)
              || item.sub_type == MISC_HORN_OF_GERYON
              || item.sub_type == MISC_DECK_OF_PUNISHMENT
              || item.sub_type == MISC_QUAD_DAMAGE
+#if TAG_MAJOR_VERSION == 32
+             || item.sub_type == MISC_CRYSTAL_BALL_OF_FIXATION
+#endif
              // Pure decks are rare in the dungeon.
              || (item.sub_type == MISC_DECK_OF_ESCAPE
                     || item.sub_type == MISC_DECK_OF_DESTRUCTION
@@ -3149,7 +3143,7 @@ int items(int allow_uniques,       // not just true-false,
     if (agent != -1)
         origin_acquired(item, agent);
 
-    const bool force_good = (item_level == MAKE_GOOD_ITEM);
+    const bool force_good = item_level >= MAKE_GIFT_ITEM;
 
     if (force_ego != 0)
         allow_uniques = false;
@@ -3364,7 +3358,7 @@ static int _roll_rod_enchant(int item_level)
     if (one_chance_in(4))
         value -= random_range(1, 3);
 
-    if (item_level == MAKE_GOOD_ITEM)
+    if (item_level >= MAKE_GIFT_ITEM)
         value += 2;
 
     int pr = 20 + item_level * 2;

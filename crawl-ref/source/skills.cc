@@ -1,8 +1,7 @@
-/*
- *  File:       skills.cc
- *  Summary:    Skill exercising functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Skill exercising functions.
+**/
 
 #include "AppHdr.h"
 
@@ -273,6 +272,7 @@ static void _change_skill_level(skill_type exsk, int n)
         && best_spell == SK_SPELLCASTING && n > 0)
     {
         mpr("You're starting to get the hang of this magic thing.");
+        learned_something_new(HINT_GAINED_SPELLCASTING);
     }
 
     const skill_type best = best_skill(SK_FIRST_SKILL, SK_LAST_SKILL);
@@ -291,9 +291,18 @@ void check_skill_level_change(skill_type sk, bool do_level_up)
         const unsigned int next = skill_exp_needed(new_level + 1, sk);
 
         if (you.skill_points[sk] >= next)
-            new_level++;
+        {
+            if (++new_level >= 27)
+            {
+                new_level = 27;
+                break;
+            }
+        }
         else if (you.skill_points[sk] < prev)
+        {
             new_level--;
+            ASSERT(new_level >= 0);
+        }
         else
             break;
     }
@@ -330,13 +339,11 @@ int exercise(skill_type exsk, int deg)
         deg--;
     }
 
-#ifdef DEBUG_DIAGNOSTICS
     if (ret)
     {
         dprf("Exercised %s (deg: %d) by %d", skill_name(exsk), deg, ret);
         dprf("Cost %d experience points", exp_pool - you.exp_available);
     }
-#endif
 
     check_skill_level_change(exsk);
 

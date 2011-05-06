@@ -1,13 +1,14 @@
 OBJECTS = \
 abl-show.o \
-acquire.o \
 abyss.o \
+acquire.o \
 act-iter.o \
 actor-los.o \
 actor.o \
 areas.o \
 arena.o \
 artefact.o \
+asg.o \
 attitude-change.o \
 beam.o \
 behold.o \
@@ -20,8 +21,8 @@ clua.o \
 cluautil.o \
 colour.o \
 command.o \
-coord-circle.o \
 coord.o \
+coord-circle.o \
 coordit.o \
 ctest.o \
 database.o \
@@ -44,6 +45,7 @@ dlua.o \
 dungeon.o \
 effects.o \
 errors.o \
+evoke.o \
 exclude.o \
 exercise.o \
 fearmonger.o \
@@ -66,8 +68,6 @@ hints.o \
 hiscores.o \
 initfile.o \
 invent.o \
-it_use2.o \
-it_use3.o \
 item_use.o \
 itemname.o \
 itemprop.o \
@@ -143,7 +143,6 @@ mon-transit.o \
 mon-util.o \
 mon_resist_def.o \
 monster.o \
-mt19937ar.o \
 mutation.o \
 newgame.o \
 ng-init.o \
@@ -163,13 +162,13 @@ player-act.o \
 player-equip.o \
 player-stats.o \
 player.o \
+potion.o \
 quiver.o \
 random.o \
 random-var.o \
 ray.o \
 religion.o \
 rng.o \
-sha256.o \
 shopping.o \
 shout.o \
 show.o \
@@ -204,16 +203,19 @@ stuff.o \
 syscalls.o \
 tags.o \
 tagstring.o \
+target.o \
 teleport.o \
 terrain.o \
 transform.o \
 traps.o \
 travel.o \
 tutorial.o \
+unicode.o \
 view.o \
 viewchar.o \
 viewgeom.o \
 viewmap.o \
+wcwidth.o \
 wiz-dgn.o \
 wiz-fsim.o \
 wiz-item.o \

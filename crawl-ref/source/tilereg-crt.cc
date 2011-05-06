@@ -1,9 +1,3 @@
-/*
- *  File:       tilereg-crt.cc
- *
- *  Created by: ennewalker on Sat Jan 5 01:33:53 2008 UTC
- */
-
 #include "AppHdr.h"
 
 #ifdef USE_TILE
@@ -30,7 +24,7 @@ int CRTRegion::handle_mouse(MouseEvent &event)
     int ret_val = 0;
     if (m_attached_menu == NULL)
     {
-        if (event.event == MouseEvent::RELEASE
+        if (event.event == MouseEvent::PRESS
             && event.button == MouseEvent::LEFT)
         {
             ret_val = CK_MOUSE_CLICK;

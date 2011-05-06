@@ -1,8 +1,3 @@
-/*
- *  File:       tilereg_title.h
- *  Created by: ennewalker on Sat Jan 5 01:33:53 2008 UTC
- */
-
 #ifdef USE_TILE
 #ifndef TILEREG_TITLE_H
 #define TILEREG_TITLE_H
@@ -18,7 +13,7 @@ public:
     virtual void clear() {};
     virtual void run();
 
-    virtual int handle_mouse(MouseEvent &event);
+    virtual int handle_mouse(MouseEvent &event) { return 0; }
 
     void update_message(std::string message);
 

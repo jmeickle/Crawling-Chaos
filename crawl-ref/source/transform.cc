@@ -1,8 +1,7 @@
-/*
- *  File:       transform.cc
- *  Summary:    Misc function related to player transformations.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc function related to player transformations.
+**/
 
 #include "AppHdr.h"
 
@@ -16,8 +15,8 @@
 #include "artefact.h"
 #include "delay.h"
 #include "env.h"
+#include "godabil.h"
 #include "invent.h"
-#include "it_use2.h"
 #include "item_use.h"
 #include "itemprop.h"
 #include "items.h"
@@ -26,6 +25,7 @@
 #include "player-equip.h"
 #include "player-stats.h"
 #include "random.h"
+#include "religion.h"
 #include "skills2.h"
 #include "state.h"
 #include "stuff.h"
@@ -46,16 +46,25 @@ bool form_can_fly(transformation_type form)
         && you.species == SP_KENKU
         && (you.experience_level >= 15 || you.airborne()))
     {
-        return 1;
+        return (true);
     }
     return (form == TRAN_DRAGON || form == TRAN_BAT);
 }
 
 bool form_can_swim(transformation_type form)
 {
-    return ((you.species == SP_MERFOLK && !form_changed_physiology(form))
-             || form == TRAN_ICE_BEAST                    // made of ice
-             || you.body_size(PSIZE_BODY) >= SIZE_GIANT);
+    // Ice floats.
+    if (form == TRAN_ICE_BEAST)
+        return (true);
+
+    if (you.species == SP_MERFOLK && !form_changed_physiology(form))
+        return (true);
+
+    size_type size = you.transform_size(form, PSIZE_BODY);
+    if (size == SIZE_CHARACTER)
+        size = you.body_size(PSIZE_BODY, true);
+
+    return (size >= SIZE_GIANT);
 }
 
 bool form_likes_water(transformation_type form)
@@ -94,7 +103,6 @@ bool form_can_wear_item(const item_def& item, transformation_type form)
     {
         // It's not jewellery, and it's worn, so it must be armour.
         const equipment_type eqslot = get_armour_slot(item);
-        const bool is_soft_helmet   = is_helmet(item) && !is_hard_helmet(item);
 
         switch (form)
         {
@@ -108,24 +116,22 @@ bool form_can_wear_item(const item_def& item, transformation_type form)
         case TRAN_DRAGON:
         case TRAN_BAT:
         case TRAN_PIG:
+        case TRAN_SPIDER:
             rc = false;
             break;
 
         // And some need more complicated logic.
-        case TRAN_SPIDER:
-            rc = is_soft_helmet;
-            break;
-
         case TRAN_BLADE_HANDS:
             rc = (eqslot != EQ_SHIELD && eqslot != EQ_GLOVES);
             break;
 
         case TRAN_STATUE:
-            rc = (eqslot == EQ_CLOAK || eqslot == EQ_HELMET);
+            rc = (eqslot == EQ_CLOAK || eqslot == EQ_HELMET
+                  || eqslot == EQ_SHIELD);
             break;
 
         case TRAN_ICE_BEAST:
-            rc = (eqslot == EQ_CLOAK || is_soft_helmet);
+            rc = (eqslot == EQ_CLOAK);
             break;
 
         default:                // Bug-catcher.
@@ -143,7 +149,7 @@ static std::set<equipment_type>
 _init_equipment_removal(transformation_type form)
 {
     std::set<equipment_type> result;
-    if (!form_can_wield(form) && you.weapon())
+    if (!form_can_wield(form) && you.weapon() || you.melded[EQ_WEAPON])
         result.insert(EQ_WEAPON);
 
     // Liches can't wield holy weapons.
@@ -175,7 +181,14 @@ static void _remove_equipment(const std::set<equipment_type>& removed,
         if (equip == NULL)
             continue;
 
-        bool unequip = (e == EQ_WEAPON || !meld);
+        bool unequip = !meld;
+        if (!unequip && e == EQ_WEAPON)
+        {
+            if (you.form == TRAN_NONE || form_can_wield(you.form))
+                unequip = true;
+            if (equip->base_type != OBJ_WEAPONS && equip->base_type != OBJ_STAVES)
+                unequip = true;
+        }
 
         mprf("%s %s%s %s", equip->name(DESC_CAP_YOUR).c_str(),
              unequip ? "fall" : "meld",
@@ -213,6 +226,7 @@ static bool _mutations_prevent_wearing(const item_def& item)
 
     if (is_hard_helmet(item)
         && (player_mutation_level(MUT_HORNS)
+            || player_mutation_level(MUT_ANTENNAE)
             || player_mutation_level(MUT_BEAK)))
     {
         return (true);
@@ -229,6 +243,10 @@ static bool _mutations_prevent_wearing(const item_def& item)
     if (eqslot == EQ_GLOVES && player_mutation_level(MUT_CLAWS) >= 3)
         return (true);
 
+    if (eqslot == EQ_HELMET && (player_mutation_level(MUT_HORNS) == 3
+        || player_mutation_level(MUT_ANTENNAE) == 3))
+        return (true);
+
     return (false);
 }
 
@@ -238,6 +256,17 @@ static void _unmeld_equipment_slot(equipment_type e)
 
     if (item.base_type == OBJ_JEWELLERY)
         unmeld_slot(e);
+    else if (e == EQ_WEAPON)
+    {
+        if (you.slot_item(EQ_SHIELD)
+            && is_shield_incompatible(item, you.slot_item(EQ_SHIELD)))
+        {
+            mpr(item.name(DESC_CAP_YOUR) + " is pushed off your body!");
+            unequip_item(e);
+        }
+        else
+            unmeld_slot(e);
+    }
     else
     {
         // In case the player was mutated during the transformation,
@@ -271,7 +300,7 @@ static void _unmeld_equipment(const std::set<equipment_type>& melded)
     for (iter = melded.begin(); iter != melded.end(); ++iter)
     {
         const equipment_type e = *iter;
-        if (e == EQ_WEAPON || you.equip[e] == -1)
+        if (you.equip[e] == -1)
             continue;
 
         _unmeld_equipment_slot(e);
@@ -292,43 +321,15 @@ void remove_one_equip(equipment_type eq, bool meld, bool mutation)
     _remove_equipment(r, meld, mutation);
 }
 
-// Returns true if the player got prompted by an inscription warning and
-// chose to opt out.
-static bool _check_transformation_inscription_warning(
-            const std::set<equipment_type> &remove)
-{
-    // Check over all items to be removed or melded.
-    std::set<equipment_type>::const_iterator iter;
-    for (iter = remove.begin(); iter != remove.end(); ++iter)
-    {
-        equipment_type e = *iter;
-        if (you.equip[e] == -1)
-            continue;
-
-        const item_def& item = you.inv[you.equip[e]];
-
-        operation_types op = OPER_WEAR;
-        if (e == EQ_WEAPON)
-            op = OPER_WIELD;
-        else if (item.base_type == OBJ_JEWELLERY)
-            op = OPER_PUTON;
-
-        if (!check_old_item_warning(item, op))
-            return (true);
-    }
-
-    return (false);
-}
-
 // FIXME: Switch to 4.1 transforms handling.
 size_type transform_size(int psize)
 {
-    return you.transform_size(psize);
+    return you.transform_size(you.form, psize);
 }
 
-size_type player::transform_size(int psize) const
+size_type player::transform_size(transformation_type tform, int psize) const
 {
-    switch (you.form)
+    switch (tform)
     {
     case TRAN_SPIDER:
     case TRAN_BAT:
@@ -379,7 +380,7 @@ monster_type transform_mons()
     case TRAN_LICH:
         return MONS_LICH;
     case TRAN_BAT:
-        return you.species == SP_VAMPIRE ? MONS_VAMPIRE_BAT : MONS_MEGABAT;
+        return you.species == SP_VAMPIRE ? MONS_VAMPIRE_BAT : MONS_BAT;
     case TRAN_PIG:
         return MONS_HOG;
     case TRAN_BLADE_HANDS:
@@ -423,6 +424,40 @@ monster_type dragon_form_dragon_type()
     }
 }
 
+bool feat_dangerous_for_form(transformation_type which_trans,
+                             dungeon_feature_type feat)
+{
+    // Everything is okay if we can fly.
+    if (form_can_fly(which_trans) || you.is_levitating())
+        return (false);
+
+    // We can only cling for safety if we're already doing so.
+    if (which_trans == TRAN_SPIDER && you.is_wall_clinging())
+        return (false);
+
+    if (feat == DNGN_LAVA)
+        return (true);
+
+    if (feat == DNGN_DEEP_WATER)
+        return (!form_likes_water(which_trans) && !beogh_water_walk());
+
+    return (false);
+}
+
+static bool _transformation_is_safe(transformation_type which_trans,
+                                    dungeon_feature_type feat, bool quiet)
+{
+    if (!feat_dangerous_for_form(which_trans, feat))
+        return (true);
+
+    if (!quiet)
+    {
+        mprf("You would %s in your new form.",
+             feat == DNGN_DEEP_WATER ? "drown" : "burn");
+    }
+    return (false);
+}
+
 // Transforms you into the specified form. If force is true, checks for
 // inscription warnings are skipped, and the transformation fails silently
 // (if it fails). If just_check is true the transformation doesn't actually
@@ -434,6 +469,13 @@ bool transform(int pow, transformation_type which_trans, bool force,
     bool was_in_water = you.in_water();
     const flight_type was_flying = you.flight_mode();
 
+    // Zin's protection.
+    if (!just_check && you.religion == GOD_ZIN
+        && x_chance_in_y(you.piety, MAX_PIETY) && which_trans != TRAN_NONE)
+    {
+        simple_god_message(" protects your body from unnatural transformation!");
+        return (false);
+    }
 
     if (!force && crawl_state.is_god_acting())
         force = true;
@@ -446,25 +488,8 @@ bool transform(int pow, transformation_type which_trans, bool force,
         return (false);
     }
 
-    dungeon_feature_type feat = env.grid(you.pos());
-
-    if (feat == DNGN_DEEP_WATER && you.in_water()
-        && !form_can_fly(which_trans) && !form_likes_water(which_trans))
-    {
-        if (!force)
-            mpr("You would drown in your new form.");
+    if (!_transformation_is_safe(which_trans, env.grid(you.pos()), force))
         return (false);
-    }
-
-    if ((feat == DNGN_DEEP_WATER && !form_likes_water(which_trans)
-         || feat == DNGN_LAVA)
-         && form_can_fly() && !form_can_fly(which_trans))
-    {
-        if (!force)
-            mprf("You would %s in your new form.",
-                 feat == DNGN_DEEP_WATER ? "drown" : "burn");
-        return (false);
-    }
 
     // This must occur before the untransform() and the is_undead check.
     if (previous_trans == which_trans)
@@ -474,17 +499,18 @@ bool transform(int pow, transformation_type which_trans, bool force,
             if (just_check)
                 return (true);
 
-            if (which_trans==TRAN_PIG)
+            if (which_trans == TRAN_PIG)
                 mpr("You feel you'll be a pig longer.");
             else
                 mpr("You extend your transformation's duration.");
             you.increase_duration(DUR_TRANSFORMATION, random2(pow), 100);
+            transformation_expiration_warning();
 
             return (true);
         }
         else
         {
-            if (!force && which_trans!=TRAN_PIG)
+            if (!force && which_trans != TRAN_PIG)
                 mpr("You cannot extend your transformation any further!");
             return (false);
         }
@@ -625,9 +651,6 @@ bool transform(int pow, transformation_type which_trans, bool force,
     if (just_check)
         return (true);
 
-    if (!force && _check_transformation_inscription_warning(rem_stuff))
-        return (_abort_or_fizzle(just_check));
-
     // All checks done, transformation will take place now.
     you.redraw_evasion      = true;
     you.redraw_armour_class = true;
@@ -646,13 +669,12 @@ bool transform(int pow, transformation_type which_trans, bool force,
     // Give the transformation message.
     mpr(msg);
 
-    _remove_equipment(rem_stuff);
-
     // Update your status.
     you.form = which_trans;
     you.set_duration(DUR_TRANSFORMATION, dur);
     update_player_symbol();
 
+    _remove_equipment(rem_stuff);
     burden_change();
 
     if (str)
@@ -675,12 +697,8 @@ bool transform(int pow, transformation_type which_trans, bool force,
     // Extra effects
     switch (which_trans)
     {
-    case TRAN_SPIDER:
-        you.check_clinging();
-        break;
-
     case TRAN_STATUE:
-        if (you.duration[DUR_STONEMAIL] || you.duration[DUR_STONESKIN])
+        if (you.duration[DUR_STONESKIN])
             mpr("Your new body merges with your stone armour.");
         break;
 
@@ -694,6 +712,7 @@ bool transform(int pow, transformation_type which_trans, bool force,
         {
             mpr("The net rips apart!");
             you.attribute[ATTR_HELD] = 0;
+            you.redraw_quiver = true;
             int net = get_trapping_net(you.pos());
             if (net != NON_ITEM)
                 destroy_item(net);
@@ -719,6 +738,8 @@ bool transform(int pow, transformation_type which_trans, bool force,
     default:
         break;
     }
+
+    you.check_clinging(false);
 
     // This only has an effect if the transformation happens passively,
     // for example if Xom decides to transform you while you're busy
@@ -768,6 +789,8 @@ void untransform(bool skip_wielding, bool skip_move)
         mpr("Your transformation has ended.", MSGCH_DURATION);
         notify_stat_change(STAT_DEX, -5, true,
                      "losing the spider transformation");
+        if (!skip_move)
+            you.check_clinging(false);
         break;
 
     case TRAN_BAT:
@@ -793,9 +816,6 @@ void untransform(bool skip_wielding, bool skip_move)
 
         // Note: if the core goes down, the combined effect soon disappears,
         // but the reverse isn't true. -- bwr
-        if (you.duration[DUR_STONEMAIL])
-            you.duration[DUR_STONEMAIL] = 1;
-
         if (you.duration[DUR_STONESKIN])
             you.duration[DUR_STONESKIN] = 1;
 
@@ -885,15 +905,8 @@ void untransform(bool skip_wielding, bool skip_move)
     }
     calc_hp();
 
-    if (you.is_wall_clinging())
-    {
-        mpr("You fall off the wall.");
-        you.clear_clinging();
-        move_player_to_grid(you.pos(), false, true);
-    }
-
     if (!skip_wielding)
-        handle_interrupted_swap(true, false, true);
+        handle_interrupted_swap(true, false);
 
     you.turn_is_over = true;
     if (you.transform_uncancellable)
@@ -932,6 +945,7 @@ bool can_equip(equipment_type use_which, bool ignore_temporary)
 
         case TRAN_STATUE:
             return (use_which == EQ_WEAPON
+                    || use_which == EQ_SHIELD
                     || use_which == EQ_CLOAK
                     || use_which == EQ_HELMET);
 

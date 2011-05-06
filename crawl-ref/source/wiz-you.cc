@@ -1,8 +1,7 @@
-/*
- *  File:       wiz-you.cc
- *  Summary:    Player related debugging functions.
- *  Written by: Linley Henzell and Jesse Jones
- */
+/**
+ * @file
+ * @brief Player related debugging functions.
+**/
 
 #include "AppHdr.h"
 
@@ -179,6 +178,7 @@ void wizard_change_species(void)
         break;
     }
 
+    burden_change();
     update_player_symbol();
 #ifdef USE_TILE
     init_player_doll();
@@ -258,7 +258,7 @@ void wizard_set_hunger_state()
 
     mprf(MSGCH_PROMPT, "%s", hunger_prompt.c_str());
 
-    const int c = tolower(getch());
+    const int c = tolower(getchk());
 
     // Values taken from food.cc.
     switch (c)
@@ -733,7 +733,9 @@ static const char* dur_names[] =
     "divine shield",
     "regeneration",
     "swiftness",
+#if TAG_MAJOR_VERSION == 32
     "stonemail",
+#endif
     "controlled flight",
     "teleport",
     "control teleport",
@@ -780,6 +782,7 @@ static const char* dur_names[] =
     "finesse",
     "lifesaving",
     "paralysis immunity",
+    "darkness",
 };
 
 void wizard_edit_durations(void)
@@ -813,7 +816,7 @@ void wizard_edit_durations(void)
 
     char buf[80];
 
-    if (cancelable_get_line_autohist(buf, sizeof buf) || strlen(buf) == 0)
+    if (cancelable_get_line_autohist(buf, sizeof buf) || !*buf)
     {
         canned_msg(MSG_OK);
         return;
@@ -897,11 +900,8 @@ void wizard_edit_durations(void)
 
 static void debug_uptick_xl(int newxl)
 {
-    while (newxl > you.experience_level)
-    {
-        you.experience = 1 + exp_needed(2 + you.experience_level);
-        level_change(true);
-    }
+    you.experience = exp_needed(newxl);
+    level_change(true);
 }
 
 static void debug_downtick_xl(int newxl)
@@ -914,7 +914,8 @@ static void debug_downtick_xl(int newxl)
         you.hp     = std::max(5, you.hp);
         you.hp_max = std::max(5, you.hp_max);
 
-        lose_level();
+        you.experience = exp_needed(you.experience_level) - 1;
+        level_change();
     }
 
     you.hp       = std::max(1, you.hp);

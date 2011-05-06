@@ -1,8 +1,7 @@
-/*
- *  File:       shopping.cc
- *  Summary:    Shop keeper functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Shop keeper functions.
+**/
 
 #include "AppHdr.h"
 
@@ -143,7 +142,7 @@ static void _list_shop_keys(const std::string &purchasable, bool viewing,
     {
         cgotoxy(1, numlines - 2, GOTO_CRT);
         fs = formatted_string::parse_string(shop_list);
-        fs.cprintf("%*s", get_number_of_cols() - fs.length() - 1, "");
+        fs.cprintf("%*s", get_number_of_cols() - fs.width() - 1, "");
         fs.display();
     }
 
@@ -177,7 +176,7 @@ static void _list_shop_keys(const std::string &purchasable, bool viewing,
             (viewing ? "to buy items    " : "to examine items"),
             pkeys.c_str()));
 
-    fs.cprintf("%*s", get_number_of_cols() - fs.length() - 1, "");
+    fs.cprintf("%*s", get_number_of_cols() - fs.width() - 1, "");
     fs.display();
     cgotoxy(1, numlines, GOTO_CRT);
 
@@ -189,7 +188,7 @@ static void _list_shop_keys(const std::string &purchasable, bool viewing,
             "] make purchase   [<w>\\</w>] list known items   "
             "[<w>?</w>/<w>*</w>] inventory");
 
-    fs.cprintf("%*s", get_number_of_cols() - fs.length() - 1, "");
+    fs.cprintf("%*s", get_number_of_cols() - fs.width() - 1, "");
     fs.display();
 }
 
@@ -278,8 +277,8 @@ static std::string _shop_print_stock(const std::vector<int>& stock,
         else
             textcolor(i % 2 ? LIGHTGREY : WHITE);
 
-        cprintf("%-56s%5d gold",
-                item.name(DESC_NOCAP_A, false, id).substr(0, 56).c_str(),
+        cprintf("%s%5d gold",
+                chop_string(item.name(DESC_NOCAP_A, false, id), 56).c_str(),
                 gp_value);
 
         si.add_item(item, gp_value);
@@ -884,7 +883,6 @@ unsigned int item_value(item_def item, bool ident)
         switch (item.sub_type)
         {
         case WPN_CLUB:
-        case WPN_KNIFE:
             valued += 10;
             break;
 
@@ -1911,7 +1909,6 @@ unsigned int item_value(item_def item, bool ident)
                 valued += 400;
                 break;
 
-            case MISC_CRYSTAL_BALL_OF_FIXATION:
             case MISC_EMPTY_EBONY_CASKET:
                 valued += 20;
                 break;
@@ -2406,6 +2403,10 @@ bool ShoppingList::del_thing(std::string desc, const level_pos* _pos)
 unsigned int ShoppingList::cull_identical_items(const item_def& item,
                                                 int cost)
 {
+    // Dead men can't update their shopping lists.
+    if (!crawl_state.need_save)
+        return (0);
+
     // Can't put items in Bazaar shops in the shopping list, so
     // don't bother transferring shopping list items to Bazaar shops.
     if (cost != -1 && you.level_type != LEVEL_DUNGEON)
@@ -2794,7 +2795,7 @@ void ShoppingList::display()
                          (int) thing_cost(*thing));
 
                 print_description(info);
-                wait_for_keypress();
+                getchm();
             }
         }
         else if (shopmenu.menu_action == Menu::ACT_MISC)

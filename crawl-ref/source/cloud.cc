@@ -1,10 +1,9 @@
-/*
- *  File:       cloud.cc
- *  Summary:    Functions related to clouds.
- *  Written by: Brent Ross
+/**
+ * @file
+ * @brief Functions related to clouds.
  *
- *  Creating a cloud module so all the cloud stuff can be isolated.
- */
+ * Creating a cloud module so all the cloud stuff can be isolated.
+**/
 
 #include "AppHdr.h"
 
@@ -246,7 +245,7 @@ static void _spread_fire(const cloud_struct &cloud)
                               cloud.colour, cloud.name, cloud.tile);
             if (cloud.whose == KC_YOU)
                 did_god_conduct(DID_KILL_PLANT, 1);
-            else if (cloud.whose == KC_FRIENDLY)
+            else if (cloud.whose == KC_FRIENDLY && !crawl_state.game_is_arena())
                 did_god_conduct(DID_PLANT_KILLED_BY_SERVANT, 1);
         }
 
@@ -258,7 +257,8 @@ static void _cloud_fire_interacts_with_terrain(const cloud_struct &cloud)
     for (adjacent_iterator ai(cloud.pos); ai; ++ai)
     {
         const coord_def p(*ai);
-        if (feat_is_watery(grd(p))
+        if (in_bounds(p)
+            && feat_is_watery(grd(p))
             && env.cgrid(p) == EMPTY_CLOUD
             && one_chance_in(5))
         {
@@ -919,10 +919,12 @@ bool _actor_apply_cloud_side_effects(actor *act,
         if (final_damage > 0)
         {
             if (you.can_see(act))
+            {
                 mprf("%s %s in the rain.",
                      act->name(DESC_CAP_THE).c_str(),
                      act->conj_verb(silenced(act->pos())?
                                     "steam" : "sizzle").c_str());
+            }
         }
         if (player)
         {
@@ -978,13 +980,13 @@ bool _actor_apply_cloud_side_effects(actor *act,
     case CLOUD_POISON:
         if (player)
         {
-            // We don't track the source of the cloud so we can't
-            // assign blame.
-            poison_player(1, "", cloud.cloud_name());
+            const actor* agent = find_agent(cloud.source, cloud.whose);
+            poison_player(1, agent ? agent->name(DESC_NOCAP_A) : "",
+                          cloud.cloud_name());
         }
         else
         {
-            poison_monster(mons, cloud.whose);
+            poison_monster(mons, find_agent(cloud.source, cloud.whose));
         }
         return true;
 
@@ -992,12 +994,15 @@ bool _actor_apply_cloud_side_effects(actor *act,
     case CLOUD_MIASMA:
         if (player)
         {
-            // We'd want to blame it to a specific monster...
-            miasma_player(cloud.cloud_name());
+            const actor* agent = find_agent(cloud.source, cloud.whose);
+            if (agent)
+                miasma_player(agent->name(DESC_NOCAP_A), cloud.cloud_name());
+            else
+                miasma_player(cloud.cloud_name());
         }
         else
         {
-            miasma_monster(mons, cloud.whose);
+            miasma_monster(mons, find_agent(cloud.source, cloud.whose));
         }
         break;
 
@@ -1064,11 +1069,15 @@ static int _cloud_timescale_damage(const actor *act, int damage)
 static int _cloud_damage_output(actor *actor,
                                 beam_type flavour,
                                 int resist,
-                                int base_timescaled_damage)
+                                int base_timescaled_damage,
+                                bool maximum_damage = false)
 {
     const int resist_adjusted_damage =
         resist_adjust_damage(actor, flavour, resist,
                              base_timescaled_damage, true);
+    if (maximum_damage)
+        return resist_adjusted_damage;
+
     return std::max(0, resist_adjusted_damage - random2(actor->armour_class()));
 }
 
@@ -1093,7 +1102,8 @@ static int _actor_cloud_damage(actor *act,
     case CLOUD_STEAM:
         final_damage =
             _cloud_damage_output(act, cloud2beam(cloud.type), resist,
-                                 cloud_base_timescaled_damage);
+                                 cloud_base_timescaled_damage,
+                                 maximum_damage);
         break;
     default:
         break;
@@ -1169,8 +1179,8 @@ int actor_apply_cloud(actor *act)
     return final_damage;
 }
 
-bool cloud_is_harmful(actor *act, cloud_struct &cloud,
-                      int maximum_negligible_damage)
+static bool _cloud_is_harmful(actor *act, cloud_struct &cloud,
+                              int maximum_negligible_damage)
 {
     return (!_actor_cloud_immune(act, cloud)
             && (cloud_has_negative_side_effects(cloud.type)
@@ -1185,7 +1195,7 @@ bool is_damaging_cloud(cloud_type type, bool accept_temp_resistances)
         cloud_struct cloud;
         cloud.type = type;
         cloud.decay = 100;
-        return (cloud_is_harmful(&you, cloud, 0));
+        return (_cloud_is_harmful(&you, cloud, 0));
     }
     else
     {
@@ -1354,17 +1364,17 @@ void cloud_struct::set_killer(killer_type _killer)
 
     switch (killer)
     {
-        case KILL_YOU:
-            killer = KILL_YOU_MISSILE;
-            break;
+    case KILL_YOU:
+        killer = KILL_YOU_MISSILE;
+        break;
 
-        case KILL_MON:
-            killer = KILL_MON_MISSILE;
-            break;
+    case KILL_MON:
+        killer = KILL_MON_MISSILE;
+        break;
 
-        default:
-            break;
-     }
+    default:
+        break;
+    }
 }
 
 std::string cloud_struct::cloud_name(const std::string &defname,
@@ -1390,9 +1400,11 @@ void cloud_struct::announce_actor_engulfed(const actor *act,
             // Don't produce monster-in-rain messages in the interests
             // of spam reduction.
             if (act->is_player())
+            {
                 mprf("%s %s standing in the rain.",
                      act->name(DESC_CAP_THE).c_str(),
                      act->conj_verb("are").c_str());
+            }
         }
         else if (cloud_is_swarm(type))
         {
@@ -1453,7 +1465,7 @@ int get_cloud_colour(int cloudno)
         break;
 
     case CLOUD_POISON:
-        which_colour = (one_chance_in(3) ? LIGHTGREEN : GREEN);
+        which_colour = LIGHTGREEN;
         break;
 
     case CLOUD_BLUE_SMOKE:

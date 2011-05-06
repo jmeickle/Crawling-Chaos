@@ -124,12 +124,13 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
         case DID_NECROMANCY:
         case DID_UNHOLY:
         case DID_ATTACK_HOLY:
+        case DID_VIOLATE_HOLY_CORPSE:
             switch (you.religion)
             {
             case GOD_ZIN:
             case GOD_SHINING_ONE:
             case GOD_ELYVILON:
-                if (!known && thing_done != DID_ATTACK_HOLY)
+                if (!known && thing_done != DID_ATTACK_HOLY && thing_done != DID_VIOLATE_HOLY_CORPSE)
                 {
                     simple_god_message(" forgives your inadvertent unholy act, "
                                        "just this once.");
@@ -519,6 +520,7 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             case GOD_MAKHLEB:
             case GOD_BEOGH:
             case GOD_LUGONU:
+            case GOD_OKAWARU:
                 if (god_hates_attacking_friend(you.religion, victim))
                     break;
 
@@ -956,10 +958,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
         case DID_EXPLORATION:
             if (you.religion == GOD_ASHENZARI)
             {
-                // levels: x1, x2, x4, x6
-                piety_change = ash_bondage_level() * 2;
-                if (!piety_change)
-                    piety_change = 1;
+                // levels: x1, x2, x3, x4
+                piety_change = 1 + ash_bondage_level();
                 piety_change *= 8; // base gain per dungeon level
                 piety_denom = level;
                 retval = true;
@@ -967,13 +967,6 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             break;
 
         case DID_NOTHING:
-        case DID_GLUTTONY:                          // previously used for Chei
-        case DID_STABBING:                          // unused
-        case DID_STIMULANTS:                        // unused
-        case DID_EAT_MEAT:                          // unused
-        case DID_CREATE_LIFE:                       // unused
-        case DID_SPELL_NONUTILITY:                  // unused
-        case DID_DEDICATED_BUTCHERY:                // unused
         case NUM_CONDUCTS:
             break;
         }
@@ -995,8 +988,8 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
             {
                 "",
                 "Necromancy", "Holy", "Unholy", "Attack Holy", "Attack Neutral",
-                "Attack Friend", "Friend Died", "Stab", "Unchivalric Attack",
-                "Poison", "Field Sacrifice", "Kill Living", "Kill Undead",
+                "Attack Friend", "Friend Died", "Unchivalric Attack",
+                "Poison", "Kill Living", "Kill Undead",
                 "Kill Demon", "Kill Natural Unholy", "Kill Natural Evil",
                 "Kill Unclean", "Kill Chaotic", "Kill Wizard", "Kill Priest",
                 "Kill Holy", "Kill Fast", "Undead Slave Kill Living",
@@ -1005,22 +998,21 @@ bool did_god_conduct(conduct_type thing_done, int level, bool known,
                 "Servant Kill Demon", "Servant Kill Natural Unholy",
                 "Servant Kill Natural Evil", "Undead Slave Kill Holy",
                 "Servant Kill Holy", "Spell Memorise", "Spell Cast",
-                "Spell Practise", "Spell Nonutility", "Cards", "Stimulants",
-                "Drink Blood", "Cannibalism", "Eat Meat", "Eat Souled Being",
+                "Spell Practise", "Cards",
+                "Drink Blood", "Cannibalism","Eat Souled Being",
                 "Deliberate Mutation", "Cause Glowing", "Use Unclean",
                 "Use Chaos", "Desecrate Orcish Remains", "Destroy Orcish Idol",
-                "Create Life", "Kill Slime", "Kill Plant", "Servant Kill Plant",
-                "Was Hasty", "Gluttony", "Corpse Violation",
+                "Kill Slime", "Kill Plant", "Servant Kill Plant",
+                "Was Hasty", "Corpse Violation",
                 "Souled Friend Died", "Servant Kill Unclean",
                 "Servant Kill Chaotic", "Attack In Sanctuary",
                 "Kill Artificial", "Undead Slave Kill Artificial",
                 "Servant Kill Artificial", "Destroy Spellbook",
-                "Exploration",
+                "Exploration", "Desecrated Holy Remains",
             };
 
             COMPILE_CHECK(ARRAYSZ(conducts) == NUM_CONDUCTS, c1);
-            mprf(MSGCH_DIAGNOSTICS,
-                 "conduct: %s; piety: %d (%+d/%d); penance: %d (%+d)",
+            dprf("conduct: %s; piety: %d (%+d/%d); penance: %d (%+d)",
                  conducts[thing_done],
                  you.piety, piety_change, piety_denom,
                  you.penance[you.religion], penance);

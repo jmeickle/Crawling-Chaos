@@ -1,8 +1,7 @@
-/*
- *  File:       command.cc
- *  Summary:    Misc commands.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc commands.
+**/
 
 #include "AppHdr.h"
 
@@ -34,6 +33,7 @@
 #include "macro.h"
 #include "menu.h"
 #include "message.h"
+#include "mon-place.h"
 #include "mon-stuff.h"
 #include "mon-util.h"
 #include "ouch.h"
@@ -49,6 +49,7 @@
 #include "state.h"
 #include "stuff.h"
 #include "env.h"
+#include "syscalls.h"
 #include "terrain.h"
 #ifdef USE_TILE
 #include "tilepick.h"
@@ -94,10 +95,6 @@ static const char *features[] = {
 #ifdef DGL_MILESTONES
     "Milestones",
 #endif
-
-#ifdef UNICODE_GLYPHS
-    "Unicode glyphs",
-#endif
 };
 
 static std::string _get_version_information(void)
@@ -131,7 +128,7 @@ static void _add_file_to_scroller(FILE* fp, formatted_scroller& m,
 static std::string _get_version_changes(void)
 {
     // Attempts to print "Highlights" of the latest version.
-    FILE* fp = fopen(datafile_path("changelog.txt", false).c_str(), "r");
+    FILE* fp = fopen_u(datafile_path("changelog.txt", false).c_str(), "r");
     if (!fp)
         return "";
 
@@ -227,25 +224,7 @@ static void _print_version(void)
 
     std::string fname = "key_changes.txt";
     // Read in information about changes in comparison to the latest version.
-    FILE* fp = fopen(datafile_path(fname, false).c_str(), "r");
-
-#if defined(TARGET_OS_DOS)
-    if (!fp)
-    {
- #ifdef DEBUG_FILES
-        mprf(MSGCH_DIAGNOSTICS, "File '%s' could not be opened.",
-             fname.c_str());
- #endif
-        if (get_dos_compatible_file_name(&fname))
-        {
- #ifdef DEBUG_FILES
-            mprf(MSGCH_DIAGNOSTICS,
-                 "Attempting to open file '%s'", fname.c_str());
- #endif
-            fp = fopen(datafile_path(fname, false).c_str(), "r");
-        }
-    }
-#endif
+    FILE* fp = fopen_u(datafile_path(fname, false).c_str(), "r");
 
     if (fp)
     {
@@ -1198,7 +1177,7 @@ static void _append_non_item(std::string &desc, std::string key)
     }
     else
     {
-        desc += "\nOdd, this spell can't be found anywhere.  Please "
+        desc += "\nOdd, this spell can't be found anywhere. Please "
                 "file a bug report.";
     }
 
@@ -1211,7 +1190,7 @@ static void _append_non_item(std::string &desc, std::string key)
         if (flags & (SPFLAG_TESTING | SPFLAG_MONSTER))
         {
             desc += "\n\nYou aren't in wizard mode, so you shouldn't be "
-                    "seeing this entry.  Please file a bug report.";
+                    "seeing this entry. Please file a bug report.";
         }
     }
 }
@@ -1242,10 +1221,7 @@ static bool _append_books(std::string &desc, item_def &item, std::string key)
     if (!already)
         desc += "None";
 
-    desc += "\nLevel:      ";
-    char sval[3];
-    itoa(spell_difficulty(type), sval, 10);
-    desc += sval;
+    desc += make_stringf("\nLevel:      %d", spell_difficulty(type));
 
     bool undead = false;
     if (you_cannot_memorise(type, undead))
@@ -1309,7 +1285,8 @@ static bool _append_books(std::string &desc, item_def &item, std::string key)
 }
 
 // Does not wait for keypress; the caller must do that if necessary.
-static void _do_description(std::string key, std::string type,
+// Returns true if we need to wait for keypress.
+static bool _do_description(std::string key, std::string type,
                             std::string footer = "")
 {
     describe_info inf;
@@ -1354,8 +1331,8 @@ static void _do_description(std::string key, std::string type,
             && !mons_class_is_zombified(mon_num) && !mons_is_mimic(mon_num))
         {
             monster_info mi(mon_num);
-            describe_monsters(mi, true);
-            return;
+            describe_monsters(mi, true, footer);
+            return (false);
         }
         else
         {
@@ -1421,12 +1398,13 @@ static void _do_description(std::string key, std::string type,
     inf.body << desc;
 
     key = uppercase_first(key);
-    linebreak_string2(footer, width - 1);
+    linebreak_string(footer, width - 1);
 
     inf.footer = footer;
     inf.title  = key;
 
     print_description(inf);
+    return (true);
 }
 
 // Reads all questions from database/FAQ.txt, outputs them in the form of
@@ -1454,7 +1432,7 @@ static bool _handle_FAQ()
 
         std::string question = getFAQ_Question(question_keys[i]);
         // Wraparound if the question is longer than fits into a line.
-        linebreak_string2(question, width - 4);
+        linebreak_string(question, width - 4);
         std::vector<formatted_string> fss;
         formatted_string::parse_string_to_multiple(question, fss);
 
@@ -1494,9 +1472,9 @@ static bool _handle_FAQ()
                          "bug report!";
             }
             answer = "Q: " + getFAQ_Question(key) + "\n" + answer;
-            linebreak_string2(answer, width - 1);
+            linebreak_string(answer, width - 1);
             print_description(answer);
-            wait_for_keypress();
+            getchm();
         }
     }
 
@@ -1696,8 +1674,8 @@ static void _find_description(bool *again, std::string *error_inout)
     }
     else if (key_list.size() == 1)
     {
-        _do_description(key_list[0], type);
-        wait_for_keypress();
+        if (_do_description(key_list[0], type))
+            getchm();
         return;
     }
 
@@ -1705,9 +1683,12 @@ static void _find_description(bool *again, std::string *error_inout)
     {
         std::string footer = "This entry is an exact match for '";
         footer += regex;
-        footer += "'.  To see non-exact matches, press space.";
+        footer += "'. To see non-exact matches, press space.";
 
         _do_description(regex, type, footer);
+        // FIXME: This results in an *additional* getchm(). We might have
+        // to check for this eventuality way over in describe.cc and
+        // _print_toggle_message. (jpeg)
         if (getchm() != ' ')
             return;
     }
@@ -1748,11 +1729,24 @@ static void _find_description(bool *again, std::string *error_inout)
             if (mons_is_mimic(m_type))
                 continue;
 
+            // No proper monster, and causes crashes in Tiles.
+            if (mons_is_tentacle_segment(m_type))
+                continue;
+
             // NOTE: Initializing the demon_ghost part of (very) ugly
             // things and player ghosts is taken care of in define_monster().
             fake_mon.type = m_type;
             fake_mon.props["fake"] = true;
-            define_monster(&fake_mon);
+            // HACK: Set an arbitrary humanoid monster as base type.
+            if (mons_class_is_zombified(m_type))
+            {
+                monster_type base_type = MONS_GOBLIN;
+                if (zombie_class_size(m_type) == Z_BIG)
+                    base_type = MONS_HILL_GIANT;
+                define_zombie(&fake_mon, base_type, m_type);
+            }
+            else
+                define_monster(&fake_mon);
 
             // FIXME: This doesn't generate proper draconian monsters.
             monster_list.push_back(fake_mon);
@@ -1833,8 +1827,8 @@ static void _find_description(bool *again, std::string *error_inout)
             else
                 key = *((std::string*) sel[0]->data);
 
-            _do_description(key, type);
-            wait_for_keypress();
+            if (_do_description(key, type))
+                getchm();
         }
     }
 }
@@ -1854,6 +1848,8 @@ static void _keyhelp_query_descriptions()
     while (again);
 
     viewwindow();
+    if (!error.empty())
+        mpr(error);
 }
 
 static int _keyhelp_keyfilter(int ch)
@@ -1995,7 +1991,7 @@ static int _show_keyhelp_menu(const std::vector<formatted_string> &lines,
             "<w>A</w>.      Overview\n"
             "<w>B</w>.      Starting Screen\n"
             "<w>C</w>.      Attributes and Stats\n"
-            "<w>D</w>.      Dungeon Exploration\n"
+            "<w>D</w>.      Exploring the Dungeon\n"
             "<w>E</w>.      Experience and Skills\n"
             "<w>F</w>.      Monsters\n"
             "<w>G</w>.      Items\n"
@@ -2004,12 +2000,12 @@ static int _show_keyhelp_menu(const std::vector<formatted_string> &lines,
             "<w>J</w>.      Religion\n"
             "<w>K</w>.      Mutations\n"
             "<w>L</w>.      Licence, Contact, History\n"
-            "<w>M</w>.      Keymaps, Macros, Options\n"
+            "<w>M</w>.      Macros, Options, Performance\n"
             "<w>N</w>.      Philosophy\n"
-            "<w>1</w>.      List of Species\n"
-            "<w>2</w>.      List of Backgrounds\n"
+            "<w>1</w>.      List of Character Species\n"
+            "<w>2</w>.      List of Character Backgrounds\n"
             "<w>3</w>.      List of Skills\n"
-            "<w>4</w>.      Keys and Commands\n"
+            "<w>4</w>.      List of Keys and Commands\n"
             "<w>5</w>.      List of Enchantments\n"
             "<w>6</w>.      Inscriptions\n",
             true, true, _cmdhelp_textfilter);
@@ -2035,25 +2031,7 @@ static int _show_keyhelp_menu(const std::vector<formatted_string> &lines,
         {
             // Attempt to open this file, skip it if unsuccessful.
             std::string fname = canonicalise_file_separator(help_files[i].name);
-            FILE* fp = fopen(datafile_path(fname, false).c_str(), "r");
-
-#if defined(TARGET_OS_DOS)
-            if (!fp)
-            {
- #ifdef DEBUG_FILES
-                mprf(MSGCH_DIAGNOSTICS, "File '%s' could not be opened.",
-                     help_files[i].name);
- #endif
-                if (get_dos_compatible_file_name(&fname))
-                {
- #ifdef DEBUG_FILES
-                    mprf(MSGCH_DIAGNOSTICS,
-                         "Attempting to open file '%s'", fname.c_str());
- #endif
-                    fp = fopen(datafile_path(fname, false).c_str(), "r");
-                }
-            }
-#endif
+            FILE* fp = fopen_u(datafile_path(fname, false).c_str(), "r");
 
             if (!fp)
                 continue;
@@ -2090,7 +2068,7 @@ void show_specific_help(const std::string &help)
             formatted_string::parse_string(
                 lines[i], true, _cmdhelp_textfilter));
     }
-    _show_keyhelp_menu(formatted_lines, false, true);
+    _show_keyhelp_menu(formatted_lines, false, Options.easy_exit_menu);
 }
 
 void show_levelmap_help()
@@ -2111,7 +2089,7 @@ void show_targeting_help()
 
     cols.add_formatted(0, targeting_help_1, true, true);
     cols.add_formatted(1, targeting_help_2, true, true);
-    _show_keyhelp_menu(cols.formatted_lines(), false, true);
+    _show_keyhelp_menu(cols.formatted_lines(), false, Options.easy_exit_menu);
 }
 void show_interlevel_travel_branch_help()
 {
@@ -2142,7 +2120,7 @@ static void _add_command(column_composer &cols, const int column,
     if (strcmp(command_name.c_str(), "<") == 0)
         command_name += "<";
 
-    const int cmd_len = command_name.length();
+    const int cmd_len = strwidth(command_name);
     std::string line = "<w>" + command_name + "</w>";
     for (unsigned int i = cmd_len; i < space_to_colon; ++i)
         line += " ";
@@ -2477,7 +2455,7 @@ static void _add_formatted_keyhelp(column_composer &cols)
                     CMD_SEARCH_STASHES, CMD_INTERLEVEL_TRAVEL,
                     CMD_DISPLAY_SPELLS, CMD_DISPLAY_SKILLS, CMD_USE_ABILITY,
                     0);
-    linebreak_string2(text, 40);
+    linebreak_string(text, 40);
 
     cols.add_formatted(
             1, text,
@@ -2677,8 +2655,8 @@ void list_commands(int hotkey, bool do_redraw_screen,
     else
         _add_formatted_keyhelp(cols);
 
-    _show_keyhelp_menu(cols.formatted_lines(), true, false, hotkey,
-                       highlight_string);
+    _show_keyhelp_menu(cols.formatted_lines(), true, Options.easy_exit_menu,
+                       hotkey, highlight_string);
 
     if (do_redraw_screen)
     {
@@ -2736,13 +2714,16 @@ int list_wizard_commands(bool do_redraw_screen)
                        "<w>{</w>      : magic mapping\n"
                        "<w>}</w>      : detect all traps on level\n"
                        "<w>)</w>      : change Shoals' tide speed\n"
-                       "<w>Ctrl-E</w> : dump level builder information\n",
+                       "<w>Ctrl-E</w> : dump level builder information\n"
+                       "<w>Ctrl-R</w> : regenerate current level\n",
                        true, true);
 
     cols.add_formatted(1,
                        "<yellow>Other player related effects</yellow>\n"
                        "<w>c</w>      : card effect\n"
+#ifdef DEBUG_BONES
                        "<w>Ctrl-G</w> : save/load ghost (bones file)\n"
+#endif
                        "<w>h</w>/<w>H</w>    : heal yourself (super-Heal)\n"
                        "<w>Ctrl-H</w> : set hunger state\n"
                        "<w>X</w>      : make Xom do something now\n"
@@ -2784,7 +2765,8 @@ int list_wizard_commands(bool do_redraw_screen)
                        "<w>?</w>      : list wizard commands\n",
                        true, true);
 
-    int key = _show_keyhelp_menu(cols.formatted_lines(), false, true);
+    int key = _show_keyhelp_menu(cols.formatted_lines(), false,
+                                 Options.easy_exit_menu);
     if (do_redraw_screen)
         redraw_screen();
     return key;

@@ -1,7 +1,7 @@
-/*
- *  File:       tilepick.h
- *  Summary:    Look-up functions for dungeon and item tiles.
- */
+/**
+ * @file
+ * @brief Look-up functions for dungeon and item tiles.
+**/
 
 #ifndef TILEPICK_H
 #define TILEPICK_H
@@ -42,7 +42,7 @@ tileidx_t tileidx_gametype(const game_type gtype);
 tileidx_t tileidx_known_brand(const item_def &item);
 tileidx_t tileidx_corpse_brand(const item_def &item);
 
-tileidx_t get_clean_map_idx(tileidx_t tile_idx);
+tileidx_t get_clean_map_idx(tileidx_t tile_idx, bool mon_only = false);
 tileidx_t tileidx_unseen_flag(const coord_def &gc);
 
 

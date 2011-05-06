@@ -48,6 +48,7 @@ my %field_type = (
     NOSPELL  => "bool",
     NOTELEP  => "bool",
     POISON   => "bool",
+    RANDAPP  => "bool",
     RND_TELE => "bool",
     PONDEROUS => 'bool',
     SEEINV   => "bool",
@@ -231,7 +232,7 @@ sub finish_art
     my $flags = "";
     my $flag;
     foreach $flag ("SPECIAL", "HOLY", "EVIL", "CHAOTIC",
-                   "CORPSE_VIOLATING", "NOGEN")
+                   "CORPSE_VIOLATING", "NOGEN", "RANDAPP")
     {
         if ($artefact->{$flag})
         {
@@ -569,10 +570,7 @@ sub write_data
 
     (my $guard = $ART_DATA) =~ tr/a-zA-Z/_/c;
     print HEADER <<"ENDofTEXT";
-/*
- * File:       $ART_DATA
- * Summary:    Definitions for unrandom artefacts.
- */
+/* Definitions for unrandom artefacts. */
 
 /**********************************************************************
  * WARNING!

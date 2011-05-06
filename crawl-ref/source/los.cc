@@ -1,6 +1,6 @@
-/*
- *  File:        los.cc
- *  Summary:     Line-of-sight algorithm.
+/**
+ * @file
+ * @brief Line-of-sight algorithm.
  *
  *
  *
@@ -38,7 +38,7 @@
  * The code provides functions for filling LOS information
  * around a given center efficiently, and for querying rays
  * between two given cells.
- */
+**/
 
 #include "AppHdr.h"
 
@@ -175,11 +175,8 @@ struct los_ray : public ray_def
             old = c;
             if (!copy.advance())
             {
-//#ifdef DEBUG_DIAGNOSTICS
-//                mprf(MSGCH_DIAGNOSTICS,
-//                     "discarding corner ray (%f,%f) + t*(%f,%f)",
+//                dprf("discarding corner ray (%f,%f) + t*(%f,%f)",
 //                     r.start.x, r.start.y, r.dir.x, r.dir.y);
-//#endif
                 cs.clear();
                 break;
             }
@@ -449,10 +446,8 @@ static void _create_blockrays()
     dead_rays  = new bit_array(n_min_rays);
     smoke_rays = new bit_array(n_min_rays);
 
-#ifdef DEBUG_DIAGNOSTICS
-    mprf(MSGCH_DIAGNOSTICS, "Cellrays: %d Fullrays: %u Minimal cellrays: %u",
+    dprf("Cellrays: %d Fullrays: %u Minimal cellrays: %u",
           n_cellrays, fullrays.size(), n_min_rays);
-#endif
 }
 
 static int _gcd(int x, int y)
@@ -583,11 +578,8 @@ static bool _find_ray_se(const coord_def& target, ray_def& ray,
     cellray c = min[0]; // XXX: const cellray &c ?
     unsigned int index = 0;
 
-#ifdef DEBUG_DIAGNOSTICS
     if (cycle)
-        mprf(MSGCH_DIAGNOSTICS, "cycling from %d (total %d)",
-             ray.cycle_idx, min.size());
-#endif
+        dprf("cycling from %d (total %d)", ray.cycle_idx, min.size());
 
     unsigned int start = cycle ? ray.cycle_idx + 1 : 0;
     ASSERT(start <= min.size());
@@ -914,10 +906,14 @@ static void _handle_los_change()
     invalidate_agrid();
 }
 
+static bool _mons_block_sight(const monster* mons)
+{
+    return (mons->type == MONS_BUSH || mons->type == MONS_DOOR_MIMIC);
+}
+
 void los_actor_moved(const actor* act, const coord_def& oldpos)
 {
-    if (act->atype() == ACT_MONSTER
-        && act->as_monster()->type == MONS_BUSH)
+    if (act->atype() == ACT_MONSTER && _mons_block_sight(act->as_monster()))
     {
         invalidate_los_around(oldpos);
         invalidate_los_around(act->pos());
@@ -927,7 +923,7 @@ void los_actor_moved(const actor* act, const coord_def& oldpos)
 
 void los_monster_died(const monster* mon)
 {
-    if (mon->type == MONS_BUSH)
+    if (_mons_block_sight(mon))
     {
         invalidate_los_around(mon->pos());
         _handle_los_change();

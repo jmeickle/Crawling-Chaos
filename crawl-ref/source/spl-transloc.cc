@@ -1,7 +1,7 @@
-/*
- *  File:     spl-transloc.cc
- *  Summary:  Translocation spells.
- */
+/**
+ * @file
+ * @brief Translocation spells.
+**/
 
 #include "AppHdr.h"
 
@@ -148,6 +148,11 @@ int blink(int pow, bool high_level_controlled_blink, bool wizard_blink,
             {
                 mesclr();
                 mpr("You can't blink into the sea!");
+            }
+            else if (grd(beam.target) == DNGN_LAVA_SEA)
+            {
+                mesclr();
+                mpr("You can't blink into the sea of lava!");
             }
             else if (!check_moveto(beam.target, "blink"))
             {
@@ -419,7 +424,6 @@ static bool _teleport_player(bool allow_control, bool new_abyss_area,
             pos = lpos.pos;
             redraw_screen();
 
-#if defined(USE_UNIX_SIGNALS) && defined(SIGHUP_SAVE) && defined(USE_CURSES)
             // If we've received a HUP signal then the user can't choose a
             // location, so cancel the teleport.
             if (crawl_state.seen_hups)
@@ -430,7 +434,6 @@ static bool _teleport_player(bool allow_control, bool new_abyss_area,
                     contaminate_player(1, true);
                 return (false);
             }
-#endif
 
             dprf("Target square (%d,%d)", pos.x, pos.y);
 
@@ -801,12 +804,6 @@ bool cast_apportation(int pow, bolt& beam)
         }
     }
 
-    if (max_units < item.quantity)
-    {
-        item.quantity = max_units;
-        mpr("You feel that some mass got lost in the cosmic void.");
-    }
-
     // If we apport a net, free the monster under it.
     if (item.base_type == OBJ_MISSILES
         && item.sub_type == MI_THROWING_NET
@@ -856,7 +853,20 @@ bool cast_apportation(int pow, bolt& beam)
     }
 
     // Actually move the item.
-    move_top_item(where, you.pos());
+    if (max_units < item.quantity)
+    {
+        if (!copy_item_to_grid(item, you.pos(), max_units))
+        {
+            // always >1 item
+            mpr("They abruptly stop in place!");
+            // Too late to abort.
+            return (true);
+        }
+        item.quantity -= max_units;
+    }
+    else
+        move_top_item(where, you.pos());
+
     // Mark the item as found now.
     origin_set(you.pos());
 
@@ -866,7 +876,7 @@ bool cast_apportation(int pow, bolt& beam)
 static int _quadrant_blink(coord_def where, int pow, int, actor *)
 {
     if (where == you.pos())
-        return (0);
+        return (1);
 
     if (you.level_type == LEVEL_ABYSS)
     {

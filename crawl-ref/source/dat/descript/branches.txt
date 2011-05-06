@@ -19,7 +19,7 @@ Elven Halls
 
 Whereas most elven folk would never move into a dark subterranean complex like this, the deep elves did. Their halls are filled with riches, but any passers-by should be aware of the legendary magical prowess of this species.
 
-The Elven Halls are seven levels deep.
+The Elven Halls are five levels deep.
 %%%%
 Lair
 
@@ -128,4 +128,18 @@ Zot
 A region of the dungeon complex, safely locked away and referred to usually by madness, frenzy, lunacy. Only the most demented adventurers would dare to break the seal and press deeper - in the vain hope for a fabled artefact no one has ever laid eyes on before.
 
 The Realm of Zot is five levels deep and can only be entered when carrying at least three runes.
+%%%%
+Forest
+
+Tha trees be attackin'!
+%%%%
+Spider Nest
+
+And you thought you'll just wield a shoe and be done? If you don't have arachnophobia yet, you will soon.
+%%%%
+Dwarven Hall
+
+These halls of finely worked stone are the dwelling of the Deep Dwarves. Their fine metalworking skills allowed them to forge enough weapons against the likes of you.
+
+It is but a single level.
 %%%%

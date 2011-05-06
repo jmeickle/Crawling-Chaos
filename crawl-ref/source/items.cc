@@ -1,8 +1,7 @@
-/*
- *  File:       items.cc
- *  Summary:    Misc (mostly) inventory related functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc (mostly) inventory related functions.
+**/
 
 #include "AppHdr.h"
 
@@ -34,9 +33,9 @@
 #include "food.h"
 #include "godpassive.h"
 #include "godprayer.h"
+#include "hints.h"
 #include "hiscores.h"
 #include "invent.h"
-#include "it_use2.h"
 #include "item_use.h"
 #include "itemname.h"
 #include "itemprop.h"
@@ -52,6 +51,7 @@
 #include "orb.h"
 #include "place.h"
 #include "player.h"
+#include "player-equip.h"
 #include "quiver.h"
 #include "religion.h"
 #include "shopping.h"
@@ -681,6 +681,18 @@ int item_name_specialness(const item_def& item)
     return 0;
 }
 
+static void _maybe_give_corpse_hint(const item_def item)
+{
+    if (!crawl_state.game_is_hints_tutorial())
+        return;
+
+    if (item.base_type == OBJ_CORPSES && item.sub_type == CORPSE_BODY
+        && you.has_spell(SPELL_ANIMATE_SKELETON))
+    {
+        learned_something_new(HINT_ANIMATE_CORPSE_SKELETON);
+    }
+}
+
 void item_check(bool verbose)
 {
     describe_floor();
@@ -704,6 +716,7 @@ void item_check(bool verbose)
         item_def it(*items[0]);
         std::string name = get_menu_colour_prefix_tags(it, DESC_NOCAP_A);
         strm << "You see here " << name << '.' << std::endl;
+        _maybe_give_corpse_hint(it);
         return;
     }
 
@@ -757,6 +770,7 @@ void item_check(bool verbose)
             item_def it(*items[i]);
             std::string name = get_menu_colour_prefix_tags(it, DESC_NOCAP_A);
             strm << name << std::endl;
+            _maybe_give_corpse_hint(it);
         }
     }
     else if (!done_init_line)
@@ -1215,12 +1229,18 @@ void pickup(bool partial_quantity)
         return;
     }
 
+
     int o = you.visible_igrd(you.pos());
     const int num_nonsquelched = _count_nonsquelched_items(o);
 
     if (o == NON_ITEM)
     {
         mpr("There are no items here.");
+    }
+    else if (you.form == TRAN_ICE_BEAST && grd(you.pos()) == DNGN_DEEP_WATER)
+    {
+        mpr("You can't reach the bottom while floating on water.");
+        return;
     }
     else if (mitm[o].link == NON_ITEM)      // just one item?
     {
@@ -1259,7 +1279,7 @@ void pickup(bool partial_quantity)
                                                  DESC_NOCAP_A).c_str());
 
                 mouse_control mc(MOUSE_MODE_MORE);
-                keyin = getch();
+                keyin = getchk();
             }
 
             if (keyin == '*' || keyin == '?' || keyin == ',' || keyin == 'g'
@@ -1378,18 +1398,6 @@ bool items_similar(const item_def &item1, const item_def &item2, bool ignore_ide
 
     if ((item1.flags & NON_IDENT_FLAGS) != (item2.flags & NON_IDENT_FLAGS))
         return (false);
-
-    if (item1.base_type == OBJ_POTIONS)
-    {
-        // Thanks to mummy cursing, we can have potions of decay
-        // that don't look alike... so we don't stack potions
-        // if either isn't identified and they look different.  -- bwr
-        if (item1.plus != item2.plus
-            && (!item_type_known(item1) || !item_type_known(item2)))
-        {
-            return (false);
-        }
-    }
 
     // The inscriptions can differ if one of them is blank, but if they
     // are differing non-blank inscriptions then don't stack.
@@ -1516,6 +1524,9 @@ static void _got_item(item_def& item, int quant)
 {
     seen_item(item);
     shopping_list.cull_identical_items(item);
+
+    if (item.props.exists("needs_autopickup"))
+        item.props.erase("needs_autopickup");
 
     if (!item_is_rune(item))
         return;
@@ -1726,6 +1737,7 @@ int move_item_to_player(int obj, int quant_got, bool quiet,
         item.slot = index_to_letter(item.link);
 
     ash_id_item(item);
+
     note_inscribe_item(item);
 
     item.quantity = quant_got;
@@ -1819,6 +1831,9 @@ bool move_item_to_grid(int *const obj, const coord_def& p, bool silent)
 
         return (true);
     }
+
+    if (you.religion == GOD_ASHENZARI && you.see_cell(p))
+        ash_id_item(item);
 
     // If it's a stackable type...
     if (is_stackable_item(item))
@@ -2080,7 +2095,7 @@ bool drop_item(int item_dropped, int quant_drop)
 
     if (item_dropped == you.equip[EQ_WEAPON]
         && you.inv[item_dropped].base_type == OBJ_WEAPONS
-        && you.inv[item_dropped] .cursed())
+        && you.inv[item_dropped].cursed())
     {
         mpr("That object is stuck to you!");
         return (false);
@@ -2473,6 +2488,9 @@ bool item_needs_autopickup(const item_def &item)
 
     if ((item.flags & ISFLAG_DROPPED) && !Options.pickup_dropped)
         return (false);
+
+    if (item.props.exists("needs_autopickup"))
+        return (true);
 
     std::string itemname;
     return _is_option_autopickup(item, itemname);
@@ -3142,8 +3160,7 @@ bool item_def::is_mundane() const
     case OBJ_WEAPONS:
         if (sub_type == WPN_CLUB
             || sub_type == WPN_GIANT_CLUB
-            || sub_type == WPN_GIANT_SPIKED_CLUB
-            || sub_type == WPN_KNIFE)
+            || sub_type == WPN_GIANT_SPIKED_CLUB)
         {
             return (true);
         }
@@ -3396,7 +3413,7 @@ static void _rune_or_deck_from_specs(const char* specs, item_def &item)
 {
     if (strstr(specs, "rune"))
         _rune_from_specs(specs, item);
-    else if (strstr(specs, "deck"))
+    else if (strstr(specs, "deck") || strstr(specs, "card"))
         _deck_from_specs(specs, item);
 }
 
@@ -3839,7 +3856,7 @@ item_info get_item_info(const item_def& item)
             if (item.sub_type >= MISC_DECK_OF_ESCAPE && item.sub_type <= MISC_DECK_OF_DEFENCE)
                 ii.sub_type = MISC_DECK_OF_ESCAPE;
             else if (item.sub_type >= MISC_CRYSTAL_BALL_OF_ENERGY && item.sub_type <= MISC_CRYSTAL_BALL_OF_SEEING)
-                ii.sub_type = MISC_CRYSTAL_BALL_OF_FIXATION;
+                ii.sub_type = MISC_CRYSTAL_BALL_OF_ENERGY;
             else if (item.sub_type >= MISC_BOX_OF_BEASTS && item.sub_type <= MISC_EMPTY_EBONY_CASKET)
                 ii.sub_type = MISC_BOX_OF_BEASTS;
             else

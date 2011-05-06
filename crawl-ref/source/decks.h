@@ -1,7 +1,7 @@
-/*
- *  File:       decks.h
- *  Summary:    Functions with decks of cards.
- */
+/**
+ * @file
+ * @brief Functions with decks of cards.
+**/
 
 
 #ifndef DECKS_H
@@ -114,6 +114,7 @@ enum card_type
     CARD_FAMINE,
     CARD_CURSE,                 // Curse your items
     CARD_SWINE,                 // *oink*
+    CARD_ALCHEMIST,
 
     NUM_CARDS
 };

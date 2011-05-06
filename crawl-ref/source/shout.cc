@@ -1,12 +1,13 @@
-/*
- * File:      shout.cc
- * Summary:   Stealth, noise, shouting.
- */
+/**
+ * @file
+ * @brief Stealth, noise, shouting.
+**/
 
 #include "AppHdr.h"
 
 #include "shout.h"
 
+#include "artefact.h"
 #include "branch.h"
 #include "cluautil.h"
 #include "coord.h"
@@ -29,6 +30,7 @@
 #include "noise.h"
 #include "player.h"
 #include "random.h"
+#include "religion.h"
 #include "skills.h"
 #include "state.h"
 #include "stuff.h"
@@ -293,9 +295,6 @@ void handle_monster_shouts(monster* mons, bool force)
 
         if (channel != MSGCH_TALK_VISUAL || you.can_see(mons))
         {
-            msg = do_mon_str_replacements(msg, mons, s_type);
-            msg::streams(channel) << msg << std::endl;
-
             // Otherwise it can move away with no feedback.
             if (you.can_see(mons))
             {
@@ -303,6 +302,9 @@ void handle_monster_shouts(monster* mons, bool force)
                     handle_seen_interrupt(mons);
                 seen_monster(mons);
             }
+
+            msg = do_mon_str_replacements(msg, mons, s_type);
+            msg::streams(channel) << msg << std::endl;
         }
     }
 
@@ -311,11 +313,6 @@ void handle_monster_shouts(monster* mons, bool force)
 
     if (crawl_state.game_is_hints() && (heard || you.can_see(mons)))
         learned_something_new(HINT_MONSTER_SHOUT, mons->pos());
-}
-
-void force_monster_shout(monster* mons)
-{
-    handle_monster_shouts(mons, true);
 }
 
 bool check_awaken(monster* mons)
@@ -372,8 +369,9 @@ bool check_awaken(monster* mons)
 
     // If you've been tagged with Corona or are Glowing, the glow
     // makes you extremely unstealthy.
+    // The darker it is, the bigger the penalty.
     if (you.backlit() && you.visible_to(mons))
-        mons_perc += 50;
+        mons_perc += 50 * LOS_RADIUS / you.current_vision;
 
     if (mons_perc < 0)
         mons_perc = 0;
@@ -391,6 +389,101 @@ bool check_awaken(monster* mons)
     }
 
     return (false);
+}
+
+// TODO: Let artefacts besides weapons generate noise.
+void noisy_equipment()
+{
+    if (silenced(you.pos()) || !one_chance_in(20))
+        return;
+
+    std::string msg;
+
+    const item_def* weapon = you.weapon();
+
+    if (weapon && is_unrandom_artefact(*weapon))
+    {
+        std::string name = weapon->name(DESC_PLAIN, false, true, false, false,
+                                        ISFLAG_IDENT_MASK);
+        msg = getSpeakString(name.c_str());
+        if (!msg.empty())
+        {
+            // "Your Singing Sword" sounds disrespectful
+            // (as if there could be more than one!)
+            msg = replace_all(msg, "@Your_weapon@", "@The_weapon@");
+            msg = replace_all(msg, "@your_weapon@", "@the_weapon@");
+        }
+    }
+
+    if (msg.empty())
+    {
+        msg = getSpeakString("noisy weapon");
+        if (!msg.empty())
+        {
+            msg = replace_all(msg, "@Your_weapon@", "Your @weapon@");
+            msg = replace_all(msg, "@your_weapon@", "your @weapon@");
+        }
+    }
+
+    // Set appropriate channel (will usually be TALK).
+    msg_channel_type channel = MSGCH_TALK;
+
+    // Disallow anything with VISUAL in it.
+    if (!msg.empty() && msg.find("VISUAL") != std::string::npos)
+        msg.clear();
+
+    if (!msg.empty())
+    {
+        std::string param;
+        const std::string::size_type pos = msg.find(":");
+
+        if (pos != std::string::npos)
+            param = msg.substr(0, pos);
+
+        if (!param.empty())
+        {
+            bool match = true;
+
+            if (param == "DANGER")
+                channel = MSGCH_DANGER;
+            else if (param == "WARN")
+                channel = MSGCH_WARN;
+            else if (param == "SOUND")
+                channel = MSGCH_SOUND;
+            else if (param == "PLAIN")
+                channel = MSGCH_PLAIN;
+            else if (param == "SPELL" || param == "ENCHANT")
+                msg.clear(); // disallow these as well, channel stays TALK
+            else if (param != "TALK")
+                match = false;
+
+            if (match && !msg.empty())
+                msg = msg.substr(pos + 1);
+        }
+    }
+
+    if (msg.empty()) // give default noises
+    {
+        channel = MSGCH_SOUND;
+        msg = "You hear a strange noise.";
+    }
+
+    // replace weapon references
+    if (weapon)
+    {
+        msg = replace_all(msg, "@The_weapon@", "The @weapon@");
+        msg = replace_all(msg, "@the_weapon@", "the @weapon@");
+        msg = replace_all(msg, "@weapon@", weapon->name(DESC_BASENAME));
+    }
+    // replace references to player name and god
+    msg = replace_all(msg, "@player_name@", you.your_name);
+    msg = replace_all(msg, "@player_god@",
+                      you.religion == GOD_NO_GOD ? "atheism"
+                      : god_name(you.religion, coinflip()));
+
+    mpr(msg.c_str(), channel);
+
+    noisy(25, you.pos());
 }
 
 void apply_noises()
@@ -578,7 +671,7 @@ void blood_smell(int strength, const coord_def& where)
                 else
                 {
                     mi->add_ench(mon_enchant(ENCH_BATTLE_FRENZY, 1,
-                                             KC_OTHER, dur));
+                                             0, dur));
                     simple_monster_message(*mi, " is consumed with "
                                                 "blood-lust!");
                 }
@@ -1044,8 +1137,8 @@ static void _actor_apply_noise(actor *act,
         act->check_awaken(loudness);
         if (!(noise.noise_flags & NF_MERMAID))
         {
-            you.beholders_check_noise(loudness);
-            you.fearmongers_check_noise(loudness);
+            you.beholders_check_noise(loudness, player_equip_unrand(UNRAND_DEMON_AXE));
+            you.fearmongers_check_noise(loudness, player_equip_unrand(UNRAND_DEMON_AXE));
         }
     }
     else

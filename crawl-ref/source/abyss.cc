@@ -1,8 +1,7 @@
-/*
- *  File:       abyss.cc
- *  Summary:    Misc abyss specific functions.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Misc abyss specific functions.
+**/
 
 #include "AppHdr.h"
 
@@ -11,6 +10,7 @@
 #include <cstdlib>
 #include <algorithm>
 
+#include "abyss.h"
 #include "areas.h"
 #include "artefact.h"
 #include "cloud.h"
@@ -51,6 +51,9 @@
 #include "travel.h"
 #include "view.h"
 #include "xom.h"
+#ifdef WIZARD
+ #include "wiz-dgn.h"
+#endif
 
 const int ABYSSAL_RUNE_MAX_ROLL = 200;
 
@@ -77,11 +80,9 @@ static bool _place_feature_near(const coord_def &centre,
 
         if (grd(cp) == candidate)
         {
-#ifdef DEBUG_DIAGNOSTICS
-            mprf(MSGCH_DIAGNOSTICS, "Placing %s at (%d,%d)",
+            dprf("Placing %s at (%d,%d)",
                  dungeon_feature_name(replacement),
                  cp.x, cp.y);
-#endif
             grd(cp) = replacement;
             return (true);
         }
@@ -111,10 +112,7 @@ void generate_abyss()
     env.level_build_method += " abyss";
     env.level_layout_types.insert("abyss");
 
-#ifdef DEBUG_ABYSS
-    mprf(MSGCH_DIAGNOSTICS,
-         "generate_abyss(); turn_on_level: %d", env.turns_on_level);
-#endif
+    dprf("generate_abyss(); turn_on_level: %d", env.turns_on_level);
 
     for (rectangle_iterator ri(MAPGEN_BORDER); ri; ++ri)
         grd(*ri) = _abyss_proto_feature();
@@ -179,7 +177,7 @@ static int _abyssal_rune_roll()
     const int odds =
         std::min(1 + std::max((env.turns_on_level - cutoff) / scale, 0), 34);
 #ifdef DEBUG_ABYSS
-    mprf(MSGCH_DIAGNOSTICS, "Abyssal rune odds: %d in %d (%.2f%%)",
+    dprf("Abyssal rune odds: %d in %d (%.2f%%)",
          odds, ABYSSAL_RUNE_MAX_ROLL, odds * 100.0 / ABYSSAL_RUNE_MAX_ROLL);
 #endif
     return (odds);
@@ -566,8 +564,7 @@ static void _generate_area(const map_mask &abyss_genlevel_mask,
         find_floor_item(OBJ_MISCELLANY, MISC_RUNE_OF_ZOT);
 
 #ifdef DEBUG_ABYSS
-    mprf(MSGCH_DIAGNOSTICS,
-         "_generate_area(). turns_on_level: %d, rune_on_floor: %s",
+    dprf("_generate_area(). turns_on_level: %d, rune_on_floor: %s",
          env.turns_on_level, placed_abyssal_rune? "yes" : "no");
 #endif
 
@@ -654,7 +651,7 @@ public:
 
 static void _abyss_lose_monster(monster& mons)
 {
-    if (mons.needs_transit())
+    if (mons.needs_abyss_transit())
         mons.set_transit(level_id(LEVEL_ABYSS));
 
     mons.destroy_inventory();
@@ -700,7 +697,7 @@ static void _abyss_wipe_square_at(coord_def p)
     // Nuke items.
 #ifdef DEBUG_ABYSS
     if (igrd(p) != NON_ITEM)
-        mprf(MSGCH_DIAGNOSTICS, "Nuke item stack at (%d, %d)", p.x, p.y);
+        dprf("Nuke item stack at (%d, %d)", p.x, p.y);
 #endif
     lose_item_stack(p);
 
@@ -711,12 +708,13 @@ static void _abyss_wipe_square_at(coord_def p)
     // Delete cloud.
     delete_cloud_at(p);
 
-    env.pgrid(p)          = 0;
-    env.grid_colours(p)   = 0;
+    env.pgrid(p)        = 0;
+    env.grid_colours(p) = 0;
 #ifdef USE_TILE
-    env.tile_bk_fg(p) = 0;
-    env.tile_bk_bg(p) = 0;
-    // FIXME: need to clear tile_flavour as well
+    env.tile_bk_fg(p)   = 0;
+    env.tile_bk_bg(p)   = 0;
+    tile_clear_flavour(p);
+    tile_init_flavour(p);
 #endif
 
     env.level_map_mask(p) = 0;
@@ -756,7 +754,9 @@ static void _abyss_move_masked_vaults_by_delta(const map_mask &mask,
          i != vault_indexes.end(); ++i)
     {
         vault_placement &vp(*env.level_vaults[*i]);
+#ifdef DEBUG_DIAGNOSTICS
         const coord_def oldp = vp.pos;
+#endif
         vp.pos += delta;
         dprf("Moved vault (%s) from (%d,%d)-(%d,%d)",
              vp.map.name.c_str(), oldp.x, oldp.y, vp.pos.x, vp.pos.y);
@@ -858,7 +858,9 @@ static void _abyss_identify_area_to_shift(coord_def source, int radius,
 
     for (std::set<int>::const_iterator i = affected_vault_indexes.begin();
          i != affected_vault_indexes.end(); ++i)
+    {
         _abyss_expand_mask_to_cover_vault(mask, *i);
+    }
 }
 
 static void _abyss_invert_mask(map_mask *mask)
@@ -899,8 +901,16 @@ static void _abyss_shift_level_contents_around_player(
     const coord_def source_centre = you.pos();
 
     ASSERT(radius >= LOS_RADIUS);
+#ifdef WIZARD
+    // This should only really happen due to wizmode blink/movement.
+    if (!map_bounds_with_margin(source_centre, radius))
+        mprf("source_centre(%d, %d) outside map radius %d", source_centre.x, source_centre.y, radius);
+    if (!map_bounds_with_margin(target_centre, radius))
+        mprf("target_centre(%d, %d) outside map radius %d", target_centre.x, target_centre.y, radius);
+#else
     ASSERT(map_bounds_with_margin(source_centre, radius));
     ASSERT(map_bounds_with_margin(target_centre, radius));
+#endif
 
     _abyss_identify_area_to_shift(source_centre, radius,
                                   &abyss_destruction_mask);
@@ -942,10 +952,42 @@ static void _abyss_generate_monsters(int nmonsters)
         mons_place(mons);
 }
 
+void maybe_shift_abyss_around_player()
+{
+    ASSERT(you.level_type == LEVEL_ABYSS);
+    if (map_bounds_with_margin(you.pos(),
+                               MAPGEN_BORDER + ABYSS_AREA_SHIFT_RADIUS + 1))
+    {
+        return;
+    }
+
+    dprf("Shifting abyss at (%d,%d)", you.pos().x, you.pos().y);
+
+    abyss_area_shift();
+    if (you.pet_target != MHITYOU)
+        you.pet_target = MHITNOT;
+
+#ifdef DEBUG_DIAGNOSTICS
+    int j = 0;
+    for (int i = 0; i < MAX_ITEMS; ++i)
+         if (mitm[i].defined())
+             ++j;
+
+    dprf("Number of items present: %d", j);
+
+    j = 0;
+    for (monster_iterator mi; mi; ++mi)
+        ++j;
+
+    dprf("Number of monsters present: %d", j);
+    dprf("Number of clouds present: %d", env.cloud_no);
+#endif
+}
+
 void abyss_area_shift(void)
 {
 #ifdef DEBUG_ABYSS
-    mprf(MSGCH_DIAGNOSTICS, "area_shift() - player at pos (%d, %d)",
+    dprf("area_shift() - player at pos (%d, %d)",
          you.pos().x, you.pos().y);
 #endif
 
@@ -969,12 +1011,18 @@ void abyss_area_shift(void)
     // And allow monsters in transit another chance to return.
     place_transiting_monsters();
     place_transiting_items();
+
+#ifdef WIZARD
+    // Update map, if already mapped.
+    if (!testbits(env.level_flags, LFLAG_NOT_MAPPABLE))
+        wizard_map_level();
+#endif
 }
 
 void save_abyss_uniques()
 {
     for (monster_iterator mi; mi; ++mi)
-        if (mi->needs_transit())
+        if (mi->needs_abyss_transit())
             mi->set_transit(level_id(LEVEL_ABYSS));
 }
 
@@ -1024,8 +1072,7 @@ static bool _abyss_teleport_within_level()
             && env.cgrid(newspot) == EMPTY_CLOUD)
         {
 #ifdef DEBUG_ABYSS
-            mprf(MSGCH_DIAGNOSTICS,
-                 "Abyss same-area teleport to (%d,%d).",
+            dprf("Abyss same-area teleport to (%d,%d).",
                  newspot.x, newspot.y);
 #endif
             you.moveto(newspot);
@@ -1043,7 +1090,7 @@ void abyss_teleport(bool new_area)
         return;
 
 #ifdef DEBUG_ABYSS
-    mpr("New area Abyss teleport.", MSGCH_DIAGNOSTICS);
+    dprf("New area Abyss teleport.");
 #endif
 
     // Teleport to a new area of the abyss.
@@ -1105,7 +1152,7 @@ static void _initialise_level_corrupt_seeds(int power)
 static bool _spawn_corrupted_servant_near(const coord_def &pos)
 {
     const beh_type beh =
-        one_chance_in(2 + you.skills[SK_INVOCATIONS] / 4) ? BEH_HOSTILE
+        one_chance_in(2 + you.skill(SK_INVOCATIONS) / 4) ? BEH_HOSTILE
         : BEH_NEUTRAL;
 
     // [ds] No longer summon hostiles -- don't create the monster if

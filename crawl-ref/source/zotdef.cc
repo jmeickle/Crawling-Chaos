@@ -1,8 +1,7 @@
-/*
- *  File:       zotdef.cc
- *  Summary:    Zot Def specific functions
- *  Written by: Mark Mackey
- */
+/**
+ * @file
+ * @brief Zot Def specific functions
+**/
 
 #include "AppHdr.h"
 
@@ -13,8 +12,8 @@
 #include "externs.h"
 #include "files.h"
 #include "ghost.h"
-#include "items.h" // // for find_floor_item
-#include "itemname.h" // // for make_name
+#include "items.h" // for find_floor_item
+#include "itemname.h" // for make_name
 #include "makeitem.h"
 #include "message.h"
 #include "mgen_data.h"
@@ -387,7 +386,7 @@ static void _frog_wave(int power)
 static void _bear_wave(int power)
 {
     wave_name("BEAR WAVE");
-    monster_type bears[] = {MONS_BEAR, MONS_GRIZZLY_BEAR, MONS_POLAR_BEAR,
+    monster_type bears[] = {MONS_GRIZZLY_BEAR, MONS_POLAR_BEAR,
                  MONS_BLACK_BEAR, END};
     monster_type boss[] = {MONS_GRIZZLY_BEAR, MONS_POLAR_BEAR, END};
     _zotdef_fill_from_list(bears, 0, power); // full
@@ -632,14 +631,13 @@ static monster_type _get_zotdef_monster(level_id &place, int power)
         if (diff < std::min(-3,-power))
             continue;
 
-        const char *bn = "RANDOM";
-        if (place.branch != NUM_BRANCHES)
-            bn = branches[place.branch].shortname;
-
         if (random2avg(100, 2) <= chance)
         {
             dprf("ZOTDEF %d %s chose monster %s rarity %d power %d strength %d "
-                 "level %d chance %d", i, bn,mentry->name, rarity, power,
+                 "level %d chance %d", i,
+                 (place.branch == NUM_BRANCHES) ? "RANDOM"
+                     : branches[place.branch].shortname,
+                 mentry->name, rarity, power,
                  strength, lev_mons, chance);
             mon_type_ret = mon_type;
             break;

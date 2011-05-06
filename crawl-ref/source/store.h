@@ -1,9 +1,8 @@
-/*
- *  File:       store.h
- *  Summary:    Saveable hash-table and vector capable of storing
- *              multiple types of data.
- *  Written by: Matthew Cline
- */
+/**
+ * @file
+ * @brief Saveable hash-table and vector capable of storing
+ *             multiple types of data.
+**/
 
 #ifndef STORE_H
 #define STORE_H
@@ -338,7 +337,7 @@ protected:
     store_val_type type;
     store_flags    default_flags;
     vec_size       max_size;
-    vector_type    vector;
+    vector_type    vec;
 
     friend class CrawlStoreValue;
 

@@ -1,8 +1,7 @@
-/*
- *  File:       crash-u.cc
- *  Summary:    UNIX specific crash handling functions.
- *  Written by: Matthew Cline
- */
+/**
+ * @file
+ * @brief UNIX specific crash handling functions.
+**/
 
 #include "AppHdr.h"
 
@@ -115,7 +114,8 @@ static void _crash_signal_handler(int sig_num)
     // In case the crash dumper is unable to open a file and has to dump
     // to stderr.
 #ifndef USE_TILE
-    unixcurses_shutdown();
+    if (crawl_state.io_inited)
+        unixcurses_shutdown();
 #endif
 
     do_crash_dump();
@@ -140,10 +140,8 @@ void init_crash_handler()
     {
         if (i == SIGALRM)
             continue;
-#ifdef SIGHUP_SAVE
         if (i == SIGHUP)
             continue;
-#endif
 #ifdef SIGQUIT
         if (i == SIGQUIT)
             continue;
@@ -178,6 +176,14 @@ void init_crash_handler()
 #endif
 #ifdef SIGTTIN
         if (i == SIGTTIN)
+            continue;
+#endif
+#ifdef SIGKILL
+        if (i == SIGKILL)
+            continue;
+#endif
+#ifdef SIGSTOP
+        if (i == SIGSTOP)
             continue;
 #endif
         if (i == SIGWINCH)

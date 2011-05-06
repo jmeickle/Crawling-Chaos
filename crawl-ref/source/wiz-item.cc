@@ -1,8 +1,7 @@
-/*
- *  File:       wiz-item.cc
- *  Summary:    Item related wizard functions.
- *  Written by: Linley Henzell and Jesse Jones
- */
+/**
+ * @file
+ * @brief Item related wizard functions.
+**/
 
 #include "AppHdr.h"
 
@@ -523,6 +522,14 @@ void wizard_tweak_object(void)
         const bool hex = (keyin == 'e');
         int64_t new_val = strtoll(specs, &end, hex ? 16 : 0);
 
+        if (keyin == 'e' && new_val & ISFLAG_ARTEFACT_MASK
+            && (!you.inv[item].props.exists(KNOWN_PROPS_KEY)
+             || !you.inv[item].props.exists(ARTEFACT_PROPS_KEY)))
+        {
+            mpr("You can't set this flag on a non-artefact.");
+            continue;
+        }
+
         if (end == specs)
             return;
 
@@ -559,7 +566,7 @@ static bool _make_book_randart(item_def &book)
     do
     {
         mpr("Make book fixed [t]heme or fixed [l]evel? ", MSGCH_PROMPT);
-        type = tolower(getch());
+        type = tolower(getchk());
     }
     while (type != 't' && type != 'l');
 
@@ -911,7 +918,7 @@ static void _debug_acquirement_stats(FILE *ostat)
     {
         if (kbhit())
         {
-            getch();
+            getchk();
             mpr("Stopping early due to keyboard input.");
             break;
         }
@@ -1261,7 +1268,7 @@ static void _debug_acquirement_stats(FILE *ostat)
         item.sub_type = i;
         std::string name = item.name(desc, terse, true);
 
-        max_width = std::max(max_width, (int) name.length());
+        max_width = std::max(max_width, strwidth(name));
     }
 
     // Now output the sub types.
@@ -1287,6 +1294,7 @@ static void _debug_acquirement_stats(FILE *ostat)
     mpr("Results written into 'items.stat'.");
 }
 
+#define MAX_TRIES 16777216 /* not special anymore */
 static void _debug_rap_stats(FILE *ostat)
 {
     int i = prompt_invent_item("Generate randart stats on which item?",
@@ -1369,16 +1377,14 @@ static void _debug_rap_stats(FILE *ostat)
 
     artefact_properties_t proprt;
 
-    for (i = 0; i < RANDART_SEED_MASK; ++i)
+    for (i = 0; i < MAX_TRIES; ++i)
     {
         if (kbhit())
         {
-            getch();
+            getchk();
             mpr("Stopping early due to keyboard input.");
             break;
         }
-
-        item.special = i;
 
         // Generate proprt once and hand it off to randart_is_bad(),
         // so that randart_is_bad() doesn't generate it a second time.
@@ -1435,11 +1441,11 @@ static void _debug_rap_stats(FILE *ostat)
         total_bad_props     += num_bad_props;
         total_balance_props += balance;
 
-        if (i % 16777 == 0)
+        if (i % 16767 == 0)
         {
             mesclr();
             float curr_percent = (float) i * 1000.0
-                / (float) RANDART_SEED_MASK;
+                / (float) MAX_TRIES;
             mprf("%4.1f%% done.", curr_percent / 10.0);
         }
 

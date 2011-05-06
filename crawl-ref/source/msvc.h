@@ -1,8 +1,7 @@
-/*
- *  File:       msvc.h
- *  Summary:    Header file for MSVC compiles
- *  Written by: Paul Du Bois
- */
+/**
+ * @file
+ * @brief Header file for MSVC compiles
+**/
 
 #ifndef __msvc_h
 #define __msvc_h
@@ -13,7 +12,6 @@
 #include <math.h>
 
 #define fileno _fileno
-#define itoa _itoa
 #define snprintf _snprintf
 #define strcasecmp _stricmp
 #define strdup _strdup
@@ -21,7 +19,6 @@
 #define strlwr _strlwr
 #define strncasecmp _strnicmp
 #define strnicmp _strnicmp
-#define unlink _unlink
 #define ftruncate _chsize
 #define putenv _putenv
 
@@ -42,27 +39,6 @@
 // truncating conversions XXX: fix these too!
 #pragma warning(disable : 4244)
 
-
-// ----------------------------------------------------------------------
-// dirent.h replacement
-// ----------------------------------------------------------------------
-
-#define DT_DIR 4
-#define DT_REG 8
-
-struct DIR;
-struct dirent
-{
-    // ino_t d_ino;
-    unsigned short d_reclen;
-    unsigned char d_type;
-    unsigned short d_namlen;
-    char d_name[255];
-};
-
-DIR* opendir(const char* path);
-dirent* readdir(DIR*);
-int closedir(DIR*);
 
 inline double round(double x)
 {

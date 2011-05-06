@@ -76,7 +76,7 @@ static void _species_stat_init(species_type which_species)
     case SP_SPRIGGAN:           sb =  2; ib =  7; db =  9;      break;  // 18
 
     case SP_MUMMY:              sb =  9; ib =  5; db =  5;      break;  // 19
-    case SP_GHOUL:              sb =  9; ib =  1; db =  2;      break;  // 13
+    case SP_GHOUL:              sb =  9; ib =  1; db =  2;      break;  // 12
     case SP_VAMPIRE:            sb =  5; ib =  8; db =  7;      break;  // 20
 
     case SP_RED_DRACONIAN:
@@ -117,7 +117,6 @@ static void _give_last_paycheck(job_type which_job)
         you.gold = 20;
         break;
 
-    case JOB_PALADIN:
     case JOB_MONK:
         you.gold = 0;
         break;
@@ -153,14 +152,14 @@ static void _jobs_stat_init(job_type which_job)
     case JOB_FIGHTER:           s =  8; i =  0; d =  4; hp = 15; mp = 0; break;
     case JOB_BERSERKER:         s =  9; i = -1; d =  4; hp = 15; mp = 0; break;
     case JOB_GLADIATOR:         s =  7; i =  0; d =  5; hp = 14; mp = 0; break;
-    case JOB_PALADIN:           s =  7; i =  2; d =  3; hp = 14; mp = 0; break;
 
     case JOB_CRUSADER:          s =  4; i =  4; d =  4; hp = 13; mp = 1; break;
     case JOB_CHAOS_KNIGHT:      s =  4; i =  4; d =  4; hp = 13; mp = 1; break;
+    case JOB_DEATH_KNIGHT:      s =  5; i =  3; d =  4; hp = 13; mp = 2; break;
+    case JOB_ABYSSAL_KNIGHT:    s =  4; i =  4; d =  4; hp = 13; mp = 1; break;
 
-    case JOB_REAVER:            s =  5; i =  5; d =  2; hp = 13; mp = 1; break;
     case JOB_HEALER:            s =  5; i =  5; d =  2; hp = 13; mp = 2; break;
-    case JOB_PRIEST:            s =  5; i =  4; d =  3; hp = 12; mp = 1; break;
+    case JOB_PRIEST:            s =  5; i =  4; d =  3; hp = 13; mp = 2; break;
 
     case JOB_ASSASSIN:          s =  3; i =  3; d =  6; hp = 12; mp = 0; break;
     case JOB_STALKER:           s =  2; i =  4; d =  6; hp = 12; mp = 1; break;
@@ -423,16 +422,16 @@ static void _give_wand(const newgame_def& ng)
     ASSERT(wand != -1);
 
     if (is_rod)
-        make_rod(you.inv[2], STAFF_STRIKING, 8);
+        make_rod(you.inv[1], STAFF_STRIKING, 8);
     else
     {
         // 1 wand of random effects and one chosen lesser wand
         const wand_type choice = static_cast<wand_type>(wand);
         const int ncharges = 15;
+        newgame_make_item(1, EQ_NONE, OBJ_WANDS, choice,
+                          -1, 1, ncharges, 0);
         newgame_make_item(2, EQ_NONE, OBJ_WANDS, WAND_RANDOM_EFFECTS,
-                           -1, 1, ncharges, 0);
-        newgame_make_item(3, EQ_NONE, OBJ_WANDS, choice,
-                           -1, 1, ncharges, 0);
+                          -1, 1, ncharges, 0);
     }
 }
 
@@ -449,6 +448,7 @@ static void _update_weapon(const newgame_def& ng)
 static void _give_items_skills(const newgame_def& ng)
 {
     int weap_skill = 0;
+    int curr = 0;
 
     switch (you.char_class)
     {
@@ -465,7 +465,7 @@ static void _give_items_skills(const newgame_def& ng)
         you.skills[SK_FIGHTING] = 3;
         you.skills[SK_SHIELDS]  = 2;
 
-        weap_skill = 2;
+        weap_skill = (you.species == SP_CAT) ? 4 : 2;
 
         you.skills[(player_effectively_in_light_armour()
                    ? SK_DODGING : SK_ARMOUR)] = 3;
@@ -483,7 +483,7 @@ static void _give_items_skills(const newgame_def& ng)
 
         newgame_make_item(2, EQ_SHIELD, OBJ_ARMOUR, ARM_BUCKLER, ARM_SHIELD);
 
-        int curr = 3;
+        curr = 3;
         if (you_can_wear(EQ_HELMET))
         {
             newgame_make_item(3, EQ_HELMET, OBJ_ARMOUR, ARM_HELMET);
@@ -554,26 +554,6 @@ static void _give_items_skills(const newgame_def& ng)
         }
         break;
 
-    case JOB_PALADIN:
-        you.religion = GOD_SHINING_ONE;
-        you.piety = 28;
-
-        // Equipment.
-        newgame_make_item(0, EQ_WEAPON, OBJ_WEAPONS, WPN_FALCHION);
-        newgame_make_item(1, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_RING_MAIL,
-                           ARM_ROBE);
-        newgame_make_item(2, EQ_SHIELD, OBJ_ARMOUR, ARM_SHIELD, ARM_BUCKLER);
-        newgame_make_item(3, EQ_NONE, OBJ_POTIONS, POT_HEALING);
-
-        // Skills.
-        you.skills[(player_effectively_in_light_armour()
-                    ? SK_DODGING : SK_ARMOUR)] = 2;
-        you.skills[SK_FIGHTING]    = 2;
-        you.skills[SK_SHIELDS]     = 2;
-        you.skills[SK_LONG_BLADES] = 3;
-        you.skills[SK_INVOCATIONS] = 2;
-        break;
-
     case JOB_PRIEST:
         you.religion = ng.religion;
         you.piety = 45;
@@ -585,9 +565,6 @@ static void _give_items_skills(const newgame_def& ng)
 
         newgame_make_item(1, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_ROBE);
 
-        if (you.religion == GOD_ZIN)
-            newgame_make_item(2, EQ_NONE, OBJ_POTIONS, POT_HEALING, -1, 2);
-
         you.skills[SK_FIGHTING]    = 2;
         you.skills[SK_INVOCATIONS] = 5;
         you.skills[SK_DODGING]     = 1;
@@ -595,17 +572,18 @@ static void _give_items_skills(const newgame_def& ng)
         break;
 
     case JOB_CHAOS_KNIGHT:
-    {
+        you.religion = GOD_XOM;
+        you.piety = 100;
+        you.gift_timeout = std::max(5, random2(40) + random2(40));
+
         newgame_make_item(0, EQ_WEAPON, OBJ_WEAPONS, WPN_SHORT_SWORD, -1, 1,
                            2, 2);
         _update_weapon(ng);
 
-        you.religion = ng.religion;
-
         newgame_make_item(1, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_LEATHER_ARMOUR,
-                           ARM_ROBE, 1, you.religion == GOD_XOM ? 2 : 0);
+                           ARM_ROBE, 1, 2);
 
-        you.skills[SK_FIGHTING] = 3;
+        you.skills[SK_FIGHTING] = 4;
         you.skills[SK_ARMOUR]   = 1;
         you.skills[SK_DODGING]  = 1;
         if (species_apt(SK_ARMOUR) < species_apt(SK_DODGING))
@@ -613,35 +591,50 @@ static void _give_items_skills(const newgame_def& ng)
         else
             you.skills[SK_ARMOUR]++;
         weap_skill = 2;
-
-        if (you.religion == GOD_XOM)
-        {
-            you.skills[SK_FIGHTING]++;
-            // The new (piety-aware) Xom uses piety in his own special way...
-            // (Namely, 100 is neutral.)
-            you.piety = 100;
-
-            // The new Xom also uses gift_timeout in his own special way...
-            // (Namely, a countdown to becoming bored.)
-            you.gift_timeout = std::max(5, random2(40) + random2(40));
-        }
-        else // Makhleb or Lugonu
-        {
-            you.skills[SK_INVOCATIONS] = 2;
-
-            if (you.religion == GOD_LUGONU)
-            {
-                // Chaos Knights of Lugonu start in the Abyss.  We need
-                // to mark this unusual occurrence, so the player
-                // doesn't get early access to OOD items, etc.
-                you.char_direction = GDT_GAME_START;
-                you.piety = 38;
-            }
-            else
-                you.piety = 25;
-        }
         break;
-    }
+
+    case JOB_DEATH_KNIGHT:
+        you.religion = GOD_YREDELEMNUL;
+        you.piety = 35;
+
+        newgame_make_item(0, EQ_WEAPON, OBJ_WEAPONS, WPN_SHORT_SWORD, -1, 1,
+                          1, 1);
+        _update_weapon(ng);
+
+        newgame_make_item(1, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_LEATHER_ARMOUR,
+                              ARM_ROBE);
+
+        you.skills[SK_FIGHTING]    = 2;
+        you.skills[SK_ARMOUR]      = 1;
+        you.skills[SK_DODGING]     = 1;
+        you.skills[SK_INVOCATIONS] = 3;
+        weap_skill = 2;
+        break;
+
+    case JOB_ABYSSAL_KNIGHT:
+        you.religion = GOD_LUGONU;
+        if (!crawl_state.game_is_zotdef())
+            you.char_direction = GDT_GAME_START;
+        you.piety = 38;
+
+        newgame_make_item(0, EQ_WEAPON, OBJ_WEAPONS, WPN_SHORT_SWORD, -1, 1,
+                          2, 2);
+        _update_weapon(ng);
+
+        newgame_make_item(1, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_LEATHER_ARMOUR,
+                              ARM_ROBE);
+
+        you.skills[SK_FIGHTING]    = 3;
+        you.skills[SK_ARMOUR]      = 1;
+        you.skills[SK_DODGING]     = 1;
+        if (species_apt(SK_ARMOUR) < species_apt(SK_DODGING))
+            you.skills[SK_DODGING]++;
+        else
+            you.skills[SK_ARMOUR]++;
+
+        you.skills[SK_INVOCATIONS] = 2;
+        weap_skill = 2;
+        break;
 
     case JOB_HEALER:
         you.religion = GOD_ELYVILON;
@@ -649,12 +642,12 @@ static void _give_items_skills(const newgame_def& ng)
 
         you.equip[EQ_WEAPON] = -1;
 
-        newgame_make_item(0, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_ROBE);
-        newgame_make_item(1, EQ_NONE, OBJ_POTIONS, POT_HEALING);
+        newgame_make_item(0, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_ROBE, -1, 1, 1);
+        newgame_make_item(2, EQ_NONE, OBJ_POTIONS, POT_HEALING);
         newgame_make_item(2, EQ_NONE, OBJ_POTIONS, POT_HEAL_WOUNDS);
 
         you.skills[SK_FIGHTING]       = 2;
-        you.skills[SK_DODGING]        = 1;
+        you.skills[SK_DODGING]        = 2;
         you.skills[SK_INVOCATIONS]    = 4;
         break;
 
@@ -671,25 +664,7 @@ static void _give_items_skills(const newgame_def& ng)
         you.skills[SK_DODGING]      = 1;
         you.skills[SK_SPELLCASTING] = 2;
         you.skills[SK_CHARMS]       = 2;
-        you.skills[SK_HEXES]        = 2;
         weap_skill = 2;
-        break;
-
-    case JOB_REAVER:
-        newgame_make_item(0, EQ_WEAPON, OBJ_WEAPONS, WPN_SHORT_SWORD);
-        _update_weapon(ng);
-
-        newgame_make_item(1, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_LEATHER_ARMOUR,
-                           ARM_ROBE);
-        newgame_make_item(2, EQ_NONE, OBJ_BOOKS,
-                           start_to_book(BOOK_CONJURATIONS_I, ng.book));
-
-        you.skills[SK_FIGHTING]     = 2;
-        you.skills[SK_ARMOUR]       = 1;
-        you.skills[SK_DODGING]      = 1;
-        you.skills[SK_SPELLCASTING] = 1;
-        you.skills[SK_CONJURATIONS] = 2;
-        weap_skill = 3;
         break;
 
     case JOB_WARPER:
@@ -762,31 +737,14 @@ static void _give_items_skills(const newgame_def& ng)
         newgame_make_item(0, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_ROBE);
         newgame_make_item(1, EQ_HELMET, OBJ_ARMOUR, ARM_WIZARD_HAT);
 
-        newgame_make_item(2, EQ_NONE, OBJ_BOOKS,
-                           start_to_book(BOOK_MINOR_MAGIC_I, ng.book));
+        newgame_make_item(2, EQ_NONE, OBJ_BOOKS, BOOK_MINOR_MAGIC);
 
         you.skills[SK_DODGING]        = 2;
         you.skills[SK_STEALTH]        = 2;
         you.skills[SK_SPELLCASTING]   = 3;
-        // All three starting books contain Translocations spells.
         you.skills[SK_TRANSLOCATIONS] = 1;
-
-        // The other two schools depend on the chosen book.
-        switch (you.inv[2].sub_type)
-        {
-        case BOOK_MINOR_MAGIC_I:
-            you.skills[SK_CONJURATIONS] = 1;
-            you.skills[SK_FIRE_MAGIC]   = 1;
-            break;
-        case BOOK_MINOR_MAGIC_II:
-            you.skills[SK_CONJURATIONS] = 1;
-            you.skills[SK_ICE_MAGIC]    = 1;
-            break;
-        case BOOK_MINOR_MAGIC_III:
-            you.skills[SK_SUMMONINGS]   = 1;
-            you.skills[SK_CONJURATIONS] = 1;
-            break;
-        }
+        you.skills[SK_CONJURATIONS]   = 1;
+        you.skills[SK_SUMMONINGS]     = 1;
         break;
 
     case JOB_CONJURER:
@@ -802,7 +760,7 @@ static void _give_items_skills(const newgame_def& ng)
         break;
 
     case JOB_ENCHANTER:
-        newgame_make_item(0, EQ_WEAPON, OBJ_WEAPONS, WPN_SHORT_SWORD, -1, 1, 1,
+        newgame_make_item(0, EQ_WEAPON, OBJ_WEAPONS, WPN_DAGGER, -1, 1, 1,
                            1);
         newgame_make_item(1, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_ROBE, -1, 1, 1);
         newgame_make_item(2, EQ_NONE, OBJ_BOOKS, BOOK_MALEDICT);
@@ -813,18 +771,17 @@ static void _give_items_skills(const newgame_def& ng)
         // Spriggans used to get a rod of striking, but now that anyone
         // can get one when playing an Artificer, this is no longer
         // necessary. (jpeg)
-        if (you.species == SP_SPRIGGAN)
-            you.inv[0].sub_type = WPN_DAGGER;
 
         if (player_genus(GENPC_OGREISH) || you.species == SP_TROLL)
             you.inv[0].sub_type = WPN_CLUB;
 
         weap_skill = 1;
         you.skills[SK_THROWING]     = 1;
-        you.skills[SK_HEXES]        = 4;
+        you.skills[SK_HEXES]        = 3;
         you.skills[SK_SPELLCASTING] = 1;
         you.skills[SK_DODGING]      = 2;
         you.skills[SK_STEALTH]      = 2;
+        you.skills[SK_STABBING]     = 1;
         break;
 
     case JOB_SUMMONER:
@@ -946,7 +903,7 @@ static void _give_items_skills(const newgame_def& ng)
         you.skills[SK_STEALTH]        = 2;
         you.skills[SK_STABBING]       = 2;
         you.skills[SK_SPELLCASTING]   = 1;
-        you.skills[SK_TRANSMUTATIONS] = 1;
+        you.skills[SK_TRANSMUTATIONS] = 2;
         break;
 
     case JOB_ASSASSIN:
@@ -1006,9 +963,6 @@ static void _give_items_skills(const newgame_def& ng)
             break;
 
         case SP_OGRE:
-            // Give ogres a knife for butchering, as they now start with
-            // a club instead of an axe.
-            newgame_make_item(4, EQ_NONE, OBJ_WEAPONS, WPN_KNIFE);
         case SP_TROLL:
             newgame_make_item(1, EQ_NONE, OBJ_MISSILES, MI_LARGE_ROCK, -1, 5,
                                1);
@@ -1020,11 +974,6 @@ static void _give_items_skills(const newgame_def& ng)
             newgame_make_item(1, EQ_NONE, OBJ_WEAPONS, WPN_SLING);
             newgame_make_item(2, EQ_NONE, OBJ_MISSILES, MI_SLING_BULLET, -1,
                                30, 1);
-
-            // Give them a buckler, as well; sling users + bucklers is an ideal
-            // combination.
-            newgame_make_item(4, EQ_SHIELD, OBJ_ARMOUR, ARM_BUCKLER);
-            you.skills[SK_SHIELDS] = 2;
 
             // Wield the sling instead.
             you.equip[EQ_WEAPON] = 1;
@@ -1069,38 +1018,28 @@ static void _give_items_skills(const newgame_def& ng)
         break;
 
     case JOB_ARTIFICER:
-        // Equipment. Dagger, and armour or robe.
-        newgame_make_item(0, EQ_WEAPON, OBJ_WEAPONS, WPN_DAGGER);
-        newgame_make_item(1, EQ_BODY_ARMOUR, OBJ_ARMOUR,
-                           ARM_LEATHER_ARMOUR, ARM_ROBE);
+        // Equipment. Quarterstaff, and armour or robe.
+        newgame_make_item(0, EQ_WEAPON, OBJ_WEAPONS, WPN_QUARTERSTAFF);
 
         // Choice of lesser wands, 15 charges plus wand of random
         // effects: confusion, enslavement, slowing, magic dart, frost,
         // flame; OR a rod of striking, 8 charges and no random effects.
         _give_wand(ng);
 
-        // If an offensive wand or the rod of striking was chosen,
-        // don't hand out a weapon.
-        if (item_is_rod(you.inv[2]))
-        {
-            // If the rod of striking was chosen, put it in the first
-            // slot and wield it.
-            you.inv[0] = you.inv[2];
-            you.equip[EQ_WEAPON] = 0;
-            _newgame_clear_item(2);
-        }
-        else if (you.inv[3].base_type != OBJ_WANDS
-                 || you.inv[3].sub_type != WAND_CONFUSION
-                    && you.inv[3].sub_type != WAND_ENSLAVEMENT)
-        {
-            _newgame_clear_item(0);
-        }
+        curr = 2;
+
+        if (!item_is_rod(you.inv[1]))
+            curr++;
+
+        newgame_make_item(curr, EQ_BODY_ARMOUR, OBJ_ARMOUR,
+                           ARM_LEATHER_ARMOUR, ARM_ROBE);
 
         // Skills
         you.skills[SK_EVOCATIONS]  = 4;
         you.skills[SK_TRAPS_DOORS] = 3;
         you.skills[SK_DODGING]     = 2;
         you.skills[SK_FIGHTING]    = 1;
+        you.skills[SK_STAVES]      = 1;
         you.skills[SK_STEALTH]     = 1;
         break;
 
@@ -1108,12 +1047,9 @@ static void _give_items_skills(const newgame_def& ng)
         break;
     }
 
-    // Deep Dwarves get healing potions and wand of healing (3).
+    // Deep Dwarves get a wand of healing (5).
     if (you.species == SP_DEEP_DWARF)
-    {
-        newgame_make_item(-1, EQ_NONE, OBJ_POTIONS, POT_HEAL_WOUNDS, -1, 2);
-        newgame_make_item(-1, EQ_NONE, OBJ_WANDS, WAND_HEALING, -1, 1, 3);
-    }
+        newgame_make_item(-1, EQ_NONE, OBJ_WANDS, WAND_HEALING, -1, 1, 5);
 
     // Zotdef: everyone gets a bonus two potions of healing
     if (crawl_state.game_is_zotdef())
@@ -1300,14 +1236,8 @@ static void _racialise_starting_equipment()
                 && get_equip_race(you.inv[i]) == ISFLAG_NO_RACE)
             {
                 // Now add appropriate species type mod.
-                // Fighters don't get elven body armour.
-                if (player_genus(GENPC_ELVEN)
-                    && (you.char_class != JOB_FIGHTER
-                        || you.inv[i].base_type != OBJ_ARMOUR
-                        || get_armour_slot(you.inv[i]) != EQ_BODY_ARMOUR))
-                {
+                if (player_genus(GENPC_ELVEN))
                     set_equip_race(you.inv[i], ISFLAG_ELVEN);
-                }
                 else if (player_genus(GENPC_DWARVEN))
                     set_equip_race(you.inv[i], ISFLAG_DWARVEN);
                 else if (you.species == SP_HILL_ORC)
@@ -1328,16 +1258,7 @@ static void _give_basic_spells(job_type which_job)
     switch (which_job)
     {
     case JOB_WIZARD:
-        if (!you.skills[SK_CONJURATIONS])
-        {
-            // Wizards who start with Minor Magic III (summoning) have no
-            // Conjurations skill, and thus get another starting spell.
-            which_spell = SPELL_SUMMON_SMALL_MAMMALS;
-            break;
-        }
-        // intentional fall-through
     case JOB_CONJURER:
-    case JOB_REAVER:
         which_spell = SPELL_MAGIC_DART;
         break;
     case JOB_VENOM_MAGE:
@@ -1383,7 +1304,6 @@ static void _give_basic_knowledge(job_type which_job)
 
     switch (which_job)
     {
-    case JOB_STALKER:
     case JOB_ASSASSIN:
     case JOB_VENOM_MAGE:
         set_ident_type(OBJ_POTIONS, POT_POISON, ID_KNOWN_TYPE);
@@ -1394,8 +1314,7 @@ static void _give_basic_knowledge(job_type which_job)
         break;
 
     case JOB_ARTIFICER:
-        if (!item_is_rod(you.inv[2]))
-            set_ident_type(OBJ_SCROLLS, SCR_RECHARGING, ID_KNOWN_TYPE);
+        set_ident_type(OBJ_SCROLLS, SCR_RECHARGING, ID_KNOWN_TYPE);
         break;
 
     default:
@@ -1635,8 +1554,8 @@ static void _setup_generic(const newgame_def& ng)
         you.nemelex_sacrificing = true;
 
     // Create the save file.
-    you.save = new package((get_savedir_filename(you.your_name, "", "")
-                            + SAVE_SUFFIX).c_str(), true, true);
+    you.save = new package(get_savedir_filename(you.your_name).c_str(),
+                           true, true);
 
     // Pretend that a savefile was just loaded, in order to
     // get things setup properly.

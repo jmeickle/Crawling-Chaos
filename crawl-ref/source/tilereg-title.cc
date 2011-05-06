@@ -1,16 +1,9 @@
-/*
- *  File:       tilereg-title.cc
- *
- *  Created by: ennewalker on Sat Jan 5 01:33:53 2008 UTC
- */
-
 #include "AppHdr.h"
 
 #ifdef USE_TILE
 
 #include "tilereg-title.h"
 
-#include "cio.h"
 #include "files.h"
 #include "libutil.h"
 #include "macro.h"
@@ -56,7 +49,8 @@ void TitleRegion::render()
 
 void TitleRegion::run()
 {
-    getch_ck();
+    mouse_control mc(MOUSE_MODE_MORE);
+    getchm();
 }
 
 /**
@@ -69,11 +63,4 @@ void TitleRegion::update_message(std::string message)
     m_font_buf.add(message, VColour::white, 0, 0);
 }
 
-int TitleRegion::handle_mouse(MouseEvent &event)
-{
-    if (event.event == MouseEvent::RELEASE)
-        return CK_MOUSE_CLICK;
-    else
-        return 0;
-}
 #endif

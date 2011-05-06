@@ -1,7 +1,7 @@
-/*
- * File:     player-act.cc
- * Summary:  Implementing the actor interface for player.
- */
+/**
+ * @file
+ * @brief Implementing the actor interface for player.
+**/
 
 #include "AppHdr.h"
 
@@ -57,21 +57,21 @@ bool player::is_summoned(int* _duration, int* summon_type) const
     return (false);
 }
 
-void player::moveto(const coord_def &c)
+void player::moveto(const coord_def &c, bool clear_net)
 {
-    if (c != pos())
+    if (clear_net && c != pos())
         clear_trapping_net();
 
     crawl_view.set_player_at(c);
     set_position(c);
 }
 
-bool player::move_to_pos(const coord_def &c)
+bool player::move_to_pos(const coord_def &c, bool clear_net)
 {
     actor *target = actor_at(c);
     if (!target || target->submerged())
     {
-        moveto(c);
+        moveto(c, clear_net);
         return true;
     }
     return false;
@@ -118,7 +118,7 @@ bool player::extra_balanced() const
     const dungeon_feature_type grid = grd(pos());
     return (grid == DNGN_SHALLOW_WATER
              && (species == SP_NAGA                      // tails, not feet
-                 || body_size(PSIZE_BODY) > SIZE_MEDIUM)
+                 || body_size(PSIZE_BODY) >= SIZE_LARGE)
                     && !form_changed_physiology());
 }
 
@@ -155,7 +155,7 @@ size_type player::body_size(size_part_type psize, bool base) const
         return species_size(species, psize);
     else
     {
-        size_type tf_size = transform_size(psize);
+        size_type tf_size = transform_size(form, psize);
         return (tf_size == SIZE_CHARACTER ? species_size(species, psize)
                                           : tf_size);
     }
@@ -205,7 +205,7 @@ int player::damage_brand(int)
     int ret = SPWPN_NORMAL;
     const int wpn = equip[EQ_WEAPON];
 
-    if (wpn != -1)
+    if (wpn != -1 && !you.melded[EQ_WEAPON])
     {
         if (!is_range_weapon(inv[wpn]))
             ret = get_weapon_brand(inv[wpn]);
@@ -267,6 +267,9 @@ const item_def *player::slot_item(equipment_type eq, bool include_melded) const
 // Returns the item in the player's weapon slot.
 item_def *player::weapon(int /* which_attack */)
 {
+    if (you.melded[EQ_WEAPON])
+        return (NULL);
+
     return (slot_item(EQ_WEAPON, false));
 }
 
@@ -295,7 +298,7 @@ bool player::could_wield(const item_def &item, bool ignore_brand,
 {
     if (species == SP_CAT)
         return (false);
-    if (body_size(PSIZE_TORSO) < SIZE_LARGE && item_mass(item) >= 300)
+    if (body_size() < SIZE_LARGE && item_mass(item) >= 300)
         return (false);
 
     // Small species wielding large weapons...
@@ -542,7 +545,7 @@ bool player::can_go_berserk(bool intentional, bool potion) const
         return (false);
     }
 
-    if (beheld())
+    if (beheld() && !player_equip_unrand(UNRAND_DEMON_AXE))
     {
         if (verbose)
             mpr("You are too mesmerised to rage.");
@@ -599,6 +602,14 @@ bool player::can_go_berserk(bool intentional, bool potion) const
             }
         }
 
+        return (false);
+    }
+
+    ASSERT(HUNGER_STARVING + BERSERK_NUTRITION < 2066);
+    if (you.hunger <= 2066)
+    {
+        if (verbose)
+            mpr("You're too hungry to go berserk.");
         return (false);
     }
 

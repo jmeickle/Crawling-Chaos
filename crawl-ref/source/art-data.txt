@@ -255,7 +255,8 @@ TILE_EQ: wucad_mu
 VALUE:   1000
 BOOL:    special
 DESC_ID: Its power varies in proportion to its wielder's intelligence.
-         Using it can be a bit risky.
+         It can be evoked to restore large amounts of magical energy, but
+         at the risk of damaging the user's mind.
 
 NAME:    Vampire's Tooth
 APPEAR:  ivory dagger
@@ -654,7 +655,7 @@ BOOL:    poison, berserk, tilerim
 
 NAME:     Spriggan's Knife
 APPEAR:   dainty little knife
-OBJ:      OBJ_WEAPONS/WPN_KNIFE
+OBJ:      OBJ_WEAPONS/WPN_DAGGER
 PLUS:     +4/+10
 COLOUR:   LIGHTCYAN
 TILE:     urand_spriggans_knife
@@ -734,7 +735,7 @@ COLOUR:   DARKGREY
 TILE:     urand_cutlass
 TILE_EQ:  cutlass
 BRAND:    SPWPN_SPEED
-DAM:      3
+DAM:      2
 DESC_END: This infamous weapon was used by a vile pirate captain to
           slaughter countless innocents.  Finally, he met his destiny
           when a kraken swallowed his ship with all the crew aboard.
@@ -839,8 +840,8 @@ DEX:      -2
 MUTATE:   5
 CURSED:   1
 STEALTH:  -80
-BOOL:     nospell, rnd_tele
-DESC:     A splendid flowing robe of fur and silk.
+BOOL:     nospell, rnd_tele, randapp
+DESC_ID:  A splendid flowing robe of fur and silk.
 
 NAME:     cloak of Flash
 APPEAR:   vibrating cloak
@@ -876,7 +877,7 @@ COLOUR:  ETC_GOLD
 TILE:    urand_lear
 TILE_EQ: lears_chain_mail
 DEX:     -3
-BOOL:    cursed, nospell
+BOOL:    cursed, nospell, randapp
 DESC:    A chain mail made of pure gold.
 
 NAME:    skin of Zhor
@@ -932,7 +933,7 @@ TILE:    urand_folly
 TILE_EQ: robe_red2
 INT:     -5
 CURSED:  2
-BOOL:    nospell
+BOOL:    nospell, randapp
 DESC:    A dull grey robe.
 
 ENUM:    MAXWELL
@@ -1162,6 +1163,23 @@ DESC_END: The favorite hat of the slug wizard Gastronok, stained with reddish
           slime and enchanted to aid in his arcane pondering. It has been
           specially enchanted to protect against the effects of salt, though
           you probably don't care.
+
+ENUM:     DEMON_AXE
+NAME:     obsidian axe
+APPEAR:   bloodied obsidian axe
+OBJ:      OBJ_WEAPONS/WPN_BROAD_AXE
+PLUS:     +12/+15
+COLOUR:   ETC_UNHOLY
+TILE:     spwpn_demon_axe
+TILE_EQ:  demon_axe
+BRAND:    SPWPN_VORPAL
+CURSED:    1
+STR:      +3
+BOOL:     evil, seeinv, lev, special
+DESC_END: This axe has had a curse placed on it by one of the lords of
+          Pandemonium so that unsuspecting adventurers like you would
+          unleash demons into this world. Beware, for this axe has
+          ways of taking its wielder under its command...
 
 # This entry must always be last.
 ENUM:   DUMMY2

@@ -1,8 +1,7 @@
-/*
- *  File:       startup.cc
- *  Summary:    Collection of startup related functions and objects
- *  Written by:
- */
+/**
+ * @file
+ * @brief Collection of startup related functions and objects
+**/
 
 #include "AppHdr.h"
 
@@ -278,7 +277,6 @@ static void _post_init(bool newc)
     you.xray_vision = !!you.duration[DUR_SCRYING];
     init_exclusion_los();
     you.bondage_level = ash_bondage_level();
-    check_clinging();
 
     trackers_init_new_level(false);
 
@@ -480,7 +478,7 @@ static void _construct_save_games_menu(MenuScroller* menu,
 #endif
         tmp->set_text(chars.at(i).short_desc());
         tmp->set_bounds(coord_def(1, 1), coord_def(1, 2));
-        tmp->set_fg_colour(WHITE);
+        tmp->set_fg_colour(chars.at(i).save_loadable ? WHITE : RED);
         tmp->set_highlight_colour(WHITE);
         // unique id
         tmp->set_id(NUM_GAME_TYPE + i);
@@ -541,6 +539,7 @@ static int _misc_text_start_y(int num)
 static void _show_startup_menu(newgame_def* ng_choice,
                                const newgame_def& defaults)
 {
+again:
     std::vector<player_save_info> chars = find_all_saved_characters();
     const int num_saves = chars.size();
     static int type = GAME_TYPE_UNSPECIFIED;
@@ -712,10 +711,8 @@ static void _show_startup_menu(newgame_def* ng_choice,
         {
             // handle the non-action keys by hand to poll input
             // Only consider alphanumeric keys and -_ .
-            // Note: this currently allows letters between 128 and 255 in
-            // 8-bit ancient charsets.
             bool changed_name = false;
-            if (std::isalnum(keyn) || keyn == '-' || keyn == '.'
+            if (std::iswalnum(keyn) || keyn == '-' || keyn == '.'
                 || keyn == '_' || keyn == ' ')
             {
                 if (full_name)
@@ -723,9 +720,9 @@ static void _show_startup_menu(newgame_def* ng_choice,
                     full_name = false;
                     input_string = "";
                 }
-                if ((int) input_string.length() < kNameLen)
+                if (strwidth(input_string) < kNameLen)
                 {
-                    input_string += static_cast<char> (keyn);
+                    input_string += stringize_glyph(keyn);
                     changed_name = true;
                 }
             }
@@ -835,9 +832,8 @@ static void _show_startup_menu(newgame_def* ng_choice,
 
         case '?':
             list_commands();
-            // recursive escape because help messes up CRTRegion
-            _show_startup_menu(ng_choice, defaults);
-            return;
+            // restart because help messes up CRTRegion
+            goto again;
 
         default:
             // It was a savegame instead
@@ -845,6 +841,7 @@ static void _show_startup_menu(newgame_def* ng_choice,
             // Save the savegame character name
             ng_choice->name = chars.at(save_number).name;
             ng_choice->type = chars.at(save_number).saved_game_type;
+            ng_choice->filename = chars.at(save_number).filename;
             return;
         }
     }
@@ -941,25 +938,22 @@ bool startup_step()
     }
 
     bool newchar = false;
-    if (save_exists(choice.name))
+    newgame_def ng;
+    if (choice.filename.empty())
+        choice.filename = get_save_filename(choice.name);
+    if (save_exists(choice.filename) && restore_game(choice.filename))
     {
-        restore_game(choice.name);
+        save_player_name();
+    }
+    else if (choose_game(&ng, &choice, defaults)
+             && restore_game(ng.filename))
+    {
         save_player_name();
     }
     else
     {
-        newgame_def ng;
-        bool restore = choose_game(&ng, &choice, defaults);
-        if (restore)
-        {
-            restore_game(ng.name);
-            save_player_name();
-        }
-        else
-        {
-            setup_game(ng);
-            newchar = true;
-        }
+        setup_game(ng);
+        newchar = true;
     }
 
     _post_init(newchar);

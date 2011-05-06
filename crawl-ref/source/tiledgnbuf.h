@@ -1,7 +1,3 @@
-/*
- *  File:       tiledgnbuf.h
- */
-
 #ifdef USE_TILE
 #ifndef TILEDGNBUF_H
 #define TILEDGNBUF_H
@@ -24,12 +20,16 @@ struct packed_cell
     bool is_silenced;
     bool is_haloed;
     bool is_moldy;
+    bool glowing_mold;
     bool is_sanctuary;
+    bool is_liquefied;
     bool swamp_tree_water;
+    char blood_rotation;
 
     packed_cell() : num_dngn_overlay(0), is_bloody(false), is_silenced(false),
-                    is_haloed(false), is_moldy(false), is_sanctuary(false),
-                    swamp_tree_water (false) {}
+                    is_haloed(false), is_moldy(false), glowing_mold(false),
+                    is_sanctuary(false), is_liquefied(false),
+                    swamp_tree_water (false), blood_rotation(0) {}
 
     packed_cell(const packed_cell* c) : num_dngn_overlay(c->num_dngn_overlay),
                                         fg(c->fg), bg(c->bg), flv(c->flv),
@@ -37,8 +37,11 @@ struct packed_cell
                                         is_silenced(c->is_silenced),
                                         is_haloed(c->is_haloed),
                                         is_moldy(c->is_moldy),
+                                        glowing_mold(c->glowing_mold),
                                         is_sanctuary(c->is_sanctuary),
-                                        swamp_tree_water(c->swamp_tree_water) {}
+                                        is_liquefied(c->is_liquefied),
+                                        swamp_tree_water(c->swamp_tree_water),
+                                        blood_rotation(c->blood_rotation) {}
 
     void clear();
 };
@@ -77,7 +80,8 @@ public:
     void draw();
 
 protected:
-    void add_blood_overlay(int x, int y, const packed_cell &cell);
+    void add_blood_overlay(int x, int y, const packed_cell &cell,
+                           bool is_wall = false);
     void pack_background(int x, int y, const packed_cell &cell);
     void pack_foreground(int x, int y, const packed_cell &cell);
 

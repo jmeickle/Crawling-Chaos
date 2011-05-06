@@ -1,8 +1,7 @@
-/*
- *  File:       spl-util.cc                                          *
- *  Summary:    data handlers for player-available spell list        *
- *  Written by: don brodale <dbrodale@bigfootinteractive.com>        *
- */
+/**
+ * @file
+ * @brief data handlers for player-available spell list
+**/
 
 #include "AppHdr.h"
 
@@ -80,10 +79,6 @@ static int spell_list[NUM_SPELLS];
 #define SPELLDATASIZE (sizeof(spelldata)/sizeof(struct spell_desc))
 
 static struct spell_desc *_seekspell(spell_type spellid);
-static bool _cloud_helper(cloud_func func, const coord_def& where,
-                          int pow, int spread_rate,
-                          cloud_type ctype, const actor *agent, int colour,
-                          std::string name, std::string tile);
 
 //
 //             BEGIN PUBLIC FUNCTIONS
@@ -103,7 +98,7 @@ void init_spell_descs(void)
         if (data.id < SPELL_NO_SPELL || data.id >= NUM_SPELLS)
             end(1, false, "spell #%d has invalid id %d", i, data.id);
 
-        if (data.title == NULL || strlen(data.title) == 0)
+        if (data.title == NULL || !*data.title)
             end(1, false, "spell #%d, id %d has no name", i, data.id);
 
         if (data.level < 1 || data.level > 9)
@@ -263,6 +258,11 @@ int get_spell_slot(spell_type spell)
     return -1;
 }
 
+int get_spell_letter(spell_type spell)
+{
+    return index_to_letter(get_spell_slot(spell));
+}
+
 spell_type get_spell_by_letter(char letter)
 {
     ASSERT(isaalpha(letter));
@@ -360,11 +360,11 @@ int spell_hunger(spell_type which_spell, bool rod)
 
     if (rod)
     {
-        hunger -= 10 * you.skills[SK_EVOCATIONS];
+        hunger -= 10 * you.skill(SK_EVOCATIONS);
         hunger = std::max(hunger, level * 5);
     }
     else
-        hunger -= you.intel() * you.skills[SK_SPELLCASTING];
+        hunger -= you.intel() * you.skill(SK_SPELLCASTING);
 
     if (hunger < 0)
         hunger = 0;
@@ -751,73 +751,34 @@ int apply_area_within_radius(cell_func cf, const coord_def& where,
     return (rv);
 }
 
-// apply_area_cloud:
-// Try to make a realistic cloud by expanding from a point, filling empty
-// floor tiles until we run out of material (passed in as number).
-// We really need some sort of a queue structure, since ideally I'd like
-// to do a (shallow) breadth-first-search of the dungeon floor.
-// This ought to work okay for small clouds.
 void apply_area_cloud(cloud_func func, const coord_def& where,
                        int pow, int number, cloud_type ctype,
                        const actor *agent,
                        int spread_rate, int colour, std::string name,
                        std::string tile)
 {
-    if (!in_bounds(where))
+    if (number <= 0)
         return;
 
-    int good_squares = 0;
-    int neighbours[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-
-    if (number && _cloud_helper(func, where, pow, spread_rate, ctype, agent,
-                                colour, name, tile))
-        number--;
-
-    if (number == 0)
+    targetter_cloud place(0, 0, number, number);
+    if (!place.set_aim(where))
         return;
-
-    // These indices depend on the order in Compass (see main.cc)
-    int compass_order_orth[4] = { 2, 6, 4, 0 };
-    int compass_order_diag[4] = { 1, 3, 5, 7 };
-
-    int* const arrs[2] = { compass_order_orth, compass_order_diag };
-
-    for (int m = 0; m < 2; ++m)
+    unsigned int dist = 0;
+    while (number > 0)
     {
-        // Randomise, but do orthogonals first and diagonals later.
-        std::random_shuffle(arrs[m], arrs[m] + 4);
-        for (int i = 0; i < 4 && number; ++i)
-        {
-            const int aux = arrs[m][i];
-            if (_cloud_helper(func, where + Compass[aux],
-                               pow, spread_rate, ctype, agent, colour,
-                               name, tile))
-            {
-                number--;
-                good_squares++;
-                neighbours[aux]++;
-            }
-        }
-    }
+        while (place.queue[dist].empty())
+            if (++dist >= place.queue.size())
+                return;
+        std::vector<coord_def> &q = place.queue[dist];
+        int el = random2(q.size());
+        coord_def c = q[el];
+        q[el] = q[q.size() - 1];
+        q.pop_back();
 
-    // Get a random permutation.
-    int perm[8];
-    for (int i = 0; i < 8; ++i)
-        perm[i] = i;
-    std::random_shuffle(perm, perm+8);
-    for (int i = 0; i < 8 && number; i++)
-    {
-        // Spread (in random order.)
-        const int j = perm[i];
-
-        if (neighbours[j] == 0)
+        if (place.seen[c] <= 0)
             continue;
-
-        int spread = number / good_squares;
-        number -= spread;
-        good_squares--;
-        apply_area_cloud(func, where + Compass[j], pow, spread, ctype, agent,
-                         spread_rate, colour, name, tile);
+        func(c, pow, spread_rate, ctype, agent, colour, name, tile);
+        number--;
     }
 }
 
@@ -830,7 +791,8 @@ bool spell_direction(dist &spelld, bolt &pbolt,
                       int range,
                       bool needs_path, bool may_target_monster,
                       bool may_target_self, const char *target_prefix,
-                      const char* top_prompt, bool cancel_at_self)
+                      const char* top_prompt, bool cancel_at_self,
+                      targetter *hitfunc)
 {
     if (range < 1)
         range = (pbolt.range < 1) ? LOS_RADIUS : pbolt.range;
@@ -848,6 +810,7 @@ bool spell_direction(dist &spelld, bolt &pbolt,
         args.top_prompt = top_prompt;
     args.behaviour = NULL;
     args.cancel_at_self = cancel_at_self;
+    args.hitfunc = hitfunc;
 
     direction(spelld, args);
 
@@ -962,10 +925,7 @@ skill_type spell_type2skill(unsigned int spelltype)
     default:
     case SPTYP_HOLY:
     case SPTYP_DIVINATION:
-#ifdef DEBUG_DIAGNOSTICS
-        mprf(MSGCH_DIAGNOSTICS, "spell_type2skill: called with spelltype %u",
-             spelltype);
-#endif
+        dprf("spell_type2skill: called with spelltype %u", spelltype);
         return (SK_NONE);
     }
 }                               // end spell_type2skill()
@@ -992,22 +952,6 @@ bool is_valid_spell(spell_type spell)
 {
     return (spell > SPELL_NO_SPELL && spell < NUM_SPELLS
             && spell_list[spell] != -1);
-}
-
-static bool _cloud_helper(cloud_func func, const coord_def& where,
-                          int pow, int spread_rate,
-                          cloud_type ctype, const actor* agent, int colour,
-                          std::string name, std::string tile)
-{
-    if (in_bounds(where)
-        && !feat_is_solid(grd(where))
-        && env.cgrid(where) == EMPTY_CLOUD)
-    {
-        func(where, pow, spread_rate, ctype, agent, colour, name, tile);
-        return (true);
-    }
-
-    return (false);
 }
 
 static bool _spell_range_varies(spell_type spell)
@@ -1076,10 +1020,11 @@ int spell_range(spell_type spell, int pow, bool real_cast, bool player_spell)
     const int powercap = spell_power_cap(spell);
 
     if (powercap <= pow)
-        return maxrange;
+        return std::min(maxrange, LOS_RADIUS);
 
     // Round appropriately.
-    return ((pow * (maxrange - minrange) + powercap / 2) / powercap + minrange);
+    return std::min(LOS_RADIUS,
+           (pow * (maxrange - minrange) + powercap / 2) / powercap + minrange);
 }
 
 /**
@@ -1285,6 +1230,13 @@ bool spell_is_useless(spell_type spell, bool transient)
     case SPELL_TUKIMAS_DANCE:
         if (you.species == SP_CAT)
             return (true);
+        break;
+    case SPELL_DARKNESS:
+        // mere corona is not enough, but divine light blocks it completely
+        if (transient && you.haloed())
+            return true;
+        if (you.religion == GOD_SHINING_ONE && player_under_penance())
+            return true;
         break;
     default:
         break; // quash unhandled constants warnings

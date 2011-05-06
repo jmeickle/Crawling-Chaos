@@ -1,6 +1,7 @@
-/*  File:       mon-clone.cc
- *  Summary:    Code to clone existing monsters and to create player illusions.
- */
+/**
+ * @file
+ * @brief Code to clone existing monsters and to create player illusions.
+**/
 
 #include "AppHdr.h"
 
@@ -187,7 +188,7 @@ static void _mons_load_player_enchantments(monster* creator, monster* target)
                 continue;
             target->add_ench(mon_enchant(ench,
                                          0,
-                                         creator->kill_alignment(),
+                                         creator,
                                          you.duration[i]));
         }
     }

@@ -3,11 +3,13 @@
 #include "status.h"
 
 #include "areas.h"
+#include "env.h"
 #include "misc.h"
 #include "mutation.h"
 #include "player.h"
 #include "player-stats.h"
 #include "skills2.h"
+#include "terrain.h"
 #include "transform.h"
 
 // Status defaults for durations that are handled straight-forwardly.
@@ -48,7 +50,7 @@ static duration_def duration_data[] =
     { DUR_DIVINE_VIGOUR, false,
       0, "", "divinely vigorous", "You are divinely vigorous." },
     { DUR_EXHAUSTED, false,
-      YELLOW, "Fatig", "exhausted", "You are exhausted." },
+      YELLOW, "Exh", "exhausted", "You are exhausted." },
     { DUR_FIRE_SHIELD, true,
       BLUE, "RoF", "immune to fire clouds", "" },
     { DUR_ICY_ARMOUR, true,
@@ -87,8 +89,10 @@ static duration_def duration_data[] =
       GREEN, "Slime", "slimy", "" },
     { DUR_SLEEP, false,
       0, "", "sleeping", "You are sleeping." },
+#if TAG_MAJOR_VERSION == 32
     { DUR_STONEMAIL, true,
       0, "", "stone mail", "You are covered in scales of stone."},
+#endif
     { DUR_STONESKIN, false,
       0, "", "stone skin", "Your skin is tough as stone." },
     { DUR_SWIFTNESS, true,
@@ -128,6 +132,8 @@ static duration_def duration_data[] =
       LIGHTBLUE, "Finesse", "finesse", "Your blows are lightning fast." },
     { DUR_LIFESAVING, true,
       LIGHTGREY, "Prot", "protection", "You ask for being saved." },
+    { DUR_DARKNESS, true,
+      BLUE, "Dark", "darkness", "You emit darkness." },
 };
 
 static int duration_index[NUM_DURATIONS];
@@ -365,7 +371,7 @@ void fill_status_info(int status, status_info* inf)
         if (handle_pbd_corpses(false) > 0)
         {
             inf->light_colour = LIGHTMAGENTA;
-            inf->light_text   = "PbD";
+            inf->light_text   = "Regen+";
         }
         break;
 
@@ -413,9 +419,14 @@ void fill_status_info(int status, status_info* inf)
         {
             inf->light_text   = "Cling";
             inf->short_text   = "clinging";
-            inf->long_text = "You cling to the nearby walls.";
-            inf->light_colour = dur_colour(GREEN,
-                                           dur_expiring(DUR_TRANSFORMATION));
+            inf->long_text    = "You cling to the nearby walls.";
+            const dungeon_feature_type feat = grd(you.pos());
+            if (is_feat_dangerous(feat))
+                inf->light_colour = LIGHTGREEN;
+            else if (feat == DNGN_LAVA || feat_is_water(feat))
+                inf->light_colour = GREEN;
+            else
+                inf->light_colour = DARKGREY;
             _mark_expiring(inf, dur_expiring(DUR_TRANSFORMATION));
         }
         break;

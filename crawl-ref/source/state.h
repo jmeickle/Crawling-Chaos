@@ -1,8 +1,7 @@
-/*
- *  File:       state.h
- *  Summary:    Game state.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Game state.
+**/
 
 #ifndef STATE_H
 #define STATE_H
@@ -42,6 +41,7 @@ struct game_state
     bool waiting_for_command; // True when the game is waiting for a command.
     bool terminal_resized;   // True if the term was resized and we need to
                              // take action to handle it.
+    time_t last_winch;       // Time of last resize, for crash dumps.
 
     bool io_inited;         // Is curses or the equivalent initialised?
     bool need_save;         // Set to true when game has started.
@@ -65,14 +65,10 @@ struct game_state
     std::vector<std::string> tests_selected; // Tests to be run.
     std::vector<std::string> script_args;    // Arguments to scripts.
 
-    bool unicode_ok;        // Is unicode support available?
-
     bool show_more_prompt;  // Set to false to disable --more-- prompts.
 
     std::string sprint_map; // Sprint map set on command line, if any.
 
-    std::string (*glyph2strfn)(unsigned glyph);
-    int  (*multibyte_strlen)(const std::string &s);
     void (*terminal_resize_handler)();
     void (*terminal_resize_check)();
 

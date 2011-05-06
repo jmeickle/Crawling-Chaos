@@ -1,8 +1,7 @@
-/*
- *  File:       invent.h
- *  Summary:    Functions for inventory related commands.
- *  Written by: Linley Henzell
- */
+/**
+ * @file
+ * @brief Functions for inventory related commands.
+**/
 
 
 #ifndef INVENT_H
@@ -31,9 +30,17 @@ enum object_selector
     OSEL_FRUIT       = -13,
     OSEL_PONDER_ARM  = -14,
     OSEL_CURSED_WORN = -15,
+    OSEL_UNCURSED_WORN_ARMOUR    = -16,
+    OSEL_UNCURSED_WORN_JEWELLERY = -17
 };
 
 #define SLOT_BARE_HANDS      -2
+
+// Only used for butchering messages
+#define SLOT_BUTCHERING_KNIFE -3
+#define SLOT_CLAWS            -4
+#define SLOT_TEETH            -5
+#define SLOT_BIRDIE           -6
 
 #define PROMPT_ABORT         -1
 #define PROMPT_GOT_SPECIAL   -2
