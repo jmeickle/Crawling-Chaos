@@ -181,7 +181,7 @@ static int _translate_keysym(SDL_keysym &keysym)
     // Alt does not get baked into keycodes like shift and ctrl, so handle it.
     const int key_offset = (mod & MOD_ALT) ? -3000 : 0;
 
-    const bool is_ascii = ((keysym.unicode & 0xFF80) == 0);
+    const bool is_ascii = keysym.unicode < 127;
     return (is_ascii ? (keysym.unicode & 0x7F) + key_offset : keysym.unicode);
 }
 
@@ -485,10 +485,8 @@ int SDLWrapper::wait_event(wm_event *event)
         event->key.keysym.unicode = sdlevent.key.keysym.unicode;
         event->key.keysym.sym = _translate_keysym(sdlevent.key.keysym);
 
-#ifdef ASSERTS
         if (!event->key.keysym.unicode && event->key.keysym.sym > 0)
-            die("Keysym %d > 0 yet no valid character", event->key.keysym.sym);
-#endif
+            return 0;
         break;
     case SDL_KEYUP:
         event->type = WM_KEYUP;

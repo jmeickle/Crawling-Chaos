@@ -91,10 +91,7 @@ static int _newwave_weapon_colour(const item_def &item)
     std::string itname = item.name(DESC_PLAIN);
     lowercase(itname);
 
-    const bool item_runed = itname.find(" runed ") != std::string::npos;
-    const bool heav_runed = itname.find(" heavily ") != std::string::npos;
-
-    if (is_random_artefact(item) && (!item_runed || heav_runed))
+    if (is_artefact(item))
         return _exciting_colour();
 
     if (is_range_weapon(item))
@@ -270,10 +267,7 @@ static int _newwave_armour_colour(const item_def &item)
     std::string itname = item.name(DESC_PLAIN);
     lowercase(itname);
 
-    const bool item_runed = itname.find(" runed ") != std::string::npos;
-    const bool heav_runed = itname.find(" heavily ") != std::string::npos;
-
-    if (is_random_artefact(item) && (!item_runed || heav_runed))
+    if (is_artefact(item))
         return (_exciting_colour());
 
     switch (item.sub_type)
@@ -373,7 +367,7 @@ void item_colour(item_def &item)
     switch (item.base_type)
     {
     case OBJ_WEAPONS:
-        if (is_unrandom_artefact(item))
+        if (is_unrandom_artefact(item) && !is_randapp_artefact(item))
             break;              // unrandarts have already been coloured
 
         if (is_demonic(item))
@@ -393,7 +387,7 @@ void item_colour(item_def &item)
         break;
 
     case OBJ_ARMOUR:
-        if (is_unrandom_artefact(item))
+        if (is_unrandom_artefact(item) && !is_randapp_artefact(item))
             break;              // unrandarts have already been coloured
 
         switch (item.sub_type)
@@ -881,7 +875,7 @@ static weapon_type _determine_weapon_subtype(int item_level)
     weapon_type rc = WPN_UNKNOWN;
 
     const weapon_type common_subtypes[] = {
-        WPN_KNIFE, WPN_QUARTERSTAFF, WPN_SLING,
+        WPN_QUARTERSTAFF, WPN_SLING,
         WPN_SPEAR, WPN_HAND_AXE, WPN_MACE,
         WPN_DAGGER, WPN_DAGGER, WPN_CLUB,
         WPN_HAMMER, WPN_WHIP, WPN_SABRE
@@ -890,8 +884,7 @@ static weapon_type _determine_weapon_subtype(int item_level)
     const weapon_type rare_subtypes[] = {
         WPN_LAJATANG, WPN_DEMON_WHIP, WPN_DEMON_BLADE,
         WPN_DEMON_TRIDENT, WPN_DOUBLE_SWORD, WPN_EVENINGSTAR,
-        WPN_EXECUTIONERS_AXE, WPN_KATANA, WPN_QUICK_BLADE,
-        WPN_TRIPLE_SWORD
+        WPN_EXECUTIONERS_AXE, WPN_QUICK_BLADE, WPN_TRIPLE_SWORD,
     };
 
     if (item_level > 6 && one_chance_in(30)
@@ -943,8 +936,8 @@ static bool _try_make_weapon_artefact(item_def& item, int force_type,
     {
         // Make a randart or unrandart.
 
-        // 1 in 12 randarts are unrandarts.
-        if (one_chance_in(item_level == MAKE_GOOD_ITEM ? 7 : 12)
+        // 1 in 20 randarts are unrandarts.
+        if (one_chance_in(item_level == MAKE_GOOD_ITEM ? 7 : 20)
             && !force_randart)
         {
             if (_try_make_item_unrand(item, force_type))
@@ -2070,8 +2063,8 @@ static bool _try_make_armour_artefact(item_def& item, int force_type,
     {
         // Make a randart or unrandart.
 
-        // 1 in 12 randarts are unrandarts.
-        if (one_chance_in(item_level == MAKE_GOOD_ITEM ? 7 : 12)
+        // 1 in 20 randarts are unrandarts.
+        if (one_chance_in(item_level == MAKE_GOOD_ITEM ? 7 : 20)
             && !force_randart)
         {
             if (_try_make_item_unrand(item, force_type))

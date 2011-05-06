@@ -264,6 +264,31 @@ static bool _check_moveto_dangerous(const coord_def& p,
 static bool _check_moveto_terrain(const coord_def& p,
                                   const std::string &move_verb)
 {
+    if (you.is_wall_clinging() && move_verb == "blink")
+        return (_check_moveto_dangerous(p, move_verb));
+
+    if (!need_expiration_warning() && need_expiration_warning(p))
+    {
+        std::string prompt = "Are you sure you want to " + move_verb;
+
+        if (you.ground_level())
+            prompt += " into ";
+        else
+            prompt += " over ";
+
+        prompt += env.grid(p) == DNGN_DEEP_WATER ? "deep water" : "lava";
+
+        prompt += need_expiration_warning(DUR_LEVITATION, p)
+                      ? " while you are losing your buoyancy?"
+                      : " while your transformation is expiring?";
+
+        if (!yesno(prompt.c_str(), false, 'n'))
+        {
+            canned_msg(MSG_OK);
+            return false;
+        }
+    }
+
     // Only consider terrain if player is not levitating.
     if (you.airborne() || you.can_cling_to(p))
         return (true);
@@ -301,14 +326,6 @@ void moveto_location_effects(dungeon_feature_type old_feat,
         // If true, we were shifted and so we're done.
         if (fall_into_a_pool(entry, allow_shift, new_grid))
             return;
-    }
-
-    if (is_feat_dangerous(new_grid, true))
-    {
-        if (need_expiration_warning(DUR_LEVITATION))
-            mpr("Careful! You are losing your buoyancy.", MSGCH_DANGER);
-        if (need_expiration_warning(DUR_TRANSFORMATION))
-            mpr("Careful! Your transformation is almost over.", MSGCH_DANGER);
     }
 
     if (you.ground_level())
@@ -362,16 +379,12 @@ void moveto_location_effects(dungeon_feature_type old_feat,
             }
         }
     }
-    else if (feat_is_water(new_grid) && you.is_wall_clinging()
-             && !cell_is_clingable(you.pos()))
-    {
+
+    const bool was_clinging = you.is_wall_clinging();
+    const bool is_clinging = stepped && you.check_clinging(stepped);
+
+    if (feat_is_water(new_grid) && was_clinging && !is_clinging)
         _splash();
-    }
-
-
-    // Icy shield goes down over lava.
-    if (new_grid == DNGN_LAVA)
-        expose_player_to_element(BEAM_LAVA);
 
     // Traps go off.
     if (trap_def* ptrap = find_trap(you.pos()))
@@ -812,7 +825,8 @@ bool you_tran_can_wear(int eq, bool check_mutation)
 
     if (you.form == TRAN_STATUE)
     {
-        if (eq == EQ_WEAPON || eq == EQ_CLOAK || eq == EQ_HELMET)
+        if (eq == EQ_WEAPON || eq == EQ_SHIELD
+            || eq == EQ_CLOAK || eq == EQ_HELMET)
             return (true);
         return (false);
     }
@@ -3810,8 +3824,10 @@ static void _display_movement_speed()
 
 static void _display_tohit()
 {
+#ifdef DEBUG_DIAGNOSTICS
     const int to_hit = calc_your_to_hit(false) * 2;
     dprf("To-hit: %d", to_hit);
+#endif
 /*
     // Messages based largely on percentage chance of missing the
     // average EV 10 humanoid, and very agile EV 30 (pretty much
@@ -3855,7 +3871,12 @@ static void _display_attack_delay()
     // Scale to fit the displayed weapon base delay, i.e.,
     // normal speed is 100 (as in 100%).
     // We could also compute the variance if desired.
-    int avg = static_cast<int>(round(10 * delay.expected()));
+    int avg;
+    const item_def* weapon = you.weapon();
+    if (weapon && is_range_weapon(*weapon))
+        avg = launcher_final_speed(*weapon, you.shield());
+    else
+        avg = static_cast<int>(round(10 * delay.expected()));
 
     // Haste wasn't counted here, but let's show finesse.
     // Can't be done in the above function because of interactions with
@@ -3910,19 +3931,56 @@ void display_char_status()
 
     static int statuses[] = {
         STATUS_STR_ZERO, STATUS_INT_ZERO, STATUS_DEX_ZERO,
-        DUR_TRANSFORMATION, STATUS_BURDEN, DUR_SAGE, DUR_BARGAIN,
-        DUR_BREATH_WEAPON, DUR_LIQUID_FLAMES, DUR_FIRE_SHIELD, DUR_ICY_ARMOUR,
-        DUR_REPEL_MISSILES, DUR_DEFLECT_MISSILES, DUR_JELLY_PRAYER,
-        STATUS_REGENERATION, DUR_SWIFTNESS, DUR_RESIST_POISON,
-        DUR_RESIST_COLD, DUR_RESIST_FIRE, DUR_INSULATION, DUR_TELEPORT,
-        DUR_CONTROL_TELEPORT, DUR_DEATH_CHANNEL, DUR_PHASE_SHIFT, DUR_SILENCE,
-        DUR_STONESKIN, DUR_SEE_INVISIBLE, DUR_INVIS, DUR_CONF, STATUS_BEHELD,
-        DUR_PARALYSIS, DUR_PETRIFIED, DUR_SLEEP, DUR_EXHAUSTED,
-        STATUS_SPEED, DUR_MIGHT, DUR_BRILLIANCE, DUR_AGILITY,
-        DUR_DIVINE_VIGOUR, DUR_DIVINE_STAMINA, DUR_BERSERK,
-        STATUS_AIRBORNE, STATUS_NET, DUR_POISONING, STATUS_SICK,
-        STATUS_ROT, STATUS_GLOW, DUR_CONFUSING_TOUCH, DUR_SURE_BLADE,
-        DUR_AFRAID, DUR_MIRROR_DAMAGE, DUR_SCRYING, STATUS_CLINGING,
+        DUR_TRANSFORMATION,
+        STATUS_BURDEN,
+        DUR_SAGE,
+        DUR_BARGAIN,
+        DUR_BREATH_WEAPON,
+        DUR_LIQUID_FLAMES,
+        DUR_FIRE_SHIELD,
+        DUR_ICY_ARMOUR,
+        DUR_REPEL_MISSILES,
+        DUR_DEFLECT_MISSILES,
+        DUR_JELLY_PRAYER,
+        STATUS_REGENERATION,
+        DUR_SWIFTNESS,
+        DUR_RESIST_POISON,
+        DUR_RESIST_COLD,
+        DUR_RESIST_FIRE,
+        DUR_INSULATION,
+        DUR_TELEPORT,
+        DUR_CONTROL_TELEPORT,
+        DUR_DEATH_CHANNEL,
+        DUR_PHASE_SHIFT,
+        DUR_SILENCE,
+        DUR_STONESKIN,
+        DUR_SEE_INVISIBLE,
+        DUR_INVIS,
+        DUR_CONF,
+        STATUS_BEHELD,
+        DUR_PARALYSIS,
+        DUR_PETRIFIED,
+        DUR_SLEEP,
+        DUR_EXHAUSTED,
+        STATUS_SPEED,
+        DUR_MIGHT,
+        DUR_BRILLIANCE,
+        DUR_AGILITY,
+        DUR_DIVINE_VIGOUR,
+        DUR_DIVINE_STAMINA,
+        DUR_BERSERK,
+        STATUS_AIRBORNE,
+        STATUS_NET,
+        DUR_POISONING,
+        STATUS_SICK,
+        STATUS_ROT,
+        STATUS_GLOW,
+        DUR_CONFUSING_TOUCH,
+        DUR_SURE_BLADE,
+        DUR_AFRAID,
+        DUR_MIRROR_DAMAGE,
+        DUR_SCRYING,
+        STATUS_CLINGING,
     };
 
     status_info inf;
@@ -4896,7 +4954,7 @@ bool miasma_player(std::string source, std::string source_aux)
 {
     ASSERT(!crawl_state.game_is_arena());
 
-    if (you.res_rotting())
+    if (you.res_rotting() || you.duration[DUR_DEATHS_DOOR])
         return (false);
 
     // Zin's protection.
@@ -5159,7 +5217,7 @@ void float_player(bool fly)
         mpr("You fly up into the air.");
     else
     {
-        mprf("You gently float upwards from the %s.",
+        mprf("You gently float away from the %s.",
              you.is_wall_clinging() ? "wall" : "floor");
     }
 
@@ -5193,7 +5251,6 @@ void levitate_player(int pow)
          "You feel %s buoyant.", standing ? "very" : "more");
 
     you.increase_duration(DUR_LEVITATION, 25 + random2(pow), 100);
-    you.lev_expire_warning = false;
 
     if (standing)
         float_player(false);
@@ -5348,8 +5405,6 @@ void player::init()
     attribute.init(0);
     quiver.init(ENDOFPACK);
     sacrifice_value.init(0);
-    lev_expire_warning = false;
-    form_expire_warning = false;
 
     is_undead       = US_ALIVE;
 
@@ -5409,6 +5464,8 @@ void player::init()
     worshipped.init(0);
     num_current_gifts.init(0);
     num_total_gifts.init(0);
+    exp_docked       = 0;
+    exp_docked_total = 0;
 
     mutation.init(0);
     innate_mutations.init(0);
@@ -5516,6 +5573,7 @@ void player::init()
     frame_no            = 0;
 
     save                = 0;
+    prev_save_version.clear();
 
     // Protected fields:
     for (int i = 0; i < NUM_BRANCHES; i++)
@@ -6373,7 +6431,7 @@ bool player::rot(actor *who, int amount, int immediate, bool quiet)
     if (amount <= 0 && immediate <= 0)
         return (false);
 
-    if (res_rotting())
+    if (res_rotting() || you.duration[DUR_DEATHS_DOOR])
     {
         mpr("You feel terrible.");
         return (false);
@@ -7099,23 +7157,26 @@ void player::goto_place(const level_id &lid)
  * by the caller.
  *
  * @param dur the duration to check for dangerous expiration.
+ * @param p the coordinates of the cell to check. Defaults to player position.
  * @return whether the player is in immediate danger.
  */
-bool need_expiration_warning(duration_type dur)
+bool need_expiration_warning(duration_type dur, coord_def p)
 {
-    if (!is_feat_dangerous(env.grid(you.pos()), true) || !dur_expiring(dur))
+    if (!is_feat_dangerous(env.grid(p), true) || !dur_expiring(dur))
         return false;
 
-    if (dur == DUR_LEVITATION && !you.lev_expire_warning)
-    {
-        you.lev_expire_warning = true;
+    if (dur == DUR_LEVITATION)
         return true;
-    }
-    else if (dur == DUR_TRANSFORMATION && !you.form_expire_warning
+    else if (dur == DUR_TRANSFORMATION
              && (!you.airborne() || form_can_fly()))
     {
-        you.form_expire_warning = true;
         return true;
     }
     return false;
+}
+
+bool need_expiration_warning(coord_def p)
+{
+    return need_expiration_warning(DUR_LEVITATION, p)
+           || need_expiration_warning(DUR_TRANSFORMATION, p);
 }

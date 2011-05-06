@@ -333,6 +333,9 @@ public:
   // The save file itself.
   package *save;
 
+  // The version the save was last played with.
+  std::string prev_save_version;
+
   // The type of a zotdef wave, if any.
   std::string zotdef_wave_name;
   // The biggest assigned monster id so far.
@@ -340,10 +343,6 @@ public:
 
   // The last spell cast by the player.
   spell_type last_cast_spell;
-
-  // Has the player already been warned about an expiring effect?
-  bool lev_expire_warning;
-  bool form_expire_warning;
 
 protected:
     FixedVector<PlaceInfo, NUM_BRANCHES>             branch_info;
@@ -361,8 +360,8 @@ public:
     // Set player position without updating view geometry.
     void set_position(const coord_def &c);
     // Low-level move the player. Use this instead of changing pos directly.
-    void moveto(const coord_def &c);
-    bool move_to_pos(const coord_def &c);
+    void moveto(const coord_def &c, bool clear_net = true);
+    bool move_to_pos(const coord_def &c, bool clear_net = true);
     // Move the player during an abyss shift.
     void shiftto(const coord_def &c);
     bool blink_to(const coord_def& c, bool quiet = false);
@@ -433,7 +432,8 @@ public:
 
     bool has_spell(spell_type spell) const;
 
-    size_type transform_size(int psize = PSIZE_TORSO) const;
+    size_type transform_size(transformation_type tform,
+                             int psize = PSIZE_TORSO) const;
     std::string shout_verb() const;
 
     item_def *slot_item(equipment_type eq,
@@ -686,6 +686,9 @@ struct player_save_info
     bool held_in_net;
 #endif
 
+    bool save_loadable;
+    std::string filename;
+
     player_save_info operator=(const player& rhs);
     bool operator<(const player_save_info& rhs) const;
     std::string short_desc() const;
@@ -921,5 +924,6 @@ bool is_feat_dangerous(dungeon_feature_type feat, bool permanently = false);
 void run_macro(const char *macroname = NULL);
 
 int count_worn_ego(int which_ego);
-bool need_expiration_warning(duration_type dur);
+bool need_expiration_warning(duration_type dur, coord_def p = you.pos());
+bool need_expiration_warning(coord_def p = you.pos());
 #endif

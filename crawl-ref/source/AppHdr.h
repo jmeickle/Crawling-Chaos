@@ -80,15 +80,9 @@
     #endif
 #endif
 
-// Use this to seed the PRNG with a bit more than just time()... which
-// leads to problems if for any reason we get started twice in the same
-// second.
-#define USE_MORE_SECURE_SEED
-
 // =========================================================================
 //  System Defines
 // =========================================================================
-// Define plain_term for Unix and dos_term for DOS.
 
 #ifdef UNIX
     // Uncomment if you're running Crawl with dgamelaunch and have
@@ -100,10 +94,6 @@
 #ifndef TARGET_COMPILER_MINGW
     #define USE_UNIX_SIGNALS
 #endif
-
-    // If this is defined, Crawl will attempt to save and exit when it
-    // receives a hangup signal.
-    #define SIGHUP_SAVE
 
     #define FILE_SEPARATOR '/'
 #ifndef USE_TILE
@@ -133,11 +123,9 @@
 
     // Uncomment (and edit as appropriate) to play sounds.
     //
-    // WARNING: Enabling sounds may compromise security if Crawl is installed
-    //          setuid or setgid. Filenames passed to this command *are not
-    //          validated in any way*.
+    // WARNING: Filenames passed to this command *are not validated in any way*.
     //
-    // #define SOUND_PLAY_COMMAND "/usr/bin/play -v .5 %s 2>/dev/null &"
+    // #define SOUND_PLAY_COMMAND "/usr/bin/play -v .5 \"%s\" 2>/dev/null &"
 
     // For cases when the game will be played on terms that don't support the
     // curses "bold == lighter" 16 colour mode. -- bwr
@@ -150,25 +138,6 @@
     // #define COL_TO_REPLACE_DARKGREY     MAGENTA
 
     #include "libunix.h"
-
-#elif defined(TARGET_OS_DOS)
-    #define SHORT_FILE_NAMES
-
-    #define FILE_SEPARATOR '\\'
-
-    #include <string>
-    #include "libdos.h"
-
-    #include <dos.h>
-    #include <file.h>
-
-    #define round(x) floor((x)+0.5)
-
-    // Use Perl-compatible regular expressions. libpcre must be available and
-    // linked in.  This is optional.
-    #ifndef REGEX_PCRE
-    #define REGEX_PCRE
-    #endif
 
 #elif defined(TARGET_OS_WINDOWS)
     #if !defined(USE_TILE)
@@ -230,12 +199,7 @@
     // it in-place, instead of torching the old file.
     #define DGL_REWRITE_PROTECT_DB_FILES
 
-    #ifndef USE_MORE_SECURE_SEED
-    #error DGAMELAUNCH builds should define USE_MORE_SECURE_SEED
-    #endif
-
     // This secures the PRNG itself by hashing the values with SHA256.
-    // It doesn't have much point if USE_MORE_SECURE_SEED is not used.
     // PRNG will be about 15 times slower when this is turned on, but
     // even with that the cpu time used by the PRNG is relatively small.
     #define MORE_HARDENED_PRNG
@@ -395,14 +359,6 @@
 // end it with a '/'. Only one system user should be able to access
 // these -- usually this means you should place them in ~/crawl/
 // unless it's a DGL build.
-
-// If we're on a multiuser system, file locking of shared files is
-// very important (else things will just keep getting corrupted)
-#define USE_FILE_LOCKING
-
-#if defined(DGL_SIMPLE_MESSAGING) && !defined(USE_FILE_LOCKING)
-#error Must define USE_FILE_LOCKING for DGL_SIMPLE_MESSAGING
-#endif
 
 #if !defined(DB_NDBM) && !defined(DB_DBH) && !defined(USE_SQLITE_DBM)
 #define USE_SQLITE_DBM

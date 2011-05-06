@@ -775,7 +775,7 @@ bool cast_a_spell(bool check_range, spell_type spell)
     return (true);
 }                               // end cast_a_spell()
 
-static void _spellcasting_side_effects(spell_type spell)
+static void _spellcasting_side_effects(spell_type spell, int pow)
 {
     // If you are casting while a god is acting, then don't do conducts.
     // (Presumably Xom is forcing you to cast a spell.)
@@ -797,7 +797,7 @@ static void _spellcasting_side_effects(spell_type spell)
     // Linley says: Condensation Shield needs some disadvantages to keep
     // it from being a no-brainer... this isn't much, but its a start. - bwr
     if (spell_typematch(spell, SPTYP_FIRE))
-        expose_player_to_element(BEAM_FIRE, 0);
+        expose_player_to_element(BEAM_FIRE, pow * 3, false);
 
     if (spell_typematch(spell, SPTYP_NECROMANCY)
         && !crawl_state.is_god_acting())
@@ -827,7 +827,6 @@ static bool _vampire_cannot_cast(spell_type spell)
     case SPELL_CURE_POISON:
     case SPELL_DRAGON_FORM:
     case SPELL_ICE_FORM:
-    case SPELL_RESIST_POISON:
     case SPELL_SPIDER_FORM:
     case SPELL_STATUE_FORM:
     case SPELL_STONESKIN:
@@ -985,9 +984,9 @@ static bool _spellcasting_aborted(spell_type spell,
         return (true);
     }
 
-    if (is_prevented_teleport(spell)
-        && !yesno("You cannot teleport right now. Cast anyway?", true, 'n'))
+    if (is_prevented_teleport(spell))
     {
+        mpr("You cannot teleport right now.");
         return (true);
     }
 
@@ -1026,7 +1025,10 @@ targetter* _spell_targetter(spell_type spell, int pow, int range)
     {
     case SPELL_FIRE_STORM:
         return new targetter_smite(&you, range, 2, pow > 76 ? 3 : 2);
-        break;
+    case SPELL_FREEZING_CLOUD:
+    case SPELL_POISONOUS_CLOUD:
+    case SPELL_HOLY_BREATH:
+        return new targetter_cloud(&you, range);
     default:
         return 0;
     }
@@ -1085,6 +1087,9 @@ spret_type your_spells(spell_type spell, int powc,
 
         if (testbits(flags, SPFLAG_NEUTRAL))
             targ = TARG_ANY;
+
+        if (spell == SPELL_DISPEL_UNDEAD)
+            targ = TARG_HOSTILE_UNDEAD;
 
         targeting_type dir  =
             (testbits(flags, SPFLAG_TARG_OBJ) ? DIR_TARGET_OBJECT :
@@ -1240,7 +1245,7 @@ spret_type your_spells(spell_type spell, int powc,
     switch (_do_cast(spell, powc, spd, beam, god, potion, check_range))
     {
     case SPRET_SUCCESS:
-        _spellcasting_side_effects(spell);
+        _spellcasting_side_effects(spell, powc);
         return (SPRET_SUCCESS);
 
     case SPRET_FAIL:
@@ -1278,7 +1283,8 @@ static void _spell_zap_effect(spell_type spell)
 {
     // Casting pain costs 1 hp.
     // Deep Dwarves' damage reduction always blocks at least 1 hp.
-    if (spell == SPELL_PAIN && you.species != SP_DEEP_DWARF)
+    if (spell == SPELL_PAIN
+        && (you.species != SP_DEEP_DWARF && !player_res_torment()))
         dec_hp(1, false);
 }
 
@@ -1682,9 +1688,11 @@ static spret_type _do_cast(spell_type spell, int powc,
         cast_insulation(powc);
         break;
 
+#if TAG_MAJOR_VERSION == 32
     case SPELL_RESIST_POISON:
-        cast_resist_poison(powc);
-        break;
+        mpr("Sorry, this spell is gone!");
+        return SPRET_ABORT;
+#endif
 
     case SPELL_SEE_INVISIBLE:
         cast_see_invisible(powc);
@@ -1978,7 +1986,7 @@ const char* failure_rate_to_string(int fail)
 {
     return (fail == 100) ? "Useless"   : // 0% success chance
            (fail > 77)   ? "Terrible"  : // 0-5%
-           (fail > 59)   ? "Bad" :       // 5-30%
+           (fail > 59)   ? "Very Poor" : // 5-30%
            (fail > 50)   ? "Poor"      : // 30-50%
            (fail > 40)   ? "Fair"      : // 50-70%
            (fail > 35)   ? "Good"      : // 70-80%

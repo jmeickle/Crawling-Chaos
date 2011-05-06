@@ -2528,6 +2528,7 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
         || spell_cast == SPELL_VAMPIRIC_DRAINING
         || spell_cast == SPELL_MIRROR_DAMAGE
         || spell_cast == SPELL_DRAIN_LIFE
+        || spell_cast == SPELL_TROGS_HAND
         || spell_cast == SPELL_LEDAS_LIQUEFACTION)
     {
         do_noise = false;       // Spell itself does the messaging.
@@ -2607,6 +2608,9 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
 
     case SPELL_TROGS_HAND:
     {
+        simple_monster_message(mons,
+                               " invokes Trog's protection!",
+                               MSGCH_MONSTER_SPELL);
         const int dur = BASELINE_DELAY
             * std::min(5 + roll_dice(2, (mons->hit_dice * 10) / 3 + 1), 100);
         mons->add_ench(mon_enchant(ENCH_RAISED_MR, 0, mons, dur));
@@ -3573,13 +3577,13 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
         for (sumcount = 0; sumcount < sumcount2; sumcount++)
         {
             const monster_type mon = static_cast<monster_type>(
-                random_choose_weighted(100, MONS_EFREET,
-                                        80, MONS_SUN_DEMON,
-                                        60, MONS_BALRUG,
-                                        40, MONS_HELLION,
-                                        20, MONS_PIT_FIEND,
-                                        10, MONS_FIEND,
-                                        0));
+                random_choose_weighted(3, MONS_EFREET,
+                                       3, MONS_SUN_DEMON,
+                                       2, MONS_BALRUG,
+                                       2, MONS_HELLION,
+                                       1, MONS_PIT_FIEND,
+                                       1, MONS_FIEND,
+                                       0));
 
             create_monster(
                 mgen_data(mon, SAME_ATTITUDE(mons), mons, duration,

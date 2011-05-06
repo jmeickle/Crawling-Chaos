@@ -17,6 +17,7 @@
 #include "directn.h"
 #include "dungeon.h"
 #include "env.h"
+#include "files.h"
 #include "libutil.h"
 #include "los.h"
 #include "menu.h"
@@ -319,10 +320,6 @@ void cio_init()
     init_libw32c();
 #endif
 
-#ifdef TARGET_OS_DOS
-    init_libdos();
-#endif
-
     set_cursor_enabled(false);
 
     crawl_view.init_geometry();
@@ -387,7 +384,6 @@ NORETURN void end(int exit_code, bool print_error, const char *format, ...)
     }
 
 #if (defined(TARGET_OS_WINDOWS) && !defined(USE_TILE)) \
-     || defined(TARGET_OS_DOS) \
      || defined(DGL_PAUSE_AFTER_ERROR)
     bool need_pause = true;
     if (exit_code && !error.empty())
@@ -409,7 +405,6 @@ NORETURN void end(int exit_code, bool print_error, const char *format, ...)
     }
 
 #if (defined(TARGET_OS_WINDOWS) && !defined(USE_TILE)) \
-     || defined(TARGET_OS_DOS) \
      || defined(DGL_PAUSE_AFTER_ERROR)
     if (need_pause && exit_code && !crawl_state.game_is_arena()
         && !crawl_state.seen_hups && !crawl_state.test)
@@ -503,7 +498,7 @@ bool print_error_screen(const char *message, ...)
 #else
     width = std::min(80, get_number_of_cols());
 #endif
-    linebreak_string2(error_msg, width);
+    linebreak_string(error_msg, width);
 
     // And finally output the message.
     clrscr();
@@ -768,14 +763,12 @@ bool yesno(const char *str, bool safe, int safeanswer, bool clear_after,
 
         int tmp = getchm(KMC_CONFIRM);
 
-#if defined(USE_UNIX_SIGNALS) && defined(SIGHUP_SAVE) && defined(USE_CURSES)
         // Prevent infinite loop if Curses HUP signal handling happens;
         // if there is no safe answer, then just save-and-exit immediately,
         // since there's no way to know if it would be better to return
         // true or false.
         if (crawl_state.seen_hups && !safeanswer)
             sighup_save_and_exit();
-#endif
 
         if (map && map->find(tmp) != map->end())
             tmp = map->find(tmp)->second;

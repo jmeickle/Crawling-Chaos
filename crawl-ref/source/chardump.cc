@@ -747,7 +747,6 @@ static void _sdump_inventory(dump_params &par)
 
     int inv_class2[OBJ_GOLD];
     int inv_count = 0;
-    char tmp_quant[20];
 
     for (i = 0; i < OBJ_GOLD; i++)
         inv_class2[i] = 0;
@@ -808,13 +807,8 @@ static void _sdump_inventory(dump_params &par)
                         int ival = -1;
                         if (par.show_prices)
                         {
-                            text += " (";
-
-                            itoa(ival = item_value(you.inv[j], true),
-                                  tmp_quant, 10);
-
-                            text += tmp_quant;
-                            text += " gold)";
+                            text += make_stringf(" (%d gold)",
+                                        ival = item_value(you.inv[j], true));
                         }
 
                         if (origin_describable(you.inv[j])
@@ -853,21 +847,14 @@ static void _sdump_inventory(dump_params &par)
 static void _sdump_skills(dump_params &par)
 {
     std::string &text(par.text);
-    char tmp_quant[20];
 
     if (par.se)
         text += " You had ";
     else
         text += " You have ";
 
-    itoa(you.exp_available, tmp_quant, 10);
-    text += tmp_quant;
-    text += " experience left.";
-
-    text += "\n";
-    text += "\n";
-    text += "   Skills:";
-    text += "\n";
+    text += make_stringf("%d experience left.\n", you.exp_available);
+    text += "\n   Skills:\n";
 
     dump_skills(text);
     text += "\n";
@@ -899,7 +886,6 @@ static std::string spell_type_shortname(int spell_class, bool slash)
 static void _sdump_spells(dump_params &par)
 {
     std::string &text(par.text);
-    char tmp_quant[20];
 
 // This array helps output the spell types in the traditional order.
 // this can be tossed as soon as I reorder the enum to the traditional order {dlb}
@@ -940,9 +926,7 @@ static void _sdump_spells(dump_params &par)
             text += "You had ";
         else
             text += "You have ";
-        itoa(spell_levels, tmp_quant, 10);
-        text += tmp_quant;
-        text += " spell levels left.";
+        text += make_stringf("%d spell levels left.", spell_levels);
     }
 
     text += "\n";
@@ -999,10 +983,7 @@ static void _sdump_spells(dump_params &par)
 
                 spell_line = chop_string(spell_line, 66);
 
-                itoa(spell_difficulty(spell), tmp_quant, 10);
-                spell_line += tmp_quant;
-
-                spell_line = chop_string(spell_line, 71);
+                spell_line += make_stringf("%-5d", spell_difficulty(spell));
 
                 spell_line += spell_hunger_string(spell);
                 spell_line += "\n";
@@ -1284,9 +1265,7 @@ static bool _write_dump(const std::string &fname, dump_params &par,
     file_name += ".txt";
     FILE *handle = fopen_replace(file_name.c_str());
 
-#ifdef DEBUG_DIAGNOSTICS
-    mprf(MSGCH_DIAGNOSTICS, "File name: %s", file_name.c_str());
-#endif
+    dprf("File name: %s", file_name.c_str());
 
     if (handle != NULL)
     {
@@ -1324,9 +1303,7 @@ void display_notes()
         if (spaceleft <= 0)
             return;
 
-        // Use smarter linebreak function.
-        // was:  linebreak_string(suffix, spaceleft - 4, spaceleft);
-        linebreak_string2(suffix, spaceleft);
+        linebreak_string(suffix, spaceleft);
         std::vector<std::string> parts = split_string("\n", suffix);
         if (parts.empty()) // Disregard pure-whitespace notes.
             continue;
@@ -1390,14 +1367,6 @@ const uint32_t DGL_TIMESTAMP_VERSION = 1;
 const int VERSION_SIZE = sizeof(DGL_TIMESTAMP_VERSION);
 const int TIMESTAMP_SIZE = sizeof(uint32_t);
 
-// Returns the size of the opened file with the give FILE* handle.
-unsigned long _file_size(FILE *handle)
-{
-    struct stat fs;
-    const int err = fstat(fileno(handle), &fs);
-    return err? 0 : fs.st_size;
-}
-
 // Returns the name of the timestamp file based on the morgue_dir,
 // character name and the game start time.
 std::string dgl_timestamp_filename()
@@ -1450,7 +1419,7 @@ void dgl_record_timestamp(unsigned long file_offset, time_t time)
         writer w(dgl_timestamp_filename(), ftimestamp, true);
         if (timestamp_first_write)
         {
-            unsigned long ts_size = _file_size(ftimestamp);
+            unsigned long ts_size = file_size(ftimestamp);
             if (!ts_size)
             {
                 marshallInt(w, DGL_TIMESTAMP_VERSION);

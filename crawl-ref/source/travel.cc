@@ -8,6 +8,7 @@
  */
 #include "AppHdr.h"
 
+#include "artefact.h"
 #include "coord.h"
 #include "coordit.h"
 #include "files.h"
@@ -58,10 +59,6 @@
 #include <cstdio>
 #include <memory>
 #include <sstream>
-
-#ifdef TARGET_OS_DOS
-#include <dos.h>
-#endif
 
 enum IntertravelDestination
 {
@@ -222,6 +219,16 @@ static inline bool _is_safe_trap (const coord_def& c)
     return (false);
 }
 
+static inline bool _is_safe_cloud(const coord_def& c)
+{
+    const int cloud = env.cgrid(c);
+    if (cloud == EMPTY_CLOUD)
+        return (true);
+
+    // We can also safely run through smoke.
+    const cloud_type ctype = env.cloud[cloud].type;
+    return (!is_damaging_cloud(ctype, true));
+}
 
 // Returns an estimate for the time needed to cross this feature.
 // This is done, so traps etc. will usually be circumvented where possible.
@@ -324,7 +331,8 @@ static bool _is_reseedable(const coord_def& c, bool ignore_danger = false)
             || grid == DNGN_LAVA
             || is_trap(c)
             || !ignore_danger && _monster_blocks_travel(cell.monsterinfo())
-            || g_Slime_Wall_Check && slime_wall_neighbour(c));
+            || g_Slime_Wall_Check && slime_wall_neighbour(c)
+            || !_is_safe_cloud(c));
 }
 
 struct cell_travel_safety
@@ -372,7 +380,7 @@ public:
     }
 };
 
-static bool _is_stair_exclusion(const coord_def &p)
+bool is_stair_exclusion(const coord_def &p)
 {
     if (feat_stair_direction(env.map_knowledge(p).feat()) == CMD_NO_CMD)
         return (false);
@@ -425,7 +433,7 @@ bool is_travelsafe_square(const coord_def& c, bool ignore_hostile,
         return (true);
 
     // Excluded squares are only safe if marking stairs, i.e. another level.
-    if (!ignore_danger && is_excluded(c) && !_is_stair_exclusion(c))
+    if (!ignore_danger && is_excluded(c) && !is_stair_exclusion(c))
         return (false);
 
     if (is_trap(c) && _is_safe_trap(c))
@@ -434,7 +442,7 @@ bool is_travelsafe_square(const coord_def& c, bool ignore_hostile,
     if (g_Slime_Wall_Check && slime_wall_neighbour(c))
         return (false);
 
-    return (feat_is_traversable(grid));
+    return (feat_is_traversable(grid) && _is_safe_cloud(c));
 }
 
 // Returns true if the location at (x,y) is monster-free and contains
@@ -464,13 +472,7 @@ static bool _is_safe_move(const coord_def& c)
     if (is_trap(c))
         return (_is_safe_trap(c));
 
-    const int cloud = env.cgrid(c);
-    if (cloud == EMPTY_CLOUD)
-        return (true);
-
-    // We can also safely run through smoke.
-    const cloud_type ctype = env.cloud[cloud].type;
-    return (!is_damaging_cloud(ctype, true));
+    return _is_safe_cloud(c);
 }
 
 static void _set_pass_feature(dungeon_feature_type grid, signed char pass)
@@ -934,7 +936,7 @@ command_type travel()
     }
 
     // Excluded squares are only safe if marking stairs, i.e. another level.
-    if (is_excluded(you.pos()) && !_is_stair_exclusion(you.pos()))
+    if (is_excluded(you.pos()) && !is_stair_exclusion(you.pos()))
     {
         mprf("You're in a travel-excluded area, stopping %s.",
              you.running.runmode_name().c_str());
@@ -942,12 +944,8 @@ command_type travel()
         return CMD_NO_CMD;
     }
 
-    if (you.running.is_explore())
-    {
-        if (check_for_interesting_features())
+    if (you.running.is_explore() && check_for_interesting_features())
             stop_running();
-        env.map_shadow = env.map_knowledge;
-    }
 
     if (you.running.is_explore())
     {
@@ -1597,7 +1595,8 @@ bool travel_pathfind::path_flood(const coord_def &c, const coord_def &dc)
             // this number, since this square is unsafe for travel.
             point_distance[dc.x][dc.y] =
                 is_exclude_root(dc)   ? PD_EXCLUDED :
-                is_excluded(dc)       ? PD_EXCLUDED_RADIUS
+                is_excluded(dc)       ? PD_EXCLUDED_RADIUS :
+                !_is_safe_cloud(dc)   ? PD_CLOUD
                                       : PD_TRAP;
         }
         return (false);
@@ -2347,8 +2346,12 @@ bool travel_kill_monster(monster_type mons)
         return (false);
 
     // Don't auto-kill things with berserkitis or *rage.
-    if ((player_mutation_level(MUT_BERSERK) || scan_artefacts(ARTP_ANGRY))
-        && !wearing_amulet(AMU_STASIS, false) && !player_mental_clarity(false))
+    if ((player_mutation_level(MUT_BERSERK) || scan_artefacts(ARTP_ANGRY)
+         || player_equip_unrand(UNRAND_TROG))
+        && !wearing_amulet(AMU_STASIS, false)
+        && !player_mental_clarity(false)
+        && you.is_undead != US_UNDEAD
+        && you.is_undead != US_HUNGRY_DEAD)
     {
         return (false);
     }
@@ -3583,7 +3586,7 @@ void TravelCache::list_waypoints() const
 
         dest = get_trans_travel_dest(waypoints[i], false, true);
 
-        snprintf(choice, sizeof choice, "(%d) %-8s", i, dest.c_str());
+        snprintf(choice, sizeof choice, "(%d) %-9s", i, dest.c_str());
         line += choice;
         if (!(++count % 5))
         {
@@ -3990,6 +3993,10 @@ bool runrest::run_should_stop() const
     const monster_info* mon = tcell.monsterinfo();
     if (mon && !fedhas_passthrough(tcell.monsterinfo()))
         return (true);
+
+    for (adjacent_iterator ai(targ); ai; ++ai)
+        if (env.grid(*ai) == DNGN_SLIMY_WALL)
+            return (true);
 
     for (int i = 0; i < 3; i++)
     {
@@ -4409,8 +4416,8 @@ int click_travel(const coord_def &gc, bool force)
     if (cmd != CK_MOUSE_CMD)
         return cmd;
 
-    if ((!is_excluded(gc) || _is_stair_exclusion(gc))
-        && (!is_excluded(you.pos()) || _is_stair_exclusion(you.pos()))
+    if ((!is_excluded(gc) || is_stair_exclusion(gc))
+        && (!is_excluded(you.pos()) || is_stair_exclusion(you.pos()))
         && i_feel_safe(false, false, false, false))
     {
         map_cell &cell(env.map_knowledge(gc));

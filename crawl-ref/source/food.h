@@ -50,7 +50,7 @@ void lessen_hunger(int statiated_amount, bool suppress_msg);
 
 void set_hunger(int new_hunger_level, bool suppress_msg);
 
-void weapon_switch(int targ, bool force = false);
+void weapon_switch(int targ);
 
 bool is_bad_food(const item_def &food);
 bool is_poisonous(const item_def &food);
@@ -73,7 +73,7 @@ void eat_floor_item(int item_link);
 
 int eat_from_floor(bool skip_chunks = true);
 bool eat_from_inventory();
-int prompt_eat_chunks();
+int prompt_eat_chunks(bool only_auto = false);
 
 bool food_change(bool suppress_message = false);
 void eat_inventory_item(int which_inventory_slot);

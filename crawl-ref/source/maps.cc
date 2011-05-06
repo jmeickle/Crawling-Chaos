@@ -373,12 +373,15 @@ bool map_safe_vault_place(const map_def &map,
         if (lines[dp.y][dp.x] == ' ')
             continue;
 
-        // Also check adjacent squares for collisions, because being next
-        // to another vault may block off one of this vault's exits.
-        for (adjacent_iterator ai(cp); ai; ++ai)
+        if (!map.has_tag("can_overwrite"))
         {
-            if (map_bounds(*ai) && (env.level_map_mask(*ai) & MMT_VAULT))
-                return (false);
+            // Also check adjacent squares for collisions, because being next
+            // to another vault may block off one of this vault's exits.
+            for (adjacent_iterator ai(cp); ai; ++ai)
+            {
+                if (map_bounds(*ai) && (env.level_map_mask(*ai) & MMT_VAULT))
+                    return (false);
+            }
         }
 
         // Don't overwrite features other than floor, rock wall, doors,
@@ -1042,7 +1045,7 @@ int map_count_for_tag(const std::string &tag,
 // Reading maps from .des files.
 
 // All global preludes.
-std::vector<dlua_chunk> global_preludes;
+static std::vector<dlua_chunk> global_preludes;
 
 // Map-specific prelude.
 dlua_chunk lc_global_prelude("global_prelude");
@@ -1053,7 +1056,7 @@ depth_ranges lc_default_depths;
 bool lc_run_global_prelude = true;
 map_load_info_t lc_loaded_maps;
 
-std::set<std::string> map_files_read;
+static std::set<std::string> map_files_read;
 
 extern int yylineno;
 

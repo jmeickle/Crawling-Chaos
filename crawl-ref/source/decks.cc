@@ -29,6 +29,7 @@
 #include "item_use.h"
 #include "itemprop.h"
 #include "items.h"
+#include "macro.h"
 #include "makeitem.h"
 #include "maps.h"
 #include "message.h"
@@ -978,7 +979,7 @@ static void _describe_cards(std::vector<card_type> cards)
     formatted_string fs = formatted_string::parse_string(data.str());
     clrscr();
     fs.display();
-    wait_for_keypress();
+    getchm();
     redraw_screen();
 }
 
@@ -1786,7 +1787,7 @@ static void _battle_lust_card(int power, deck_rarity_type rarity)
     }
     else if (power_level == 1)
     {
-        you.set_duration(DUR_BUILDING_RAGE, 1,
+        you.set_duration(DUR_BUILDING_RAGE, 2,
                          0, "You feel your rage building.");
     }
     else if (power_level == 0)
@@ -2323,13 +2324,13 @@ static void _dowsing_card(int power, deck_rarity_type rarity)
     }
 }
 
-static bool _trowel_card(int power, deck_rarity_type rarity)
+static void _trowel_card(int power, deck_rarity_type rarity)
 {
     // Early exit: don't clobber important features.
     if (is_critical_feature(grd(you.pos())))
     {
         mpr("The dungeon trembles momentarily.");
-        return (false);
+        return;
     }
 
     const int power_level = get_power_level(power, rarity);
@@ -2439,8 +2440,6 @@ static bool _trowel_card(int power, deck_rarity_type rarity)
 
     if (!done_stuff)
         canned_msg(MSG_NOTHING_HAPPENS);
-
-    return (done_stuff);
 }
 
 static void _genie_card(int power, deck_rarity_type rarity)
@@ -2695,7 +2694,7 @@ static void _summon_dancing_weapon(int power, deck_rarity_type rarity)
             // Rare and powerful.
             wpn.plus  = random2(4) + 2;
             wpn.plus2 = random2(4) + 2;
-            wpn.sub_type = (coinflip() ? WPN_KATANA : WPN_EXECUTIONERS_AXE);
+            wpn.sub_type = (coinflip() ? WPN_DIRE_FLAIL : WPN_EXECUTIONERS_AXE);
 
             set_item_ego_type(wpn, OBJ_WEAPONS,
                               coinflip() ? SPWPN_SPEED : SPWPN_ELECTROCUTION);
@@ -2785,7 +2784,7 @@ static void _summon_ugly(int power, deck_rarity_type rarity)
     }
 }
 
-static bool _alchemist_card(int power, deck_rarity_type rarity)
+static void _alchemist_card(int power, deck_rarity_type rarity)
 {
     const int power_level = get_power_level(power, rarity);
     int gold_used = std::min(you.gold, random2avg(100, 2) * (1 + power_level));
@@ -2826,8 +2825,6 @@ static bool _alchemist_card(int power, deck_rarity_type rarity)
 
     // Add back any remaining gold
     you.add_gold(gold_used);
-
-    return (done_stuff);
 }
 
 static int _card_power(deck_rarity_type rarity)
@@ -2869,11 +2866,7 @@ bool card_effect(card_type which_card, deck_rarity_type rarity,
         (crawl_state.is_god_acting()) ? crawl_state.which_god_acting()
                                       : GOD_NO_GOD;
 
-#ifdef DEBUG_DIAGNOSTICS
-    msg::streams(MSGCH_DIAGNOSTICS) << "Card power: " << power
-                                    << ", rarity: " << static_cast<int>(rarity)
-                                    << std::endl;
-#endif
+    dprf("Card power: %d, rarity: %d", power, rarity);
 
     if (tell_card)
     {
@@ -2942,11 +2935,11 @@ bool card_effect(card_type which_card, deck_rarity_type rarity,
     case CARD_SUMMON_SKELETON:  _summon_skeleton(power, rarity); break;
     case CARD_SUMMON_UGLY:      _summon_ugly(power, rarity); break;
     case CARD_XOM:              xom_acts(5 + random2(power/10)); break;
-    case CARD_TROWEL:      rc = _trowel_card(power, rarity); break;
-    case CARD_SPADE:   your_spells(SPELL_DIG, random2(power/4), false); break;
-    case CARD_BANSHEE: mass_enchantment(ENCH_FEAR, power); break;
-    case CARD_TORMENT: torment(TORMENT_CARDS, you.pos()); break;
-    case CARD_ALCHEMIST:   rc = _alchemist_card(power, rarity); break;
+    case CARD_TROWEL:           _trowel_card(power, rarity); break;
+    case CARD_SPADE:            your_spells(SPELL_DIG, random2(power/4), false); break;
+    case CARD_BANSHEE:          mass_enchantment(ENCH_FEAR, power); break;
+    case CARD_TORMENT:          torment(TORMENT_CARDS, you.pos()); break;
+    case CARD_ALCHEMIST:        _alchemist_card(power, rarity); break;
 
     case CARD_VENOM:
         if (coinflip())
@@ -2973,7 +2966,7 @@ bool card_effect(card_type which_card, deck_rarity_type rarity,
         break;
 
     case CARD_MAP:
-        if (!magic_mapping(random2(power/10) + 15, random2(power), true))
+        if (!magic_mapping(random2(power/8) + 18, random2(power), true))
             mpr("The map is blank.");
         break;
 
@@ -3012,14 +3005,8 @@ bool card_effect(card_type which_card, deck_rarity_type rarity,
         break;
     }
 
-    if (you.religion == GOD_XOM && !rc)
-    {
-        god_speaks(GOD_XOM, "\"How boring, let's spice things up a little.\"");
-        xom_acts(abs(you.piety - HALF_MAX_PIETY));
-    }
-
     if (you.religion == GOD_NEMELEX_XOBEH && !rc)
-        simple_god_message(" seems disappointed in you.");
+        simple_god_message(" does not approve of your wasteful card use.");
 
     return rc;
 }

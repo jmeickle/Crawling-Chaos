@@ -1229,12 +1229,18 @@ void pickup(bool partial_quantity)
         return;
     }
 
+
     int o = you.visible_igrd(you.pos());
     const int num_nonsquelched = _count_nonsquelched_items(o);
 
     if (o == NON_ITEM)
     {
         mpr("There are no items here.");
+    }
+    else if (you.form == TRAN_ICE_BEAST && grd(you.pos()) == DNGN_DEEP_WATER)
+    {
+        mpr("You can't reach the bottom while floating on water.");
+        return;
     }
     else if (mitm[o].link == NON_ITEM)      // just one item?
     {
@@ -2474,9 +2480,6 @@ bool item_needs_autopickup(const item_def &item)
     if (item_is_stationary(item))
         return (false);
 
-    if (item.props.exists("needs_autopickup"))
-        return (true);
-
     if (item.inscription.find("=g") != std::string::npos)
         return (true);
 
@@ -2485,6 +2488,9 @@ bool item_needs_autopickup(const item_def &item)
 
     if ((item.flags & ISFLAG_DROPPED) && !Options.pickup_dropped)
         return (false);
+
+    if (item.props.exists("needs_autopickup"))
+        return (true);
 
     std::string itemname;
     return _is_option_autopickup(item, itemname);
@@ -3154,8 +3160,7 @@ bool item_def::is_mundane() const
     case OBJ_WEAPONS:
         if (sub_type == WPN_CLUB
             || sub_type == WPN_GIANT_CLUB
-            || sub_type == WPN_GIANT_SPIKED_CLUB
-            || sub_type == WPN_KNIFE)
+            || sub_type == WPN_GIANT_SPIKED_CLUB)
         {
             return (true);
         }

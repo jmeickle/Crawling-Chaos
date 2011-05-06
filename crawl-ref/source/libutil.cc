@@ -9,6 +9,7 @@
 #include "itemname.h" // is_vowel()
 #include "libutil.h"
 #include "externs.h"
+#include "files.h"
 #include "macro.h"
 #include "message.h"
 #include "stuff.h"
@@ -29,6 +30,15 @@
     #ifdef WINMM_PLAY_SOUNDS
         #include <mmsystem.h>
     #endif
+#endif
+
+#ifdef UNIX
+    #include <signal.h>
+#endif
+
+#ifdef DGL_ENABLE_CORE_DUMP
+    #include <sys/time.h>
+    #include <sys/resource.h>
 #endif
 
 description_level_type description_type_by_name(const char *desc)
@@ -108,7 +118,7 @@ void play_sound(const char *file)
 #if defined(WINMM_PLAY_SOUNDS)
     // Check whether file exists, is readable, etc.?
     if (file && *file)
-        sndPlaySoundW(utf8_to_16(file).c_str(), SND_ASYNC | SND_NODEFAULT);
+        sndPlaySoundW(OUTW(file), SND_ASYNC | SND_NODEFAULT);
 
 #elif defined(SOUND_PLAY_COMMAND)
     char command[255];
@@ -117,7 +127,7 @@ void play_sound(const char *file)
         && shell_safe(file))
     {
         snprintf(command, sizeof command, SOUND_PLAY_COMMAND, file);
-        system(utf8_to_mb(command));
+        system(OUTS(command));
     }
 #endif
 }
@@ -186,13 +196,6 @@ std::string &escape_path_spaces(std::string &s)
 #endif
     s = result;
     return s;
-}
-
-void wait_for_keypress()
-{
-    // Double getchm() was necessary if first call returned zero; this
-    // should theoretically be needed only for DOS.
-    getchm() || getchm();
 }
 
 bool key_is_escape(int key)
@@ -737,7 +740,7 @@ std::vector<std::string> split_string(const std::string &sep,
 }
 
 // The provided string is consumed!
-std::string wordwrap_line(std::string &s, int width)
+std::string wordwrap_line(std::string &s, int width, bool tags)
 {
     const char *cp0 = s.c_str();
     const char *cp = cp0, *space = 0;
@@ -753,8 +756,36 @@ std::string wordwrap_line(std::string &s, int width)
             space = cp;
             break;
         }
+        if (c == '<' && tags)
+        {
+            ASSERT(cw == 1);
+            if (cp[1] == '<') // "<<" escape
+            {
+                // Note: this must be after a possible wrap, otherwise we could
+                // split the escape between lines.
+                cp++;
+            }
+            else
+            {
+                cw = 0;
+                // Skip the whole tag.
+                while (*cp != '>')
+                {
+                    if (!*cp)
+                    {
+                        // Everything so far fitted, report error.
+                        std::string ret = s + ">";
+                        s = "<lightred>ERROR: string above had unterminated tag</lightred>";
+                        return ret;
+                    }
+                    cp++;
+                }
+            }
+        }
+
         if (cw > width)
             break;
+
         if (cw >= 0)
             width -= cw;
         cp += clen;
@@ -780,6 +811,53 @@ std::string wordwrap_line(std::string &s, int width)
     s.erase(0, cp - cp0);
 
     return ret;
+}
+
+/**
+ * Compare two strings, sorting integer numeric parts according to their value.
+ *
+ * "foo123bar" > "foo99bar"
+ * "0.10" > "0.9" (version sort)
+ *
+ * @param limit If passed, comparison ends after X numeric parts.
+ * @return As in strcmp().
+**/
+int numcmp(const char *a, const char *b, int limit)
+{
+    int res;
+
+not_numeric:
+    while (*a && *a == *b && !isadigit(*a))
+    {
+        a++;
+        b++;
+    }
+    if (!a && !b)
+        return 0;
+    if (!isadigit(*a) || !isadigit(*b))
+        return (*a < *b) ? -1 : (*a > *b) ? 1 : 0;
+    while (*a == '0')
+        a++;
+    while (*b == '0')
+        b++;
+    res = 0;
+    while (isadigit(*a))
+    {
+        if (!isadigit(*b))
+            return 1;
+        if (*a != *b && !res)
+            res = (*a < *b) ? -1 : 1;
+        a++;
+        b++;
+    }
+    if (isadigit(*b))
+        return -1;
+    if (res)
+        return res;
+
+    if (--limit)
+        goto not_numeric;
+    return 0;
 }
 
 // The old school way of doing short delays via low level I/O sync.
@@ -966,4 +1044,94 @@ int get_taskbar_size()
     }
     return 0;
 }
+
+static BOOL WINAPI console_handler(DWORD sig)
+{
+    switch(sig)
+    {
+    case CTRL_C_EVENT:
+    case CTRL_BREAK_EVENT:
+        return true; // block the signal
+    default:
+        return false;
+    case CTRL_CLOSE_EVENT:
+    case CTRL_LOGOFF_EVENT:
+    case CTRL_SHUTDOWN_EVENT:
+        if (crawl_state.seen_hups++)
+            return true;
+
+        sighup_save_and_exit();
+        return true;
+    }
+}
+
+void init_signals()
+{
+    // If there's no console,
+    SetConsoleCtrlHandler(console_handler, true);
+}
+
+#else
+
+/* [ds] This SIGHUP handling is primitive and far from safe, but it
+ * should be better than nothing. Feel free to get rigorous on this.
+ */
+static void handle_hangup(int)
+{
+    if (crawl_state.seen_hups++)
+        return;
+
+#ifdef USE_TILE
+    // XXX: Will a tiles build ever need to handle the HUP signal?
+    sighup_save_and_exit();
+#elif defined(USE_CURSES)
+    // When using Curses, closing stdin will cause any Curses call blocking
+    // on key-presses to immediately return, including any call that was
+    // still blocking in the main thread when the HUP signal was caught.
+    // This should guarantee that the main thread will un-stall and
+    // will eventually return to _input() in main.cc, which will then
+    // call sighup_save_and_exit().
+    //
+    // The point to all this is that if a user is playing a game on a
+    // remote server and disconnects at a --more-- prompt, that when
+    // the player reconnects the code behind the more() call will execute
+    // before the disconnected game is saved, thus (for example) preventing
+    // the hack of avoiding excomunication consesquences because of the
+    // more() after "You have lost your religion!"
+    fclose(stdin);
+#else
+     #error "Must use either Curses or tiles on Unix"
+#endif
+}
+
+void init_signals()
+{
+#ifdef DGAMELAUNCH
+    // Force timezone to UTC.
+    setenv("TZ", "", 1);
+    tzset();
+#endif
+
+#ifdef USE_UNIX_SIGNALS
+#ifdef SIGQUIT
+    signal(SIGQUIT, SIG_IGN);
+#endif
+
+#ifdef SIGINT
+    signal(SIGINT, SIG_IGN);
+#endif
+
+    signal(SIGHUP, handle_hangup);
+#endif
+
+#ifdef DGL_ENABLE_CORE_DUMP
+    rlimit lim;
+    if (!getrlimit(RLIMIT_CORE, &lim))
+    {
+        lim.rlim_cur = RLIM_INFINITY;
+        setrlimit(RLIMIT_CORE, &lim);
+    }
+#endif
+}
+
 #endif

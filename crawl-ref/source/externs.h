@@ -72,11 +72,7 @@ protected:
 extern char info[INFO_SIZE];         // defined in main.cc {dlb}
 
 #define kNameLen        30
-#ifdef SHORT_FILE_NAMES
-    const int kFileNameLen = 6;
-#else
-    const int kFileNameLen = 250;
-#endif
+const int kFileNameLen = 250;
 
 // Used only to bound the init file name length
 const int kPathLen = 256;
@@ -335,6 +331,7 @@ struct delay_queue_item
     int         duration;
     int         parm1;
     int         parm2;
+    int         parm3;
     bool        started;
     int         trits[6];
     size_t      len;
@@ -795,7 +792,7 @@ struct mon_display
 struct final_effect
 {
     final_effect_flavour flavour;
-    short att, def;
+    mid_t att, def;
     coord_def pos;
     int x;
 };

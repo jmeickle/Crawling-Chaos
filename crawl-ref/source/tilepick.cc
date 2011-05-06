@@ -104,6 +104,8 @@ static tileidx_t _tileidx_trap(trap_type type)
         return TILE_DNGN_TRAP_NEEDLE;
     case TRAP_SHAFT:
         return TILE_DNGN_TRAP_SHAFT;
+    case TRAP_PLATE:
+        return TILE_DNGN_TRAP_PLATE;
     default:
         return TILE_DNGN_ERROR;
     }
@@ -196,6 +198,7 @@ static tileidx_t _tileidx_feature_base(dungeon_feature_type feat)
         return TILE_DNGN_SWAMP_TREE;
     case DNGN_GRANITE_STATUE:
         return TILE_DNGN_GRANITE_STATUE;
+    case DNGN_LAVA_SEA: // FIXME
     case DNGN_LAVA:
         return TILE_DNGN_LAVA;
     case DNGN_DEEP_WATER:
@@ -780,6 +783,8 @@ static tileidx_t _tileidx_monster_base(int type, bool in_water, int colour,
         return TILEP_MONS_PROGRAM_BUG;
     case MONS_SENSED:
         return TILE_UNSEEN_MONSTER;
+    case MONS_SENSED_FRIENDLY:
+        return TILE_MONS_SENSED_FRIENDLY;
     case MONS_SENSED_TRIVIAL:
         return TILE_MONS_SENSED_TRIVIAL;
     case MONS_SENSED_EASY:
@@ -897,6 +902,8 @@ static tileidx_t _tileidx_monster_base(int type, bool in_water, int colour,
         return TILEP_MONS_HELL_HOUND;
     case MONS_HELL_HOG:
         return TILEP_MONS_HELL_HOG;
+    case MONS_HOLY_SWINE:
+        return TILEP_MONS_HOLY_SWINE;
     case MONS_FELID:
         return TILEP_MONS_FELID;
 
@@ -1182,6 +1189,7 @@ static tileidx_t _tileidx_monster_base(int type, bool in_water, int colour,
         return TILEP_MONS_BORING_BEETLE;
 
     // cyclopes and giants ('C')
+    case MONS_GIANT:
     case MONS_HILL_GIANT:
         return TILEP_MONS_HILL_GIANT;
     case MONS_ETTIN:
@@ -2173,7 +2181,10 @@ static tileidx_t _tileidx_tentacle(const monster *mon)
             ASSERT(!invalid_monster_index(h_idx));
             head = &menv[h_idx];
             h_pos = head->pos();  // head position
-            ASSERT(adjacent(t_pos, h_pos));
+            // If the tentacle and its "head" segment are no longer adjacent
+            // (distortion etc.), just treat them as not connected.
+            if (!adjacent(t_pos, h_pos))
+                no_head_connect = true;
         }
         if (!no_head_connect)
         {
@@ -2622,21 +2633,22 @@ tileidx_t tileidx_monster(const monster* mons)
 
     if (Options.tile_show_demon_tier)
     {
-        switch (mons_base_char(mons->type))
+        // FIXME: non-linear bits suck, should be a simple addition
+        switch (mons_demon_tier(mons->type))
         {
-        case '1':
+        case 1:
             ch |= TILE_FLAG_DEMON_1;
             break;
-        case '2':
+        case 2:
             ch |= TILE_FLAG_DEMON_2;
             break;
-        case '3':
+        case 3:
             ch |= TILE_FLAG_DEMON_3;
             break;
-        case '4':
+        case 4:
             ch |= TILE_FLAG_DEMON_4;
             break;
-        case '5':
+        case 5:
             ch |= TILE_FLAG_DEMON_5;
             break;
         }
@@ -2696,9 +2708,10 @@ static tileidx_t _tileidx_weapon_base(const item_def &item)
 
     switch (item.sub_type)
     {
+#if TAG_MAJOR_VERSION == 32
     case WPN_KNIFE:
         return TILE_WPN_KNIFE;
-
+#endif
     case WPN_DAGGER:
         if (race == ISFLAG_ORCISH)
             return TILE_WPN_DAGGER_ORC;
@@ -3291,6 +3304,8 @@ static tileidx_t _tileidx_corpse(const item_def &item)
         return TILE_CORPSE_HELL_HOUND;
     case MONS_HELL_HOG:
         return TILE_CORPSE_HELL_HOG;
+    case MONS_HOLY_SWINE:
+        return TILE_CORPSE_HOLY_SWINE;
     case MONS_FELID:
         return TILE_CORPSE_FELID;
 
@@ -3807,7 +3822,7 @@ tileidx_t tileidx_item(const item_def &item)
     switch (clas)
     {
     case OBJ_WEAPONS:
-        if (is_unrandom_artefact(item))
+        if (is_unrandom_artefact(item) && !is_randapp_artefact(item))
             return _tileidx_unrand_artefact(find_unrandart_index(item));
         else
             return _tileidx_weapon(item);
@@ -3816,7 +3831,7 @@ tileidx_t tileidx_item(const item_def &item)
         return _tileidx_missile(item);
 
     case OBJ_ARMOUR:
-        if (is_unrandom_artefact(item))
+        if (is_unrandom_artefact(item) && !is_randapp_artefact(item))
             return _tileidx_unrand_artefact(find_unrandart_index(item));
         else
             return _tileidx_armour(item);
@@ -3845,11 +3860,11 @@ tileidx_t tileidx_item(const item_def &item)
         return TILE_GOLD;
 
     case OBJ_JEWELLERY:
-        if (is_unrandom_artefact(item))
+        if (is_unrandom_artefact(item) && !is_randapp_artefact(item))
             return _tileidx_unrand_artefact(find_unrandart_index(item));
         else if (type < NUM_RINGS)
         {
-            if (is_random_artefact(item))
+            if (is_artefact(item))
                 return TILE_RING_RANDOM_OFFSET + colour - 1;
             else if (id[ IDTYPE_JEWELLERY][type] == ID_KNOWN_TYPE
                      || (item.flags & ISFLAG_KNOW_TYPE))
@@ -3863,7 +3878,7 @@ tileidx_t tileidx_item(const item_def &item)
         }
         else
         {
-            if (is_random_artefact(item))
+            if (is_artefact(item))
                 return TILE_AMU_RANDOM_OFFSET + colour - 1;
             else if (id[ IDTYPE_JEWELLERY][type] == ID_KNOWN_TYPE
                      || (item.flags & ISFLAG_KNOW_TYPE))

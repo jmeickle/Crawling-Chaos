@@ -689,7 +689,7 @@ void full_describe_view()
 
 #ifndef USE_TILE
             // Wraparound if the description is longer than allowed.
-            linebreak_string2(str, get_number_of_cols() - 9);
+            linebreak_string(str, get_number_of_cols() - 9);
 #endif
             std::vector<formatted_string> fss;
             formatted_string::parse_string_to_multiple(str, fss);
@@ -807,7 +807,7 @@ void full_describe_view()
             else // ACT_EXECUTE, here used to display monster status.
             {
                 _describe_monster(mi);
-                wait_for_keypress();
+                getchm();
             }
         }
         else if (quant == 2)
@@ -1082,7 +1082,8 @@ coord_def direction_chooser::find_default_target() const
     }
     else if (mode == TARG_ENEMY || mode == TARG_HOSTILE
              || mode == TARG_HOSTILE_SUBMERGED
-             || mode == TARG_EVOLVABLE_PLANTS)
+             || mode == TARG_EVOLVABLE_PLANTS
+             || mode == TARG_HOSTILE_UNDEAD)
     {
         // Try to find an enemy monster.
 
@@ -1093,7 +1094,9 @@ coord_def direction_chooser::find_default_target() const
                     && mons_attitude(mon_target) == ATT_HOSTILE
                 || mode == TARG_ENEMY && !mon_target->friendly()
                 || mode == TARG_EVOLVABLE_PLANTS
-                    && mons_is_evolvable(mon_target))
+                    && mons_is_evolvable(mon_target)
+                || mode == TARG_HOSTILE_UNDEAD && !mon_target->friendly()
+                   && mon_target->holiness() == MH_UNDEAD)
             && in_range(mon_target->pos()))
         {
             result = mon_target->pos();
@@ -1228,7 +1231,7 @@ void direction_chooser::draw_beam_if_needed()
 
         const bool inrange = in_range(p);
 #ifdef USE_TILE
-        tile_place_ray(p, inrange ? AFF_MAYBE : AFF_NO);
+        tile_place_ray(p, inrange ? AFF_YES : AFF_NO);
 #else
         const int bcol = inrange ? MAGENTA : DARKGREY;
         _draw_ray_glyph(p, bcol, '*', bcol | COLFLAG_REVERSE);
@@ -1236,7 +1239,7 @@ void direction_chooser::draw_beam_if_needed()
     }
     textcolor(LIGHTGREY);
 #ifdef USE_TILE
-    tile_place_ray(target(), in_range(ray.pos()) ? AFF_MAYBE : AFF_NO);
+    tile_place_ray(target(), in_range(ray.pos()) ? AFF_YES : AFF_NO);
 
     // In tiles, we need to refresh the window to get the beam drawn.
     viewwindow();
@@ -1329,7 +1332,6 @@ bool direction_chooser::select(bool allow_out_of_range, bool endpoint)
 
 bool direction_chooser::handle_signals()
 {
-#if defined(USE_UNIX_SIGNALS) && defined(SIGHUP_SAVE) && defined(USE_CURSES)
     // If we've received a HUP signal then the user can't choose a
     // target.
     if (crawl_state.seen_hups)
@@ -1340,7 +1342,6 @@ bool direction_chooser::handle_signals()
         mpr("Targeting interrupted by HUP signal.", MSGCH_ERROR);
         return true;
     }
-#endif
     return false;
 }
 
@@ -2433,6 +2434,9 @@ static bool _find_monster(const coord_def& where, int mode, bool need_path,
     if (mode == TARG_EVOLVABLE_PLANTS)
         return (mons_is_evolvable(mon));
 
+    if (mode == TARG_HOSTILE_UNDEAD)
+        return  !mon->friendly() && mon->holiness() == MH_UNDEAD;
+
     ASSERT(mode == TARG_ENEMY);
     if (mon->friendly())
         return (false);
@@ -2946,6 +2950,8 @@ static std::string _base_feature_desc(dungeon_feature_type grid,
         return ("unnaturally hard rock wall");
     case DNGN_OPEN_SEA:
         return ("open sea");
+    case DNGN_LAVA_SEA:
+        return ("Endless lava");
     case DNGN_CLOSED_DOOR:
         return ("closed door");
     case DNGN_DETECTED_SECRET_DOOR:
@@ -3710,7 +3716,7 @@ std::string get_monster_equipment_desc(const monster_info& mi,
         if (mi.two_weapons)
             mon_alt = 0;
 
-        const bool mon_has_wand = mi.props.exists("wand_known");
+        const bool mon_has_wand = mi.props.exists("wand_known") && mon_wnd;
         const bool mon_carry = mon_alt || mon_has_wand;
 
         bool found_sth    = !weap.empty();
@@ -3827,7 +3833,7 @@ static void _debug_describe_feature_at(const coord_def &where)
                              vp.size.x, vp.size.y);
     }
 
-    mprf(MSGCH_DIAGNOSTICS, "(%d,%d): %s - %s (%d/%s)%s%s%s%s map: %x",
+    dprf("(%d,%d): %s - %s (%d/%s)%s%s%s%s map: %x",
          where.x, where.y,
          stringize_glyph(get_cell_glyph(where).ch).c_str(),
          feature_desc.c_str(),

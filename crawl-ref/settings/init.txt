@@ -60,7 +60,7 @@
 # name = Delilah
 # remember_name = false
 # weapon = (short sword | falchion | hand axe | spear | mace | trident
-#           | quarterstaff | unarmed | random)
+#           | unarmed | random)
 # book = (fire | ice | random)
 # wand = (enslavement | confusion | magic darts | frost | flame | striking | random)
 # species = (Human |...| Vampire | random)
@@ -85,7 +85,6 @@ lua_file = lua/wield.lua
 lua_file = lua/runrest.lua
 lua_file = lua/gearset.lua
 lua_file = lua/trapwalk.lua
-lua_file = lua/pickup.lua
 
 # kills.lua yields more information at the cost of huge dumps.
 # lua_file = lua/kills.lua
@@ -106,7 +105,7 @@ include = autopickup_exceptions.txt
 drop_filter = useless_item
 
 # default_autopickup = false
-# autopickup_no_burden = true
+# autopickup_no_burden = false
 # pickup_thrown = false
 # pickup_dropped = true
 # chunks_autopickup = false
@@ -221,7 +220,7 @@ trapwalk_safe_hp = dart:20,needle:15,arrow:35,bolt:45,spear:40,axe:45,blade:95
 # easy_eat_contaminated  = true
 # prompt_for_swap        = false
 # easy_quit_item_prompts = false
-# easy_exit_menu         = false
+# easy_exit_menu         = true
 # sort_menus = pickup: true : art, ego, basename, qualname, curse, qty
 sort_menus = inv: true : equipped, freshness, charged
 

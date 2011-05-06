@@ -1660,18 +1660,31 @@ unsigned int skill_exp_needed(int lev)
     case 0:  return 0;
     case 1:  return 200;
     case 2:  return 300;
-    case 3:  return 500;
-    case 4:  return 750;
-    case 5:  return 1050;
-    case 6:  return 1350;
-    case 7:  return 1700;
-    case 8:  return 2100;
-    case 9:  return 2550;
-    case 10: return 3150;
-    case 11: return 3750;
-    case 12: return 4400;
-    case 13: return 5250;
-    default: return 6200 + 1800 * (lev - 14);
+    case 3:  return 450;
+    case 4:  return 650;
+    case 5:  return 900;
+    case 6:  return 1200;
+    case 7:  return 1550;
+    case 8:  return 1950;
+    case 9:  return 2400;
+    case 10: return 2950;
+    case 11: return 3600;
+    case 12: return 4350;
+    case 13: return 5200;
+    case 14: return 6150;
+    case 15: return 7200;
+    case 16: return 8350;
+    case 17: return 9600;
+    case 18: return 10950;
+    case 19: return 12450;
+    case 20: return 14100;
+    case 21: return 15900;
+    case 22: return 17850;
+    case 23: return 19950;
+    case 24: return 22200;
+    case 25: return 24600;
+    case 26: return 27150;
+    case 27: return 29900;
     }
     return 0;
 }
@@ -1834,21 +1847,16 @@ bool is_invalid_skill(skill_type skill)
 
 void dump_skills(std::string &text)
 {
-    char tmp_quant[20];
     for (uint8_t i = 0; i < NUM_SKILLS; i++)
     {
         if (you.skills[i] > 0)
         {
-            text += ((you.skills[i] == 27)   ? " * " :
-                     (you.practise_skill[i]) ? " + "
-                                             : " - ");
-
-            text += "Level ";
-            itoa(you.skills[i], tmp_quant, 10);
-            text += tmp_quant;
-            text += " ";
-            text += skill_name(static_cast<skill_type>(i));
-            text += "\n";
+            text += make_stringf(" %c Level %d %s\n",
+                                 ((you.skills[i] == 27)   ? '*' :
+                                  (you.practise_skill[i]) ? '+'
+                                                          : '-'),
+                                 you.skills[i],
+                                 skill_name(static_cast<skill_type>(i)));
         }
     }
 }
@@ -1881,10 +1889,8 @@ int transfer_skill_points(skill_type fsk, skill_type tsk, int skp_max,
     int tsk_ct_points = you.ct_skill_points[tsk];
     int total_skill_points = you.total_skill_points;
 
-#ifdef DEBUG_DIAGNOSTICS
     if (!simu && you.ct_skill_points[fsk] > 0)
         dprf("ct_skill_points[%s]: %d", skill_name(fsk), you.ct_skill_points[fsk]);
-#endif
 
     // We need to transfer by small steps and updating skill levels each time
     // so that cross/anti-training are handled properly.
@@ -1966,10 +1972,8 @@ int transfer_skill_points(skill_type fsk, skill_type tsk, int skp_max,
 
         dprf("skill %s lost %d points", skill_name(fsk), total_skp_lost);
         dprf("skill %s gained %d points", skill_name(tsk), total_skp_gained);
-#ifdef DEBUG_DIAGNOSTICS
         if (you.ct_skill_points[fsk] > 0)
             dprf("ct_skill_points[%s]: %d", skill_name(fsk), you.ct_skill_points[fsk]);
-#endif
 
         if (you.transfer_skill_points == 0 || you.skills[tsk] == 27)
             ashenzari_end_transfer(true);

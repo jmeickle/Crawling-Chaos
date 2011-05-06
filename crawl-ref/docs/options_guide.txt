@@ -22,7 +22,7 @@ The contents of this text are:
                 crawl_dir, morgue_dir, save_dir, macro_dir, sound
 3-  Lua files.
                 stash.lua, wield.lua, kills.lua, runrest.lua,
-                gearset.lua, pickup.lua, trapwalk.lua, autofight.lua
+                gearset.lua, trapwalk.lua, autofight.lua
 4-  Interface.
 4-a     Dropping and Picking up.
                 autopickup, autopickup_exceptions, default_autopickup,
@@ -273,13 +273,12 @@ remember_name = true
         simply reuse your old name if remember_name is set.
 
 weapon = (short sword | falchion | hand axe | spear | mace | trident
-          | quarterstaff | unarmed | random)
+          | unarmed | random)
         Specifying the weapon option allows you to bypass the weapon
         selection screen. Tridents and falchions are restricted to only
-        fighters and gladiators, quarterstaves are restricted to monks,
-        and unarmed is restricted to monks and races with claws. The
-        standard weapon prompt will be shown if an illegal choice for the
-        selected background is specified.
+        fighters and gladiators, and unarmed is restricted to races with
+        claws. The standard weapon prompt will be shown if an illegal choice
+        for the selected background is specified.
 
 book = (flame | fire | ice | cold | random)
         Conjurers can choose their starting spellbook. Note flame=fire and
@@ -377,8 +376,6 @@ The available stock Lua scripts are
   gearset.lua   -- provides commands for switching of complete sets via
                    macro.
                    New macroable functions: rememberkit, swapkit
-  pickup.lua    -- allows autopickup of a butchering tool if you don't
-                   already have one.
   trapwalk.lua  -- allows travel to cross certain traps if you have
                    enough HP.
   autofight.lua -- provides a command for moving to and attacking the
@@ -470,7 +467,7 @@ default_autopickup = true
         When set to false, the game starts with autopickup turned off.
         You can still toggle autopickup in-game with Ctrl-A.
 
-autopickup_no_burden = false
+autopickup_no_burden = true
         When set, autopickup will not pick up items which would increase
         your burden status (from unencumbered to burdened, or from
         encumbered to overloaded.)
@@ -1101,6 +1098,8 @@ easy_eat_chunks = false
         the oldest chunk happens to be contaminated, and you will always
         be prompted for harmful chunks.
         Note that this option is ignored for each of the undead species.
+        Setting this option will also allow you to automatically eat a chunk
+        if you get hungry while you are travelling, auto-exploring or resting.
 
 easy_eat_gourmand = false
         If both this and easy_eat_chunks are true, and you're wearing an
@@ -1128,7 +1127,7 @@ easy_quit_item_prompts = true
         item and accept '?' and '*'. The identify list will never easy
         quit.
 
-easy_exit_menu = true
+easy_exit_menu = false
         In multidrop (and pickup) menus, paging past the end will drop
         out of the menu if easy_exit_menu is true.
 
@@ -1605,12 +1604,7 @@ COLOUR can be any of the colours described in section 6-a (colours
 option).
 
 The only multi-colour channels currently are monster_damage and god. All
-other channels are defaulted to on, except for multiturn, which defaults
-to mute.
-Note that the template init.txt sets
-     channel.multiturn = on
-in order to help new players. You may want to comment out this option,
-if you feel the messages are too verbose.
+other channels are defaulted to on.
 
 4-m     Inscriptions.
 ---------------------
@@ -1893,7 +1887,7 @@ dump_item_origin_price = -1
         or equal to this amount. Set this to -1 to prevent selection by
         price.
 
-dump_message_count = 7
+dump_message_count = 20
         The number of last messages to be displayed in character dump
         files.
 
@@ -1934,6 +1928,7 @@ The following events are logged:
         - Abandoning a god
         - Being put under penance and being forgiven
         - Receiving a gift from a god (except Xom)
+        - Death of a named orcish ally (when worshipping Beogh)
         - Being able to invoke a godly power for the first time
         - Picking up a rune, the Orb of Zot, or an artefact for the first time.
         - Identifying items.

@@ -664,10 +664,10 @@ bool Menu::draw_title_suffix(const formatted_string &fs, bool titlefirst)
 
     // Note: 1 <= x <= get_number_of_cols(); we have no fear of overflow.
     const unsigned int avail_width = get_number_of_cols() - x + 1;
-    const unsigned int fs_length = fs.length();
+    const unsigned int fs_length = fs.width();
     if (fs_length > avail_width)
     {
-        formatted_string fs_trunc = fs.substr(0, avail_width);
+        formatted_string fs_trunc = fs.chop(avail_width);
         fs_trunc.display();
     }
     else
@@ -936,7 +936,7 @@ bool MonsterMenuEntry::get_tiles(std::vector<tile_def>& tileset) const
 
     // A fake monster might not have its ghost member set up properly,
     // and mons_flies() looks at ghost.
-    if (!fake && !mons_flies(m))
+    if (!fake && m->ground_level())
     {
         if (ch == TILE_DNGN_LAVA)
             tileset.push_back(tile_def(TILEI_MASK_LAVA, TEX_ICONS));
@@ -1466,7 +1466,7 @@ void column_composer::strip_blank_lines(std::vector<formatted_string> &fs) const
 {
     for (int i = fs.size() - 1; i >= 0; --i)
     {
-        if (fs[i].length() == 0)
+        if (fs[i].width() == 0)
             fs.erase(fs.begin() + i);
         else
             break;
@@ -1486,7 +1486,7 @@ void column_composer::compose_formatted_column(
         int f = i + startline;
         if (margin > 1)
         {
-            int xdelta = margin - flines[f].length() - 1;
+            int xdelta = margin - flines[f].width() - 1;
             if (xdelta > 0)
                 flines[f].cprintf("%-*s", xdelta, "");
         }
@@ -1555,130 +1555,33 @@ formatted_scroller::~formatted_scroller()
             delete static_cast<formatted_string*>(items[i]->data);
 }
 
-int linebreak_string(std::string& s, int wrapcol, int maxcol)
+int linebreak_string(std::string& s, int maxcol)
 {
-    size_t loc = 0;
-    int xpos = 0;
-    int breakcount = 0;
-    while (loc < s.size())
-    {
-        if (s[loc] == '<')    // tag
-        {
-            // << escape
-            if (loc + 1 < s.size() && s[loc+1] == '<')
-            {
-                ++xpos;
-                loc += 2;
-                // Um, we never break on <<. That's a feature. Right.
-                continue;
-            }
-            // skip tag
-            while (loc < s.size() && s[loc] != '>')
-                ++loc;
-            ++loc;
-        }
-        else
-        {
-            // user-forced newline
-            if (s[loc] == '\n')
-                xpos = 0;
-            // soft linebreak
-            else if (s[loc] == ' ' && xpos > wrapcol)
-            {
-                s.replace(loc, 1, "\n");
-                xpos = 0;
-                ++breakcount;
-            }
-            // hard linebreak
-            else if (xpos > maxcol)
-            {
-                s.insert(loc, "\n");
-                xpos = 0;
-                ++breakcount;
-            }
-            // bog-standard
-            else
-                ++xpos;
-
-            ++loc;
-        }
-    }
-    return breakcount;
-}
-
-int linebreak_string2(std::string& s, int maxcol)
-{
-    size_t loc = 0;
-    int xpos = 0, spaceloc = 0;
-    int breakcount = 0;
-
     // [ds] Don't loop forever if the user is playing silly games with
     // their term size.
     if (maxcol < 1)
         return 0;
 
-    while (loc < s.size())
+    int breakcount = 0;
+    std::string res;
+
+    while (!s.empty())
     {
-        if (s[loc] == '<')    // tag
+        res += wordwrap_line(s, maxcol, true);
+        if (!s.empty())
         {
-            // << escape
-            if (loc + 1 < s.size() && s[loc+1] == '<')
-            {
-                ++xpos;
-                loc += 2;
-                // Um, we never break on <<. That's a feature. Right.
-                continue;
-            }
-            // skip tag
-            while (loc < s.size() && s[loc] != '>')
-                ++loc;
-            ++loc;
-        }
-        else
-        {
-            // user-forced newline, or one we just stuffed in
-            if (s[loc] == '\n')
-            {
-                xpos = 0;
-                spaceloc = 0;
-                ++loc;
-                continue;
-            }
-
-            // force a wrap?
-            if (xpos >= maxcol)
-            {
-                if (spaceloc)
-                {
-                    loc = spaceloc;
-                    s.replace(loc, 1, "\n");
-                }
-                else
-                {
-                    s.insert(loc, "\n");
-                }
-                ++breakcount;
-                // reset pointers when we come around and see the \n
-                continue;
-            }
-
-            // save possible linebreak location
-            if (s[loc] == ' ' && xpos > 0)
-            {
-                spaceloc = loc;
-            }
-
-            ++xpos;
-            ++loc;
+            res += "\n";
+            breakcount++;
         }
     }
+    s = res;
     return breakcount;
 }
 
 std::string get_linebreak_string(const std::string& s, int maxcol)
 {
     std::string r = s;
-    linebreak_string2(r, maxcol);
+    linebreak_string(r, maxcol);
     return r;
 }
 
@@ -2625,7 +2528,7 @@ void TextItem::_wrap_text()
         return;
     }
 
-    int num_linebreaks = linebreak_string2(m_render_text, max_cols);
+    int num_linebreaks = linebreak_string(m_render_text, max_cols);
     if (num_linebreaks > max_lines)
     {
         size_t pos = 0;

@@ -780,8 +780,9 @@ bool unnotice_feature(const level_pos &pos)
 
 void display_overview()
 {
+    clrscr();
     std::string disp = overview_description_string(true);
-    linebreak_string(disp, get_number_of_cols() - 5, get_number_of_cols() - 1);
+    linebreak_string(disp, get_number_of_cols());
     formatted_scroller(MF_EASY_EXIT | MF_ANYPRINTABLE | MF_NOSELECT,
                        disp).show();
     redraw_screen();
@@ -1046,8 +1047,9 @@ void annotate_level()
     {
         if (!get_level_annotation(li, true).empty())
         {
-            if (!yesno("Really clear the annotation?", false, 'n'))
+            if (!yesno("Really clear the annotation?", true, 'n'))
                 return;
+            mpr("Cleared.");
         }
         else
         {

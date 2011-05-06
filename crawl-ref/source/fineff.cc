@@ -21,13 +21,13 @@ void add_final_effect(final_effect_flavour flavour,
 {
     final_effect fe;
 
-    fe.att = NON_MONSTER;
-    fe.def = NON_MONSTER;
+    fe.att = 0;
+    fe.def = 0;
 
     if (attacker)
-        fe.att = attacker->mindex();
+        fe.att = attacker->mid;
     if (defender)
-        fe.def = defender->mindex();
+        fe.def = defender->mid;
 
     fe.flavour = flavour;
     fe.pos     = pos;
@@ -66,12 +66,8 @@ void fire_final_effects()
         // immediately replacing it; this is not supposed to happen save for
         // zombifying (and then it's the same monster), but if this changes,
         // we'd need an identifier or such.
-        actor *attacker = (fe.att == NON_MONSTER) ? 0 :
-                          (fe.att == MHITYOU) ? (actor*)&you :
-                          &menv[fe.att];
-        actor *defender = (fe.def == NON_MONSTER) ? 0 :
-                          (fe.def == MHITYOU) ? (actor*)&you :
-                          &menv[fe.def];
+        actor *attacker = actor_by_mid(fe.att);
+        actor *defender = actor_by_mid(fe.def);
 
         switch (fe.flavour)
         {
@@ -84,12 +80,12 @@ void fire_final_effects()
             if (!attacker || attacker == defender || !attacker->alive())
                 continue;
             // defender being dead is ok, if we killed them we still suffer
-            if (attacker->atype() == ACT_PLAYER)
+            if (fe.att == MID_PLAYER)
             {
                 mpr("It reflects your damage back at you!");
                 ouch(fe.x, NON_MONSTER, KILLED_BY_REFLECTION);
             }
-            else if (defender->atype() == ACT_PLAYER)
+            else if (fe.def == MID_PLAYER)
             {
                 simple_god_message(" mirrors your injury!");
 #ifndef USE_TILE

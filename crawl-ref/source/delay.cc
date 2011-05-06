@@ -111,7 +111,7 @@ static bool _is_parent_delay(delay_type delay)
     // Lua macros can in theory perform any of the other delays,
     // including travel; in practise travel still assumes there can be
     // no parent delay.
-    return (delay == DELAY_TRAVEL
+    return (delay_is_run(delay)
             || delay == DELAY_MACRO
             || delay == DELAY_MULTIDROP);
 }
@@ -161,7 +161,7 @@ static void _clear_pending_delays()
     }
 }
 
-void start_delay(delay_type type, int turns, int parm1, int parm2)
+void start_delay(delay_type type, int turns, int parm1, int parm2, int parm3)
 {
     ASSERT(!crawl_state.game_is_arena());
 
@@ -174,6 +174,7 @@ void start_delay(delay_type type, int turns, int parm1, int parm2)
     delay.duration = turns;
     delay.parm1    = parm1;
     delay.parm2    = parm2;
+    delay.parm3    = parm3;
     delay.started  = false;
 
     // Paranoia
@@ -402,8 +403,7 @@ void maybe_clear_weapon_swap()
         you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED] = 0;
 }
 
-void handle_interrupted_swap(bool swap_if_safe, bool force_unsafe,
-                             bool transform, bool force)
+void handle_interrupted_swap(bool swap_if_safe, bool force_unsafe)
 {
     if (!you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED]
         || !you_tran_can_wear(EQ_WEAPON) || you.cannot_act() || you.berserk())
@@ -417,11 +417,10 @@ void handle_interrupted_swap(bool swap_if_safe, bool force_unsafe,
         weap = -1;
 
     const bool       safe   = i_feel_safe() && !force_unsafe;
-    const bool       prompt = Options.prompt_for_swap && !safe && !force;
+    const bool       prompt = Options.prompt_for_swap && !safe;
     const delay_type delay  = current_delay_action();
 
-    const char* prompt_str  = transform ? "Switch back to main weapon?"
-                                        : "Switch back from butchering tool?";
+    const char* prompt_str  = "Switch back to main weapon?";
 
     // If we're going to prompt then update the window so the player can
     // see what the monsters are.
@@ -441,14 +440,10 @@ void handle_interrupted_swap(bool swap_if_safe, bool force_unsafe,
     {
         // Turn is over, set up a delay to do swapping next turn.
         if (prompt && yesno(prompt_str, true, 'n', true, false)
-            || safe && swap_if_safe
-            || force)
+            || safe && swap_if_safe)
         {
-            if (weap == -1 || force
-                || check_warning_inscriptions(you.inv[weap], OPER_WIELD))
-            {
+            if (weap == -1 || check_warning_inscriptions(you.inv[weap], OPER_WIELD))
                 start_delay(DELAY_WEAPON_SWAP, 1, weap);
-            }
             you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED] = 0;
         }
         return;
@@ -460,11 +455,8 @@ void handle_interrupted_swap(bool swap_if_safe, bool force_unsafe,
         if (_is_butcher_delay(delay)
             && (safe || prompt && yesno(prompt_str, true, 'n', true, false)))
         {
-            if (weap == -1 || force
-                || check_warning_inscriptions(you.inv[weap], OPER_WIELD))
-            {
+            if (weap == -1 || check_warning_inscriptions(you.inv[weap], OPER_WIELD))
                 start_delay(DELAY_WEAPON_SWAP, 1, weap);
-            }
             you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED] = 0;
         }
         return;
@@ -475,15 +467,14 @@ void handle_interrupted_swap(bool swap_if_safe, bool force_unsafe,
         if (!swap_if_safe)
             return;
     }
-    else if (!force && (!prompt || !yesno(prompt_str, true, 'n', true, false)))
+    else if (!prompt || !yesno(prompt_str, true, 'n', true, false))
     {
         return;
     }
 
-    if (weap == -1 || force
-        || check_warning_inscriptions(you.inv[weap], OPER_WIELD))
+    if (weap == -1 || check_warning_inscriptions(you.inv[weap], OPER_WIELD))
     {
-        weapon_switch(weap, force);
+        weapon_switch(weap);
         print_stats();
     }
     you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED] = 0;
@@ -517,13 +508,10 @@ static void _maybe_interrupt_swap(bool force_unsafe)
             = (butcher_swap_weapon == -1 ? ENDOFPACK
                                          : butcher_swap_weapon) + 1;
 
-        const item_def *butcher_weapon =
-            (butcher_swap_weapon == -1 ? NULL : &you.inv[butcher_swap_weapon]);
         // Possibly prompt if user wants to switch back from
         // butchering tool in order to use their normal weapon to
         // fight the interrupting monster.
-        handle_interrupted_swap(true, force_unsafe, false,
-                                butcher_weapon && butcher_weapon->cursed());
+        handle_interrupted_swap(true, force_unsafe);
     }
 }
 
@@ -674,10 +662,27 @@ void handle_delay()
             if (!mitm[delay.parm1].defined())
                 break;
 
-            mprf(MSGCH_MULTITURN_ACTION, "You start %s the %s.",
-                 (delay.type == DELAY_BOTTLE_BLOOD ? "bottling blood from"
-                                                   : "butchering"),
-                 mitm[delay.parm1].name(DESC_PLAIN).c_str());
+            if (delay.type == DELAY_BOTTLE_BLOOD)
+            {
+                mprf(MSGCH_MULTITURN_ACTION,
+                     "You start bottling blood from the %s.",
+                     mitm[delay.parm1].name(DESC_PLAIN).c_str());
+            }
+            else
+            {
+                std::string tool;
+                switch (delay.parm3)
+                {
+                case SLOT_BUTCHERING_KNIFE: tool = "knife"; break;
+                case SLOT_CLAWS:            tool = "claws"; break;
+                case SLOT_TEETH:            tool = "teeth"; break;
+                case SLOT_BIRDIE:           tool = "beak and talons"; break;
+                default: tool = you.inv[delay.parm3].name(DESC_QUALNAME);
+                }
+                mprf(MSGCH_MULTITURN_ACTION,
+                     "You start butchering the %s with your %s.",
+                     mitm[delay.parm1].name(DESC_PLAIN).c_str(), tool.c_str());
+            }
             break;
 
         case DELAY_MEMORISE:
@@ -855,10 +860,8 @@ void handle_delay()
     // Handle delay:
     if (delay.duration > 0)
     {
-#ifdef DEBUG_DIAGNOSTICS
-        mprf(MSGCH_DIAGNOSTICS, "Delay type: %d (%s), duration: %d",
+        dprf("Delay type: %d (%s), duration: %d",
              delay.type, delay_name(delay.type), delay.duration);
-#endif
         // delay.duration-- *must* be done before multidrop, because
         // multidrop is now a parent delay, which means other delays
         // can be pushed to the front of the queue, invalidating the
@@ -911,6 +914,11 @@ void handle_delay()
                                         delay.parm1, delay.duration).c_str());
             if (apply_area_visible(_zin_recite_to_monsters, delay.parm1))
                 viewwindow();
+
+            // Recite trains more than once per use, because it has a
+            // long timer in between uses and actually takes up multiple
+            // turns.
+            practise(EX_USED_ABIL, ABIL_ZIN_RECITE);
 
             const std::string shout_verb = you.shout_verb();
 
@@ -1166,12 +1174,7 @@ static void _finish_delay(const delay_queue_item &delay)
             else
             {
                 mprf("You finish %s the %s into pieces.",
-                     (you.has_usable_claws()
-                      || player_mutation_level(MUT_BEAK)
-                         && player_mutation_level(MUT_TALONS)
-                      || you.has_usable_fangs() == 3
-                         && you.species != SP_VAMPIRE) ? "ripping"
-                                                       : "chopping",
+                     delay.parm3 <= SLOT_CLAWS ? "ripping" : "chopping",
                      mitm[delay.parm1].name(DESC_PLAIN).c_str());
 
                 if (god_hates_cannibalism(you.religion)
@@ -1347,7 +1350,8 @@ static void _armour_wear_effects(const int item_slot)
 static command_type _get_running_command()
 {
     if (Options.travel_key_stop && kbhit()
-        || !in_bounds(you.pos() + you.running.pos))
+        || !in_bounds(you.pos() + you.running.pos)
+        || check_for_interesting_features())
     {
         stop_running();
         return CMD_NO_CMD;
@@ -1443,11 +1447,36 @@ static void _handle_macro_delay()
         you.time_taken = 0;
 }
 
+static void _decrement_delay(delay_type delay)
+{
+    for (delay_queue_type::iterator i = you.delay_queue.begin();
+         i != you.delay_queue.end(); ++i)
+    {
+        if (i->type == delay)
+        {
+            if (i->duration > 0)
+                --i->duration;
+            break;
+        }
+    }
+}
+
 void run_macro(const char *macroname)
 {
     const int currdelay = current_delay_action();
     if (currdelay != DELAY_NOT_DELAYED && currdelay != DELAY_MACRO)
         return;
+
+    if (currdelay == DELAY_MACRO)
+    {
+        const delay_queue_item &delay = you.delay_queue.front();
+        if (!delay.duration)
+        {
+            dprf("Expiring macro delay on turn: %d", you.num_turns);
+            stop_delay();
+            return;
+        }
+    }
 
 #ifdef CLUA_BINDINGS
     if (!clua)
@@ -1457,21 +1486,35 @@ void run_macro(const char *macroname)
         return;
     }
 
+    if (!currdelay)
+        start_delay(DELAY_MACRO, 1);
+
+    // If callbooleanfn returns false, that means the macro either exited
+    // normally by returning or by calling coroutine.yield(false). Either way,
+    // decrement the macro duration.
     if (!clua.callbooleanfn(false, "c_macro", "s", macroname))
     {
         if (!clua.error.empty())
+        {
             mprf(MSGCH_ERROR, "Lua error: %s", clua.error.c_str());
-
-        stop_delay();
-    }
-    else
-    {
-        if (!you_are_delayed())
-            start_delay(DELAY_MACRO, 1);
+            stop_delay();
+        }
+        else
+        {
+            // Decay the macro delay's duration.
+            _decrement_delay(DELAY_MACRO);
+        }
     }
 #else
     stop_delay();
 #endif
+}
+
+bool is_delay_interruptible(delay_type delay)
+{
+    return !(delay == DELAY_EAT || delay == DELAY_WEAPON_SWAP
+             || delay == DELAY_DROP_ITEM || delay == DELAY_JEWELLERY_ON
+             || delay == DELAY_UNINTERRUPTIBLE);
 }
 
 // Returns TRUE if the delay should be interrupted, MAYBE if the user function
@@ -1558,6 +1601,14 @@ static bool _should_stop_activity(const delay_queue_item &item,
         }
     }
 
+    // Don't interrupt butchering for monsters already in view.
+    const monster* mon = static_cast<const monster* >(at.data);
+    if (_is_butcher_delay(curr) && ai == AI_SEE_MONSTER
+        && testbits(mon->flags, MF_WAS_IN_VIEW))
+    {
+        return false;
+    }
+
     return (ai == AI_FORCE_INTERRUPT
             || Options.activity_interrupts[item.type][ai]);
 }
@@ -1597,9 +1648,10 @@ inline static bool _monster_warning(activity_interrupt_type ai,
                  mon->name(DESC_CAP_THE).c_str());
         }
     }
+    else if (mon->seen_context == "just seen")
+        return false;
     else
     {
-        ASSERT(mon->seen_context != "just seen");
         std::string text = mon->full_name(DESC_CAP_A);
         if (mon->type == MONS_PLAYER_GHOST)
         {
@@ -1731,7 +1783,7 @@ bool interrupt_activity(activity_interrupt_type ai,
     if (crawl_state.is_repeating_cmd())
         return interrupt_cmd_repeat(ai, at);
 
-    const int delay = current_delay_action();
+    const delay_type delay = current_delay_action();
 
     if (delay == DELAY_NOT_DELAYED)
     {
@@ -1742,6 +1794,10 @@ bool interrupt_activity(activity_interrupt_type ai,
         else
             return false;
     }
+
+    // If we get hungry while traveling, let's try to auto-eat a chunk.
+    if (delay_is_run(delay) && ai == AI_HUNGRY && prompt_eat_chunks(true) == 1)
+        return false;
 
     dprf("Activity interrupt: %s", _activity_interrupt_name(ai));
 

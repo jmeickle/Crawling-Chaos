@@ -36,7 +36,7 @@
 #include "itemname.h"
 #include "itemprop.h"
 #include "items.h"
-#include "it_use3.h"
+#include "evoke.h"
 #include "jobs.h"
 #include "libutil.h"
 #include "macro.h"
@@ -74,18 +74,13 @@
 // append_value
 //
 // Appends a value to the string. If plussed == 1, will add a + to
-// positive values (itoa always adds - to -ve ones).
+// positive values.
 //
 //---------------------------------------------------------------
 static void _append_value(std::string & description, int valu, bool plussed)
 {
-    if (valu >= 0 && plussed == 1)
-        description += "+";
-
     char value_str[80];
-
-    itoa(valu, value_str, 10);
-
+    sprintf(value_str, plussed ? "%+d" : "%d", valu);
     description += value_str;
 }
 
@@ -201,7 +196,8 @@ struct property_annotators
     int spell_out;              // 0: "+3", 1: "+++", 2: value doesn't matter
 };
 
-static std::vector<std::string> _randart_propnames(const item_def& item)
+static std::vector<std::string> _randart_propnames(const item_def& item,
+                                                   bool no_comma = false)
 {
     artefact_properties_t  proprt;
     artefact_known_props_t known;
@@ -262,7 +258,9 @@ static std::vector<std::string> _randart_propnames(const item_def& item)
         if (!type.empty())
             propnames.push_back(type);
     }
-    else if (item_ident(item, ISFLAG_KNOW_TYPE))
+    else if (item_ident(item, ISFLAG_KNOW_TYPE)
+             || is_artefact(item)
+                && artefact_known_wpn_property(item, ARTP_BRAND))
     {
         std::string ego;
         if (item.base_type == OBJ_WEAPONS)
@@ -277,7 +275,8 @@ static std::vector<std::string> _randart_propnames(const item_def& item)
             // ... and another one for adding a comma if needed.
             for (unsigned i = 0; i < ARRAYSZ(propanns); ++i)
                 if (known_proprt(propanns[i].prop)
-                    && propanns[i].prop != ARTP_BRAND)
+                    && propanns[i].prop != ARTP_BRAND
+                    && !no_comma)
                 {
                     ego += ",";
                     break;
@@ -361,7 +360,7 @@ static std::vector<std::string> _randart_propnames(const item_def& item)
 // the last auto-inscription.
 void trim_randart_inscrip(item_def& item)
 {
-    std::vector<std::string> propnames = _randart_propnames(item);
+    std::vector<std::string> propnames = _randart_propnames(item, true);
 
     for (unsigned int i = 0; i < propnames.size(); ++i)
     {
@@ -1212,18 +1211,18 @@ static std::string _describe_ammo(const item_def &item)
             always_destroyed = true;
             break;
         case SPMSL_STEEL:
-            description += "Compared to normal ammo, it does 50% more "
+            description += "Compared to normal ammo, it does 30% more "
                 "damage, is destroyed upon impact only 1/10th of the "
                 "time, and weighs three times as much.";
             break;
         case SPMSL_SILVER:
-            description += "The touch of silver hurts beings which are out "
-                "of their natural form. Compared to normal ammo, it does twice "
-                "as much damage to the corporeal undead, shapechangers and "
-                "chaotic beings. It also does extra damage against mutated "
-                "beings according to how mutated they are. With due "
-                "care, silver ammo can still be handled by those folks. "
-                "Silver ammo weighs twice as much as normal ammo.";
+            description += "Silver sears all those touched by chaos. "
+                "Compared to normal ammo, it does 75% more damage to "
+                "chaotic and magically transformed beings. It also does "
+                "extra damage against mutated beings according to how "
+                "mutated they are. With due care, silver ammo can still "
+                "be handled by those it affects. It weighs twice as much "
+                "as normal ammo.";
             break;
         }
 
@@ -1723,10 +1722,7 @@ void append_spells(std::string &desc, const item_def &item)
 
         desc += chop_string(schools, 65 - 36);
 
-        char sval[3];
-        itoa(spell_difficulty(stype), sval, 10);
-        desc += sval;
-        desc += "\n";
+        desc += make_stringf("%d\n", spell_difficulty(stype));
     }
 }
 
@@ -2573,7 +2569,8 @@ static bool _actions_prompt(item_def &item, bool allow_inscribe)
         }
         break;
     case OBJ_MISSILES:
-        actions.push_back(CMD_QUIVER_ITEM);
+        if (you.species != SP_CAT)
+            actions.push_back(CMD_QUIVER_ITEM);
         break;
     case OBJ_ARMOUR:
         if (item_is_equipped(item))
@@ -2752,7 +2749,7 @@ bool describe_item(item_def &item, bool allow_inscribe, bool shopping)
         return _actions_prompt(item, allow_inscribe);
     }
     else
-        wait_for_keypress();
+        getchm();
 
     return (true);
 }
@@ -3056,7 +3053,7 @@ static std::string _describe_draconian_role(monster_type type)
     case MONS_DRACONIAN_SHIFTER:
         return "It darts around disconcertingly without taking a step.";
     case MONS_DRACONIAN_SCORCHER:
-        return "Its scales are sooty black from years of magical pyrotechnics.";
+        return "Its scales are sooty from years of magical pyrotechnics.";
     case MONS_DRACONIAN_ZEALOT:
         return "In its gaze you see all the malefic power of its "
                "terrible god.";
@@ -4113,7 +4110,7 @@ static void _detailed_god_description(god_type which_god)
         broken = get_god_powers(which_god);
         if (!broken.empty())
         {
-            linebreak_string2(broken, width);
+            linebreak_string(broken, width);
             display_tagged_block(broken);
             cprintf("\n");
             cprintf("\n");
@@ -4123,7 +4120,7 @@ static void _detailed_god_description(god_type which_god)
     if (which_god != GOD_XOM)
     {
         broken = get_god_likes(which_god, true);
-        linebreak_string2(broken, width);
+        linebreak_string(broken, width);
         display_tagged_block(broken);
 
         broken = get_god_dislikes(which_god, true);
@@ -4131,7 +4128,7 @@ static void _detailed_god_description(god_type which_god)
         {
             cprintf("\n");
             cprintf("\n");
-            linebreak_string2(broken, width);
+            linebreak_string(broken, width);
             display_tagged_block(broken);
         }
         // Some special handling.
@@ -4219,7 +4216,7 @@ static void _detailed_god_description(god_type which_god)
         {
             cprintf("\n");
             cprintf("\n");
-            linebreak_string2(broken, width);
+            linebreak_string(broken, width);
             display_tagged_block(broken);
         }
     }
@@ -4614,7 +4611,7 @@ std::string get_skill_description(skill_type skill, bool need_title)
                                                        unarmed_attacks.end(),
                                                        " or ", ", ");
                         broken += ".";
-            linebreak_string2(broken, 72);
+            linebreak_string(broken, 72);
 
             result += "\n";
             result += broken;
@@ -4673,7 +4670,7 @@ void describe_skill(skill_type skill)
     data << get_skill_description(skill, true);
 
     print_description(data.str());
-    wait_for_keypress();
+    getchm();
 }
 
 #ifdef USE_TILE

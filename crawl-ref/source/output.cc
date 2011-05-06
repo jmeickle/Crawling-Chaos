@@ -407,6 +407,7 @@ static void _print_stats_wp(int y)
     }
     else
     {
+        const std::string prefix = "-) ";
         col = LIGHTGREY;
         text = you.has_usable_claws(true) ? "Claws" : "Nothing wielded";
         if (you.species == SP_CAT)
@@ -447,7 +448,10 @@ static void _print_stats_wp(int y)
             default:
                 break;
         }
+
+        text = prefix + text;
     }
+
     cgotoxy(1, y, GOTO_STAT);
     textcolor(Options.status_caption_colour);
     cprintf("Wp: ");
@@ -464,7 +468,7 @@ static void _print_stats_qv(int y)
 
     int q = you.m_quiver->get_fire_item();
     ASSERT(q >= -1 && q < ENDOFPACK);
-    if (q != -1)
+    if (q != -1 && !fire_warn_if_impossible(true))
     {
         const item_def& quiver = you.inv[q];
         const std::string prefix = menu_colour_item_prefix(quiver);
@@ -478,8 +482,20 @@ static void _print_stats_qv(int y)
     }
     else
     {
-        col = LIGHTGREY;
-        text = "Nothing quivered";
+        const std::string prefix = "-) ";
+
+        if (fire_warn_if_impossible(true))
+        {
+            col  = DARKGREY;
+            text = "Unavailable";
+        }
+        else
+        {
+            col  = LIGHTGREY;
+            text = "Nothing quivered";
+        }
+
+        text = prefix + text;
     }
     cgotoxy(1, y, GOTO_STAT);
     textcolor(Options.status_caption_colour);
@@ -534,21 +550,60 @@ static void _get_status_lights(std::vector<status_light>& out)
 
     const int statuses[] = {
         STATUS_STR_ZERO, STATUS_INT_ZERO, STATUS_DEX_ZERO,
-        STATUS_BURDEN, STATUS_HUNGER, DUR_JELLY_PRAYER, DUR_TELEPORT,
-        DUR_DEATHS_DOOR, DUR_QUAD_DAMAGE, DUR_DEFLECT_MISSILES,
-        DUR_REPEL_MISSILES, STATUS_REGENERATION, DUR_BERSERK,
-        DUR_RESIST_POISON, DUR_RESIST_COLD, DUR_RESIST_FIRE,
-        DUR_INSULATION, DUR_SEE_INVISIBLE,
-        STATUS_AIRBORNE, DUR_INVIS, DUR_CONTROL_TELEPORT, DUR_SILENCE,
-        DUR_CONFUSING_TOUCH, DUR_BARGAIN, DUR_SAGE, DUR_FIRE_SHIELD,
-        DUR_SLIMIFY, DUR_SURE_BLADE, DUR_CONF, DUR_LOWERED_MR,
-        STATUS_BEHELD, DUR_LIQUID_FLAMES, DUR_MISLED, DUR_POISONING,
-        STATUS_SICK, STATUS_ROT, STATUS_NET, STATUS_GLOW, DUR_SWIFTNESS,
-        STATUS_SPEED, DUR_DEATH_CHANNEL, DUR_TELEPATHY, DUR_STEALTH,
-        DUR_BREATH_WEAPON, DUR_EXHAUSTED, DUR_POWERED_BY_DEATH,
-        DUR_TRANSFORMATION, DUR_AFRAID, DUR_MIRROR_DAMAGE, DUR_SCRYING,
-        STATUS_CLINGING, DUR_TORNADO, DUR_LIQUEFYING, DUR_HEROISM,
-        DUR_FINESSE, DUR_LIFESAVING, DUR_DARKNESS,
+        STATUS_BURDEN,
+        STATUS_HUNGER,
+        DUR_JELLY_PRAYER,
+        DUR_TELEPORT,
+        DUR_DEATHS_DOOR,
+        DUR_QUAD_DAMAGE,
+        DUR_DEFLECT_MISSILES,
+        DUR_REPEL_MISSILES,
+        STATUS_REGENERATION,
+        DUR_BERSERK,
+        DUR_RESIST_POISON,
+        DUR_RESIST_COLD,
+        DUR_RESIST_FIRE,
+        DUR_INSULATION,
+        DUR_SEE_INVISIBLE,
+        STATUS_AIRBORNE,
+        DUR_INVIS,
+        DUR_CONTROL_TELEPORT,
+        DUR_SILENCE,
+        DUR_CONFUSING_TOUCH,
+        DUR_BARGAIN,
+        DUR_SAGE,
+        DUR_FIRE_SHIELD,
+        DUR_SLIMIFY,
+        DUR_SURE_BLADE,
+        DUR_CONF,
+        DUR_LOWERED_MR,
+        STATUS_BEHELD,
+        DUR_LIQUID_FLAMES,
+        DUR_MISLED,
+        DUR_POISONING,
+        STATUS_SICK,
+        STATUS_ROT,
+        STATUS_NET,
+        STATUS_GLOW,
+        DUR_SWIFTNESS,
+        STATUS_SPEED,
+        DUR_DEATH_CHANNEL,
+        DUR_TELEPATHY,
+        DUR_STEALTH,
+        DUR_BREATH_WEAPON,
+        DUR_EXHAUSTED,
+        DUR_POWERED_BY_DEATH,
+        DUR_TRANSFORMATION,
+        DUR_AFRAID,
+        DUR_MIRROR_DAMAGE,
+        DUR_SCRYING,
+        STATUS_CLINGING,
+        DUR_TORNADO,
+        DUR_LIQUEFYING,
+        DUR_HEROISM,
+        DUR_FINESSE,
+        DUR_LIFESAVING,
+        DUR_DARKNESS,
     };
 
     status_info inf;
@@ -665,7 +720,12 @@ void print_stats(void)
         textcolor(Options.status_caption_colour);
         cprintf("Exp: ");
         textcolor(HUD_VALUE_COLOUR);
-        cprintf("%-5d", you.exp_available);
+        if (you.exp_available < 100000)
+            cprintf("%-5d", you.exp_available);
+        else if (you.exp_available < 10000000)
+            cprintf("%4dK", you.exp_available / 1000);
+        else
+            cprintf("%4dM", you.exp_available / 1000000);
 #endif
         you.redraw_experience = false;
     }
@@ -697,7 +757,13 @@ void print_stats(void)
         _print_stats_wp(9 + yhack);
     }
 
-    if (you.redraw_quiver || you.wield_change)
+    if (you.species == SP_CAT)
+    {
+        // There are no circumstances under which Felids could quiver something.
+        // Reduce line counter for status display.y
+        yhack -= 1;
+    }
+    else if (you.redraw_quiver || you.wield_change)
     {
         _print_stats_qv(10 + yhack);
         you.redraw_quiver = false;
@@ -792,9 +858,7 @@ void redraw_skill(const std::string &your_name, const std::string &job_name)
     // Line 1: Foo the Bar    *WIZARD*
     cgotoxy(1, 1, GOTO_STAT);
     textcolor(YELLOW);
-    if (title.size() > WIDTH)
-        title.resize(WIDTH, ' ');
-    cprintf("%-*s", WIDTH, title.c_str());
+    cprintf("%s", chop_string(title, WIDTH).c_str());
     if (you.wizard)
     {
         textcolor(LIGHTBLUE);
@@ -1880,19 +1944,58 @@ std::string _status_mut_abilities()
     std::vector<std::string> status;
 
     const int statuses[] = {
-        DUR_TRANSFORMATION, DUR_PARALYSIS, DUR_PETRIFIED, DUR_SLEEP,
-        STATUS_BURDEN, STATUS_STR_ZERO, STATUS_INT_ZERO, STATUS_DEX_ZERO,
-        DUR_BREATH_WEAPON, STATUS_BEHELD, DUR_LIQUID_FLAMES, DUR_ICY_ARMOUR,
-        DUR_DEFLECT_MISSILES, DUR_REPEL_MISSILES, DUR_JELLY_PRAYER,
-        STATUS_REGENERATION, DUR_DEATHS_DOOR, DUR_STONESKIN, DUR_TELEPORT,
-        DUR_DEATH_CHANNEL, DUR_PHASE_SHIFT, DUR_SILENCE, DUR_INVIS, DUR_CONF,
-        DUR_EXHAUSTED, DUR_MIGHT, DUR_BRILLIANCE, DUR_AGILITY,
-        DUR_DIVINE_VIGOUR, DUR_DIVINE_STAMINA, DUR_BERSERK, STATUS_AIRBORNE,
-        DUR_BARGAIN, DUR_SLAYING, DUR_SAGE, DUR_MAGIC_SHIELD, DUR_FIRE_SHIELD,
-        DUR_POISONING, STATUS_SICK, STATUS_GLOW, STATUS_ROT,
-        DUR_CONFUSING_TOUCH, DUR_SLIMIFY, DUR_SURE_BLADE, STATUS_NET,
-        STATUS_SPEED, DUR_AFRAID, DUR_MIRROR_DAMAGE, DUR_SCRYING, DUR_TORNADO,
-        DUR_HEROISM, DUR_FINESSE, DUR_LIFESAVING, DUR_DARKNESS,
+        DUR_TRANSFORMATION,
+        DUR_PARALYSIS,
+        DUR_PETRIFIED,
+        DUR_SLEEP,
+        STATUS_BURDEN,
+        STATUS_STR_ZERO, STATUS_INT_ZERO, STATUS_DEX_ZERO,
+        DUR_BREATH_WEAPON,
+        STATUS_BEHELD,
+        DUR_LIQUID_FLAMES,
+        DUR_ICY_ARMOUR,
+        DUR_DEFLECT_MISSILES,
+        DUR_REPEL_MISSILES,
+        DUR_JELLY_PRAYER,
+        STATUS_REGENERATION,
+        DUR_DEATHS_DOOR,
+        DUR_STONESKIN,
+        DUR_TELEPORT,
+        DUR_DEATH_CHANNEL,
+        DUR_PHASE_SHIFT,
+        DUR_SILENCE,
+        DUR_INVIS,
+        DUR_CONF,
+        DUR_EXHAUSTED,
+        DUR_MIGHT,
+        DUR_BRILLIANCE,
+        DUR_AGILITY,
+        DUR_DIVINE_VIGOUR,
+        DUR_DIVINE_STAMINA,
+        DUR_BERSERK,
+        STATUS_AIRBORNE,
+        DUR_BARGAIN,
+        DUR_SLAYING,
+        DUR_SAGE,
+        DUR_MAGIC_SHIELD,
+        DUR_FIRE_SHIELD,
+        DUR_POISONING,
+        STATUS_SICK,
+        STATUS_GLOW,
+        STATUS_ROT,
+        DUR_CONFUSING_TOUCH,
+        DUR_SLIMIFY,
+        DUR_SURE_BLADE,
+        STATUS_NET,
+        STATUS_SPEED,
+        DUR_AFRAID,
+        DUR_MIRROR_DAMAGE,
+        DUR_SCRYING,
+        DUR_TORNADO,
+        DUR_HEROISM,
+        DUR_FINESSE,
+        DUR_LIFESAVING,
+        DUR_DARKNESS,
     };
 
     status_info inf;
@@ -2223,7 +2326,7 @@ std::string _status_mut_abilities()
     //----------------------------
 
     text += print_abilities();
-    linebreak_string2(text, get_number_of_cols());
+    linebreak_string(text, get_number_of_cols());
 
     return text;
 }

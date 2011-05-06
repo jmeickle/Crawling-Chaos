@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief Functions for windows32 console mode support.
+ * @brief Functions for windows console mode support.
 **/
 
 #include "AppHdr.h"
@@ -43,15 +43,14 @@
 #define NOSERVICE         /* All Service Controller routines, SERVICE_ equates, etc. */
 #define NOKANJI           /* Kanji support stuff. */
 #define NOMCX             /* Modem Configuration Extensions */
-#ifndef _X86_
-#define _X86_                     /* target architecture */
-#endif
 
 #include <excpt.h>
 #include <stdarg.h>
 #undef ARRAYSZ
 #include <windows.h>
 #undef max
+#undef AF_CHAOS
+#undef S_NORMAL
 
 // END -- WINDOWS INCLUDES
 
@@ -350,7 +349,7 @@ void init_libw32c(void)
 
     if (!GetConsoleTitleW(oldTitle, 78))
         *oldTitle = 0;
-    SetConsoleTitleW(utf8_to_16(title.c_str()).c_str());
+    SetConsoleTitleW(OUTW(title));
 
     // Use the initial Windows setting for cursor size if it exists.
     // TODO: Respect changing cursor size manually while Crawl is running.
@@ -554,7 +553,7 @@ static void cprintf_aux(const char *s)
     // early out -- not initted yet
     if (outbuf == NULL)
     {
-        printf("%S", utf8_to_16(s).c_str());
+        printf("%S", OUTW(s));
         return;
     }
 

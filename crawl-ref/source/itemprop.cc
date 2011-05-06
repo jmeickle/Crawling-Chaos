@@ -199,10 +199,10 @@ static weapon_def Weapon_prop[NUM_WEAPONS] =
     { WPN_MORNINGSTAR,       "morningstar",        10, -1, 15, 140,  8,
         SK_MACES_FLAILS, HANDS_ONE,    SIZE_MEDIUM, MI_NONE, false,
         DAMV_PIERCING | DAM_BLUDGEON, 10 },
-    { WPN_DEMON_WHIP,        "demon whip",         12,  1, 11,  30,  2,
+    { WPN_DEMON_WHIP,        "demon whip",         11,  1, 11,  30,  2,
         SK_MACES_FLAILS, HANDS_ONE,    SIZE_MEDIUM, MI_NONE, false,
         DAMV_SLASHING, 2 },
-    { WPN_SACRED_SCOURGE,    "sacred scourge",     13,  0, 11,  30,  2,
+    { WPN_SACRED_SCOURGE,    "sacred scourge",     12,  0, 11,  30,  2,
         SK_MACES_FLAILS, HANDS_ONE,    SIZE_MEDIUM, MI_NONE, false,
         DAMV_SLASHING, 0 },
     { WPN_SPIKED_FLAIL,      "spiked flail",       12, -2, 16, 190,  8,
@@ -225,9 +225,11 @@ static weapon_def Weapon_prop[NUM_WEAPONS] =
         DAMV_PIERCING | DAM_BLUDGEON, 10 },
 
     // Short Blades
+#if TAG_MAJOR_VERSION == 32
     { WPN_KNIFE,             "knife",               3,  5, 10,  10,  1,
         SK_SHORT_BLADES, HANDS_ONE,    SIZE_LITTLE, MI_NONE, false,
         DAMV_STABBING | DAM_SLICE, 0 },
+#endif
     { WPN_DAGGER,            "dagger",              4,  6, 10,  20,  1,
         SK_SHORT_BLADES, HANDS_ONE,    SIZE_LITTLE, MI_NONE, true,
         DAMV_STABBING | DAM_SLICE, 10 },
@@ -262,7 +264,7 @@ static weapon_def Weapon_prop[NUM_WEAPONS] =
         DAMV_SLICING, 0 },
     { WPN_KATANA,                "katana",                14,  3, 12, 160,  3,
         SK_LONG_BLADES,  HANDS_HALF,   SIZE_MEDIUM, MI_NONE, false,
-        DAMV_SLICING, 2 },
+        DAMV_SLICING, 0 },
     { WPN_BLESSED_KATANA,        "blessed katana",        15,  2, 12, 160,  3,
         SK_LONG_BLADES,  HANDS_HALF,   SIZE_MEDIUM, MI_NONE, false,
         DAMV_SLICING, 0 },
@@ -321,10 +323,10 @@ static weapon_def Weapon_prop[NUM_WEAPONS] =
     { WPN_SCYTHE,            "scythe",             14, -4, 20, 220,  7,
         SK_POLEARMS,     HANDS_TWO,    SIZE_LARGE,  MI_NONE, false,
         DAMV_SLICING, 10 },
-    { WPN_DEMON_TRIDENT,     "demon trident",      14,  1, 13, 160,  4,
+    { WPN_DEMON_TRIDENT,     "demon trident",      13,  1, 13, 160,  4,
         SK_POLEARMS,     HANDS_HALF,   SIZE_MEDIUM, MI_NONE, false,
         DAMV_PIERCING, 2 },
-    { WPN_TRISHULA,          "trishula",           15,  0, 13, 160,  4,
+    { WPN_TRISHULA,          "trishula",           14,  0, 13, 160,  4,
         SK_POLEARMS,     HANDS_HALF,   SIZE_MEDIUM, MI_NONE, false,
         DAMV_PIERCING, 0 },
     { WPN_GLAIVE,            "glaive",             15, -3, 18, 200,  6,
@@ -636,8 +638,8 @@ bool _is_affordable(const item_def &item)
         for (adjacent_iterator ai(item.pos); ai; ++ai)
             if (you.can_pass_through(*ai))
                 return true;
-        dprf("Seen item %s seems to be un(easily)obtainable.",
-             item.name(DESC_PLAIN).c_str());
+        //dprf("Seen item %s seems to be un(easily)obtainable.",
+        //     item.name(DESC_PLAIN).c_str());
         return false;
     }
 
@@ -658,7 +660,10 @@ void set_ident_flags(item_def &item, iflags_t flags)
     preserve_quiver_slots p;
     if ((item.flags & flags) != flags)
     {
+        bool was_randapp = is_randapp_artefact(item);
         item.flags |= flags;
+        if (was_randapp && (flags & ISFLAG_KNOW_TYPE))
+            reveal_randapp_artefact(item);
         request_autoinscribe();
 
         if (in_inventory(item))
@@ -1407,7 +1412,6 @@ int weapon_rarity(int w_type)
     case WPN_EVENINGSTAR:
     case WPN_EXECUTIONERS_AXE:
     case WPN_KATANA:
-    case WPN_KNIFE:
     case WPN_QUICK_BLADE:
     case WPN_TRIPLE_SWORD:
     case WPN_DEMON_WHIP:

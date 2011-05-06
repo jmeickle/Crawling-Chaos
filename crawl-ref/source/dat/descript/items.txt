@@ -1078,7 +1078,7 @@ This scroll allows you to detect the presence of cursed items among your possess
 %%%%
 scroll of enchant armour
 
-This scroll places an enchantment on a piece of armour. Most armour can only be enchanted to +2, except for body armour and bardings which can be enchanted to +8. Using the scroll on well-enchanted items may not work.
+This scroll places an enchantment on a piece of armour. Most armour can only be enchanted to +2, except for shields which can be enchanted to +3, and body armour and bardings which can be enchanted up to the same value as their base AC.
 
 It can also be used to enchant the hides of certain exotic creatures.
 %%%%
@@ -1190,7 +1190,7 @@ A piece of cloth and leather for launching stones, which do a small amount of da
 %%%%
 sling bullet
 
-A small heavy projectile usually made of lead. It can be fired from a sling. They are more effective as ammunition than simple stones, and can also come with various enchantments.
+A small, heavy projectile shaped specifically for use with slings, and more effective as ammunition than simple stones. It can also come with various enchantments.
 %%%%
 snozzcumber
 

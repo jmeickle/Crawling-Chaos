@@ -52,6 +52,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <shlwapi.h>
+#include <shlobj.h>
 #elif defined (__APPLE__)
 extern char **NXArgv;
 #elif defined (__linux__)
@@ -154,8 +155,6 @@ static weapon_type _str_to_weapon(const std::string &str)
         return (WPN_TRIDENT);
     else if (str == "hand axe" || str == "handaxe")
         return (WPN_HAND_AXE);
-    else if (str == "quarterstaff")
-        return (WPN_QUARTERSTAFF);
     else if (str == "unarmed" || str == "claws")
         return (WPN_UNARMED);
     else if (str == "random")
@@ -182,10 +181,8 @@ static std::string _weapon_to_str(int weapon)
         return "trident";
     case WPN_HAND_AXE:
         return "hand axe";
-    case WPN_QUARTERSTAFF:
-        return "quarterstaff";
     case WPN_UNARMED:
-        return "unarmed";
+        return "claws";
     case WPN_RANDOM:
     default:
         return "random";
@@ -500,7 +497,10 @@ void game_options::set_default_activity_interrupts()
 {
     for (int adelay = 0; adelay < NUM_DELAYS; ++adelay)
         for (int aint = 0; aint < NUM_AINTERRUPTS; ++aint)
-            activity_interrupts[adelay][aint] = true;
+        {
+            activity_interrupts[adelay][aint]
+                = is_delay_interruptible(static_cast<delay_type>(adelay));
+        }
 
     const char *default_activity_interrupts[] = {
         "interrupt_armour_on = hp_loss, monster_attack",
@@ -690,13 +690,11 @@ void game_options::reset_options()
     morgue_dir = tmp_path_base + "/morgue/";
     if (SysEnv.macro_dir.empty())
         macro_dir  = tmp_path_base;
-#elif !defined(TARGET_OS_DOS)
-    save_dir   = "saves/";
 #else
-    save_dir.clear();
+    save_dir   = "saves/";
 #endif
 
-#if !defined(SHORT_FILE_NAMES) && !defined(SAVE_DIR_PATH) && !defined(TARGET_OS_MACOSX)
+#if !defined(SAVE_DIR_PATH) && !defined(TARGET_OS_MACOSX)
     morgue_dir = "morgue/";
 #endif
 
@@ -741,7 +739,11 @@ void game_options::reset_options()
     default_friendly_pickup = FRIENDLY_PICKUP_FRIEND;
 
     show_gold_turns = false;
+#ifdef EUCLIDEAN
+    show_game_turns = true;
+#else
     show_game_turns = false;
+#endif
     show_beam       = true;
 
     game = newgame_def();
@@ -789,7 +791,7 @@ void game_options::reset_options()
     hp_warning             = 30;
     magic_point_warning    = 0;
     default_target         = true;
-    autopickup_no_burden   = false;
+    autopickup_no_burden   = true;
 
     user_note_prefix       = "";
     note_all_skill_levels  = false;
@@ -840,12 +842,8 @@ void game_options::reset_options()
 
     classic_item_colours   = false;
 
-    easy_exit_menu         = true;
-#ifdef TARGET_OS_DOS
-    dos_use_background_intensity = false;
-#else
+    easy_exit_menu         = false;
     dos_use_background_intensity = true;
-#endif
 
     level_map_title        = true;
 
@@ -884,7 +882,7 @@ void game_options::reset_options()
     darken_beyond_range    = true;
 
     dump_kill_places       = KDO_ONE_PLACE;
-    dump_message_count     = 7;
+    dump_message_count     = 20;
     dump_item_origins      = IODS_ARTEFACTS | IODS_RODS;
     dump_item_origin_price = -1;
     dump_book_spells       = true;
@@ -3252,9 +3250,6 @@ std::string game_options::resolve_include(
     // favoured file separator.
     parent_file   = canonicalise_file_separator(parent_file);
     included_file = canonicalise_file_separator(included_file);
-#if defined(TARGET_OS_DOS)
-    get_dos_compatible_file_name(&included_file);
-#endif
 
     // How we resolve include paths:
     // 1. If it's an absolute path, use it directly.
@@ -3508,7 +3503,7 @@ static void _print_save_version(char *name)
         std::string filename = name;
         // Check for the exact filename first, then go by char name.
         if (!file_exists(filename))
-            filename = get_savedir_filename(filename, "", "") + SAVE_SUFFIX;
+            filename = get_savedir_filename(filename);
         package save(filename.c_str(), false);
         reader chrf(&save, "chr");
 
@@ -3588,7 +3583,7 @@ static void _edit_save(int argc, char **argv)
         std::string filename = name;
         // Check for the exact filename first, then go by char name.
         if (!file_exists(filename))
-            filename = get_savedir_filename(filename, "", "") + SAVE_SUFFIX;
+            filename = get_savedir_filename(filename);
         package save(filename.c_str(), rw);
 
         if (cmd == ES_LS)

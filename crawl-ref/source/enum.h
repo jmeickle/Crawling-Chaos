@@ -1126,6 +1126,7 @@ enum dungeon_feature_type
     DNGN_TREE,
     DNGN_ORCISH_IDOL,
     DNGN_SWAMP_TREE,
+    DNGN_LAVA_SEA,                     // Gehenna equivalent for permarock
     DNGN_GRANITE_STATUE = 21,
     // Highest solid grid value.
     DNGN_MAXSOLID = DNGN_GRANITE_STATUE,
@@ -1813,6 +1814,7 @@ enum targ_mode_type
     TARG_HOSTILE,
     TARG_HOSTILE_SUBMERGED, // Target hostiles including submerged ones
     TARG_EVOLVABLE_PLANTS,  // Targeting mode for Fedhas' evolution
+    TARG_HOSTILE_UNDEAD,    // For dispel undead
     TARG_NUM_MODES
 };
 
@@ -2364,7 +2366,11 @@ enum monster_type                      // (int) menv[].type
     MONS_SPRIGGAN_AIR_MAGE,
     MONS_FIRE_BAT,
     MONS_IGNACIO,
+    MONS_HOLY_SWINE,            // porkalator only
+    MONS_SENSED_FRIENDLY,
+    MONS_GIANT,
     MONS_FOREST_WYRM,
+
     NUM_MONSTERS,                      // used for polymorph
 
     // MONS_NO_MONSTER can get put in savefiles, so it shouldn't change
@@ -2955,7 +2961,9 @@ enum spell_type
     SPELL_CURE_POISON,
     SPELL_CONTROL_TELEPORT,
     SPELL_POISON_WEAPON,
+#if TAG_MAJOR_VERSION == 32
     SPELL_RESIST_POISON,
+#endif
     SPELL_PROJECTED_NOISE,
 #if TAG_MAJOR_VERSION == 32
     SPELL_ALTER_SELF,

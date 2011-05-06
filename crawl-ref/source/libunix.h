@@ -22,7 +22,6 @@ int clrscr(void);
 void cprintf(const char *format,...);
 int gotoxy_sys(int x, int y);
 void fakecursorxy(int x, int y);
-extern "C" char *itoa(int value, char *strptr, int radix);
 bool kbhit(void);
 int putwch(unsigned chr);
 void put_colour_ch(int colour, unsigned ch);
@@ -46,10 +45,6 @@ inline void enable_smart_cursor(bool) { }
 inline bool is_smart_cursor_enabled() { return (false); }
 
 void set_mouse_enabled(bool enabled);
-
-#if defined(SIGHUP_SAVE) && defined(USE_UNIX_SIGNALS)
-void sighup_save_and_exit();
-#endif
 
 #ifndef _LIBUNIX_IMPLEMENTATION
 /* Some stuff from curses, to remove compiling warnings.. */

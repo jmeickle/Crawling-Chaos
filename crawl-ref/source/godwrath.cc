@@ -1019,7 +1019,7 @@ static bool _jiyva_retribution()
                 }
 
                 if (transform(random2(you.penance[GOD_JIYVA]) * 2, form, true))
-                    you.transform_uncancellable = false;
+                    you.transform_uncancellable = true;
             }
     }
     else
@@ -1027,7 +1027,7 @@ static bool _jiyva_retribution()
         const monster_type slimes[] = {
                 MONS_GIANT_EYEBALL, MONS_EYE_OF_DRAINING,
                 MONS_EYE_OF_DEVASTATION, MONS_GREAT_ORB_OF_EYES,
-                MONS_GIANT_SPORE, MONS_SHINING_EYE, MONS_GIANT_ORANGE_BRAIN,
+                MONS_SHINING_EYE, MONS_GIANT_ORANGE_BRAIN,
                 MONS_JELLY, MONS_BROWN_OOZE, MONS_ACID_BLOB, MONS_AZURE_JELLY,
                 MONS_DEATH_OOZE, MONS_SLIME_CREATURE
             };
@@ -1461,7 +1461,7 @@ static void _god_smites_you(god_type god, const char *message,
 
 int ash_reduce_xp(int amount)
 {
-    if (!you.penance[GOD_ASHENZARI])
+    if (!you.penance[GOD_ASHENZARI] || !you.exp_docked_total)
         return 0;
 
     int lost = std::min(amount / 2, you.exp_docked);

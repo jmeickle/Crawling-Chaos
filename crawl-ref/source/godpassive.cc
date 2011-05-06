@@ -29,7 +29,7 @@
 
 int che_boost_level()
 {
-    if (you.religion != GOD_CHEIBRIADOS)
+    if (you.religion != GOD_CHEIBRIADOS || you.penance[GOD_CHEIBRIADOS])
         return (0);
 
     return (std::min(player_ponderousness(), piety_rank() - 1));
@@ -420,6 +420,9 @@ bool ash_id_item(item_def& item, bool silent)
         if (Options.autoinscribe_artefacts && is_artefact(item))
             add_autoinscription(item, artefact_auto_inscription(item));
 
+        if (item.props.exists("needs_autopickup") && is_useless_item(item))
+            item.props.erase("needs_autopickup");
+
         if (&item == you.weapon())
             you.wield_change = true;
 
@@ -589,7 +592,9 @@ monster_type ash_monster_tier(const monster *mon)
     double factor = sqrt(exp_needed(you.experience_level) / 30.0);
     int tension = exper_value(mon) / (1 + factor);
 
-    if (tension <= 0)
+    if (mon->friendly())
+        return MONS_SENSED_FRIENDLY;
+    else if (tension <= 0)
         // Conjurators use melee to conserve mana, MDFis switch plates...
         return MONS_SENSED_TRIVIAL;
     else if (tension <= 5)

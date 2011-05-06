@@ -72,7 +72,7 @@ static void _init_feat(feature_def &f, dungeon_feature_type feat)
 
         case DNGN_STONE_WALL:
             f.dchar        = DCHAR_WALL;
-            f.colour       = ETC_STONE;
+            f.colour       = LIGHTGRAY;
             f.magic_symbol = Options.char_table[ DCHAR_WALL_MAGIC ];
             f.minimap      = MF_WALL;
             break;
@@ -118,6 +118,12 @@ static void _init_feat(feature_def &f, dungeon_feature_type feat)
             f.dchar        = DCHAR_WALL;
             f.colour       = BLUE;
             f.minimap      = MF_WATER;
+            break;
+
+        case DNGN_LAVA_SEA:
+            f.dchar        = DCHAR_WAVY;
+            f.colour       = RED;
+            f.minimap      = MF_LAVA;
             break;
 
         case DNGN_OPEN_DOOR:

@@ -14,10 +14,6 @@
 #include <stdio.h>
 #include <cmath>
 
-#ifdef TARGET_OS_DOS
-#include <dos.h>
-#endif
-
 #include "externs.h"
 
 #include "abl-show.h"
@@ -68,6 +64,7 @@
 #include "ouch.h"
 #include "output.h"
 #include "player.h"
+#include "player-stats.h"
 #include "shopping.h"
 #include "skills2.h"
 #include "spl-book.h"
@@ -324,7 +321,7 @@ const char* god_gain_power_messages[NUM_GODS][MAX_GOD_ABILITIES] =
       "step out of the time flow"
     },
     // Ashenzari
-    { "Ashenzari supports your low skills.",
+    { "",
       "The more cursed you are, the more Ashenzari helps you learn.",
       "Ashenzari keeps your vision and mind clear.",
       "scry through walls",
@@ -719,6 +716,10 @@ std::string get_god_likes(god_type which_god, bool verbose)
         likes.push_back("you or your allied orcs kill holy beings");
         break;
 
+    case GOD_OKAWARU:
+        likes.push_back("you kill holy beings");
+        break;
+
     default:
         break;
     }
@@ -892,74 +893,79 @@ std::string get_god_dislikes(god_type which_god, bool /*verbose*/)
 
 void dec_penance(god_type god, int val)
 {
-    if (val <= 0)
+    if (val <= 0 || you.penance[god] <= 0)
         return;
 
-    if (you.penance[god] > 0)
-    {
 #ifdef DEBUG_PIETY
-        mprf(MSGCH_DIAGNOSTICS, "Decreasing penance by %d", val);
+    mprf(MSGCH_DIAGNOSTICS, "Decreasing penance by %d", val);
 #endif
-        if (you.penance[god] <= val)
+    if (you.penance[god] <= val)
+    {
+        you.penance[god] = 0;
+
+        mark_milestone("god.mollify",
+                       "mollified " + god_name(god) + ".");
+
+        const bool dead_jiyva = (god == GOD_JIYVA && jiyva_is_dead());
+
+        simple_god_message(
+            make_stringf(" seems mollified%s.",
+                         dead_jiyva ? ", and vanishes" : "").c_str(),
+            god);
+
+        if (dead_jiyva)
+            add_daction(DACT_REMOVE_JIYVA_ALTARS);
+
+        take_note(Note(NOTE_MOLLIFY_GOD, god));
+
+        if (you.religion == god)
         {
-            you.penance[god] = 0;
+            // In case the best skill is Invocations, redraw the god
+            // title.
+            redraw_skill(you.your_name, player_title());
+        }
 
-            mark_milestone("god.mollify",
-                           "mollified " + god_name(god) + ".");
-
-            const bool dead_jiyva = (god == GOD_JIYVA && jiyva_is_dead());
-
-            simple_god_message(
-                make_stringf(" seems mollified%s.",
-                             dead_jiyva ? ", and vanishes" : "").c_str(),
-                god);
-
-            if (dead_jiyva)
-                add_daction(DACT_REMOVE_JIYVA_ALTARS);
-
-            take_note(Note(NOTE_MOLLIFY_GOD, god));
-
-            if (you.religion == god)
-            {
-                // In case the best skill is Invocations, redraw the god
-                // title.
-                redraw_skill(you.your_name, player_title());
-            }
-
+        if (you.religion == god)
+        {
             // Orcish bonuses are now once more effective.
-            if (god == GOD_BEOGH && you.religion == god)
+            if (god == GOD_BEOGH)
                  you.redraw_armour_class = true;
             // TSO's halo is once more available.
-            else if (god == GOD_SHINING_ONE && you.religion == god
+            else if (god == GOD_SHINING_ONE
                 && you.piety >= piety_breakpoint(0))
             {
                 mpr("Your divine halo returns!");
                 invalidate_agrid(true);
             }
-            else if (god == GOD_ASHENZARI && you.religion == god
+            else if (god == GOD_ASHENZARI
                 && you.piety >= piety_breakpoint(2))
             {
                 mpr("Your vision regains its divine sight.");
                 autotoggle_autopickup(false);
             }
+            else if (god == GOD_CHEIBRIADOS && che_boost_level())
+            {
+                redraw_screen();
+                notify_stat_change("mollifying Cheibriados");
+            }
 
             // When you've worked through all your penance, you get
             // another chance to make hostile holy beings good neutral.
-            if (is_good_god(you.religion))
+            if (is_good_god(god))
                 add_daction(DACT_HOLY_NEW_ATTEMPT);
         }
-        else if (god == GOD_NEMELEX_XOBEH && you.penance[god] > 100)
-        { // Nemelex's penance works actively only until 100
-            if ((you.penance[god] -= val) > 100)
-                return;
-            mark_milestone("god.mollify",
-                           "partially mollified " + god_name(god) + ".");
-            simple_god_message(" seems mollified... mostly.", god);
-            take_note(Note(NOTE_MOLLIFY_GOD, god));
-        }
-        else
-            you.penance[god] -= val;
     }
+    else if (god == GOD_NEMELEX_XOBEH && you.penance[god] > 100)
+    { // Nemelex's penance works actively only until 100
+        if ((you.penance[god] -= val) > 100)
+            return;
+        mark_milestone("god.mollify",
+                       "partially mollified " + god_name(god) + ".");
+        simple_god_message(" seems mollified... mostly.", god);
+        take_note(Note(NOTE_MOLLIFY_GOD, god));
+    }
+    else
+        you.penance[god] -= val;
 }
 
 void dec_penance(int val)
@@ -1037,6 +1043,11 @@ static void _inc_penance(god_type god, int val)
         {
             if (you.duration[DUR_SLIMIFY])
                 you.duration[DUR_SLIMIFY] = 0;
+        }
+        else if (god == GOD_CHEIBRIADOS)
+        {
+            redraw_screen();
+            notify_stat_change("falling into Cheibriados' penance");
         }
 
         if (you.religion == god)
@@ -3352,10 +3363,8 @@ void god_pitch(god_type which_god)
     // OK, so join the new religion.
     redraw_screen();
 
+    const god_type old_god = you.religion;
     const int old_piety = you.piety;
-    // Are you switching between good gods?
-    const bool good_god_switch = is_good_god(you.religion)
-                                 && is_good_god(which_god);
 
     // Leave your prior religion first.
     if (you.religion != GOD_NO_GOD)
@@ -3454,10 +3463,28 @@ void god_pitch(god_type which_god)
     // interesting.
     you.penance[you.religion] = 0;
 
-    if (is_good_god(you.religion))
+    if (is_good_god(you.religion) && is_good_god(old_god))
     {
+        // Some feedback that piety moved over.
+        switch (you.religion)
+        {
+        case GOD_ELYVILON:
+            simple_god_message((" says: Farewell. Go and aid the meek with "
+                               + god_name(you.religion) + ".").c_str(), old_god);
+            break;
+        case GOD_SHINING_ONE:
+            simple_god_message((" says: Farewell. Go and vanquish evil with "
+                               + god_name(you.religion) + ".").c_str(), old_god);
+            break;
+        case GOD_ZIN:
+            simple_god_message((" says: Farewell. Go and enforce order with "
+                               + god_name(you.religion) + ".").c_str(), old_god);
+            break;
+        default:
+            mpr("Unknown good god.", MSGCH_ERROR);
+        }
         // Give a piety bonus when switching between good gods.
-        if (good_god_switch && old_piety > 15)
+        if (old_piety > 15)
             gain_piety(std::min(30, old_piety - 15), 1, true, false);
     }
     else if (is_evil_god(you.religion))
@@ -3605,10 +3632,10 @@ bool god_hates_spell(spell_type spell, god_type god)
             return (true);
         break;
     case GOD_SHINING_ONE:
-        // TSO hates using poison, but is fine with curing it, resisting
-        // it, or destroying it.
+        // TSO hates using poison, but is fine with curing it
+        // or destroying it.
         if ((disciplines & SPTYP_POISON) && spell != SPELL_CURE_POISON
-            && spell != SPELL_RESIST_POISON && spell != SPELL_IGNITE_POISON)
+            && spell != SPELL_IGNITE_POISON)
         {
             return (true);
         }

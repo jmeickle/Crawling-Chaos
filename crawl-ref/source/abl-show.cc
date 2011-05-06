@@ -34,7 +34,7 @@
 #include "godconduct.h"
 #include "items.h"
 #include "item_use.h"
-#include "it_use3.h"
+#include "evoke.h"
 #include "macro.h"
 #include "maps.h"
 #include "message.h"
@@ -150,7 +150,7 @@ struct ability_def
     unsigned int        food_cost;      // + rand2avg( food_cost, 2 )
     generic_cost        piety_cost;     // + random2( (piety_cost + 1) / 2 + 1 )
     unsigned int        flags;          // used for additonal cost notices
-    unsigned int        xp_cost;        // hit point cost of ability
+    unsigned int        xp_cost;        // experience point cost of ability
 };
 
 static int  _find_ability_slot(ability_type which_ability);
@@ -714,7 +714,7 @@ const std::string make_cost_description(ability_type ability)
         if (!ret.str().empty())
             ret << ", ";
 
-        ret << "Food";   // randomised and amount hidden from player
+        ret << "Food";   // randomised and exact amount hidden from player
     }
 
     if (abil.piety_cost)
@@ -722,7 +722,7 @@ const std::string make_cost_description(ability_type ability)
         if (!ret.str().empty())
             ret << ", ";
 
-        ret << "Piety";  // randomised and amount hidden from player
+        ret << "Piety";  // randomised and exact amount hidden from player
     }
 
     if (abil.flags & ABFLAG_BREATH)
@@ -1329,7 +1329,7 @@ static void _print_talent_description(const talent& tal)
         data << make_detailed_cost_description(tal.which);
         print_description(data.str());
     }
-    wait_for_keypress();
+    getchm();
     clrscr();
 }
 
@@ -1542,11 +1542,12 @@ static bool _check_ability_possible(const ability_def& abil,
         }
         return (true);
 
+    case ABIL_BLINK:
     case ABIL_EVOKE_BLINK:
         if (item_blocks_teleport(false, false))
         {
-            return (yesno("You cannot teleport right now. Try anyway?",
-                          true, 'n'));
+            mpr("You cannot teleport right now.");
+            return(false);
         }
         return (true);
 
@@ -1574,24 +1575,42 @@ static bool _check_ability_possible(const ability_def& abil,
 
 static bool _activate_talent(const talent& tal)
 {
-    // Doing these would outright kill the player due to stat drain.
-    if (tal.which == ABIL_TRAN_BAT)
+    // Doing these would outright kill the player.
+    if (tal.which == ABIL_EVOKE_STOP_LEVITATING)
     {
-        if (you.strength() <= 5)
+        if (is_feat_dangerous(env.grid(you.pos()), true)
+            && (!you.can_swim() || !feat_is_water(env.grid(you.pos()))))
         {
-            mpr("You lack the strength for this transformation.", MSGCH_WARN);
+            mpr("Stopping levitation right now would be fatal!");
             crawl_state.zero_turns_taken();
             return (false);
         }
     }
-    else if (tal.which == ABIL_END_TRANSFORMATION
-             && player_in_bat_form()
-             && you.dex() <= 5)
+    else if (tal.which == ABIL_TRAN_BAT)
     {
-        mpr("Turning back with such low dexterity would be fatal!", MSGCH_WARN);
-        more();
-        crawl_state.zero_turns_taken();
-        return (false);
+        if (you.strength() <= 5
+            && !yesno("Turning into a bat will reduce your strength to zero. Continue?", false, 'n'))
+        {
+            crawl_state.zero_turns_taken();
+            return (false);
+        }
+    }
+    else if (tal.which == ABIL_END_TRANSFORMATION)
+    {
+        if (feat_dangerous_for_form(TRAN_NONE, env.grid(you.pos())))
+        {
+            mprf("Turning back right now would cause you to %s!",
+                 env.grid(you.pos()) == DNGN_LAVA ? "burn" : "drown");
+
+            crawl_state.zero_turns_taken();
+            return (false);
+        }
+        if (player_in_bat_form() && you.dex() <= 5
+            && !yesno("Turning back will reduce your dexterity to zero. Continue?", false, 'n'))
+        {
+            crawl_state.zero_turns_taken();
+            return (false);
+        }
     }
 
     if ((tal.which == ABIL_EVOKE_BERSERK || tal.which == ABIL_TROG_BERSERK)
@@ -3035,18 +3054,9 @@ std::vector<talent> your_talents(bool check_confused)
         }
 
         // Draconians don't maintain their original breath weapons
-        // if shapechanged into a non-dragon form, but green draconians
-        // do get spit poison in spider form.
-        if (form_changed_physiology())
-        {
-            if (you.species == SP_GREEN_DRACONIAN
-                && you.form == TRAN_SPIDER)
-            {
-                ability = ABIL_SPIT_POISON; // spit, not breath
-            }
-            else if (you.form != TRAN_DRAGON)
-                ability = ABIL_NON_ABILITY;
-        }
+        // if shapechanged into a non-dragon form.
+        if (form_changed_physiology() && you.form != TRAN_DRAGON)
+            ability = ABIL_NON_ABILITY;
 
         if (ability != ABIL_NON_ABILITY)
             _add_talent(talents, ability, check_confused);
@@ -3107,9 +3117,9 @@ std::vector<talent> your_talents(bool check_confused)
         _add_talent(talents, ABIL_TELEPORTATION, check_confused);
 
     // Religious abilities.
-    if (you.religion == GOD_TROG)
+    if (you.religion == GOD_TROG && !silenced(you.pos()))
         _add_talent(talents, ABIL_TROG_BURN_SPELLBOOKS, check_confused);
-    else if (you.religion == GOD_CHEIBRIADOS)
+    else if (you.religion == GOD_CHEIBRIADOS && !silenced(you.pos()))
         _add_talent(talents, ABIL_CHEIBRIADOS_PONDEROUSIFY, check_confused);
     else if (you.transfer_skill_points > 0)
         _add_talent(talents, ABIL_ASHENZARI_END_TRANSFER, check_confused);
@@ -3370,10 +3380,8 @@ static int _find_ability_slot(ability_type which_ability)
 
     // No requested slot, find new one and make it preferred.
 
-    // Skip over a-e (invocations), a-g for Elyvilon, or a-f for Yredelemnul.
-    const int first_slot = you.religion == GOD_ELYVILON    ? 7 :
-                           you.religion == GOD_YREDELEMNUL ? 6
-                                                           : 5;
+    // Skip over a-e (invocations), a-g for Elyvilon.
+    const int first_slot = you.religion == GOD_ELYVILON ? 7 : 5;
     for (int slot = first_slot; slot < 52; ++slot)
     {
         if (you.ability_letter_table[slot] == ABIL_NON_ABILITY)

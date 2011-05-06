@@ -61,6 +61,7 @@
 #include "tilemcache.h"
 #include "tilesdl.h"
 #include "travel.h"
+#include "viewmap.h"
 #include "xom.h"
 
 #ifdef USE_TILE
@@ -83,21 +84,21 @@ bool handle_seen_interrupt(monster* mons, std::vector<std::string>* msgs_buf)
         aid.context = mons->seen_context;
     // XXX: Hack to make the 'seen' monster spec flag work.
     else if (testbits(mons->flags, MF_WAS_IN_VIEW)
-        || testbits(mons->flags, MF_SEEN))
+             || testbits(mons->flags, MF_SEEN))
     {
         aid.context = "already seen";
     }
     else
         aid.context = "newly seen";
 
-    seen_monster(mons);
-
     if (!mons_is_safe(mons)
         && !mons_class_flag(mons->type, M_NO_EXP_GAIN)
-            || mons->type == MONS_BALLISTOMYCETE && mons->number > 0)
+           || mons->type == MONS_BALLISTOMYCETE && mons->number > 0)
     {
         return interrupt_activity(AI_SEE_MONSTER, aid, msgs_buf);
     }
+
+    seen_monster(mons);
 
     return false;
 }
@@ -129,7 +130,12 @@ void seen_monsters_react()
     for (monster_iterator mi(you.get_los()); mi; ++mi)
     {
         if ((mi->asleep() || mons_is_wandering(*mi))
-            && check_awaken(*mi))
+            && check_awaken(*mi)
+#ifdef EUCLIDEAN
+               || you.prev_move.abs() == 2 && x_chance_in_y(2, 5)
+                  && check_awaken(*mi)
+#endif
+           )
         {
             behaviour_event(*mi, ME_ALERT, MHITYOU, you.pos(), false);
             handle_monster_shouts(*mi);
@@ -193,6 +199,55 @@ static std::string _desc_mons_type_map(std::map<monster_type, int> types)
     return make_stringf("%s come into view.", message.c_str());
 }
 
+/*
+ * Monster list simplification
+ *
+ * When too many monsters come into view at once, we group the ones with the
+ * same genus, starting with the most represented genus.
+ *
+ * @param types monster types and the number of monster for each type.
+ * @param genera monster genera and the number of monster for each genus.
+ */
+static void _genus_factoring(std::map<monster_type, int> &types,
+                             std::map<monster_type, int> &genera)
+{
+    monster_type genus = MONS_NO_MONSTER;
+    int num = 0;
+    std::map<monster_type, int>::iterator it;
+    // Find the most represented genus.
+    for (it = genera.begin(); it != genera.end(); it++)
+        if (it->second > num)
+        {
+            genus = it->first;
+            num = it->second;
+        }
+
+    // The most represented genus has a single member.
+    // No more factoring is possible, we're done.
+    if (num == 1)
+    {
+        genera.clear();
+        return;
+    }
+
+    genera.erase(genus);
+    it = types.begin();
+    do
+    {
+        if (mons_genus(it->first) != genus)
+            continue;
+
+        // This genus has a single monster type. Can't factor.
+        if (it->second == num)
+            return;
+
+        types.erase(it->first);
+
+    } while (++it != types.end());
+
+    types[genus] = num;
+}
+
 void update_monsters_in_view()
 {
     const unsigned int max_msgs = 4;
@@ -223,13 +278,14 @@ void update_monsters_in_view()
             else
                 mi->flags &= ~MF_WAS_IN_VIEW;
         }
-        else
+        else if (!you.turn_is_over)
+        {
             mi->flags &= ~MF_WAS_IN_VIEW;
 
-        // If the monster hasn't been seen by the time that the player
-        // gets control back then seen_context is out of date.
-        if (!you.turn_is_over)
+            // If the monster hasn't been seen by the time that the player
+            // gets control back then seen_context is out of date.
             mi->seen_context.clear();
+        }
     }
 
     if (!msgs.empty())
@@ -239,18 +295,24 @@ void update_monsters_in_view()
         std::map<monster_type, int> genera; // This is the plural for genus!
         for (unsigned int i = 0; i < size; ++i)
         {
-            types[monsters[i]->type]++;
-            genera[mons_genus(monsters[i]->type)]++;
+            monster_type type;
+            if (monsters[i]->props.exists("mislead_as") && you.misled())
+                type = monsters[i]->get_mislead_type();
+            else
+                type = monsters[i]->type;
+
+            types[type]++;
+            genera[mons_genus(type)]++;
         }
 
         if (size == 1)
             mpr(msgs[0], MSGCH_WARN);
-        else if (types.size() <= max_msgs)
-            mpr(_desc_mons_type_map(types), MSGCH_WARN);
-        else if (genera.size() <= max_msgs)
-            mpr(_desc_mons_type_map(genera), MSGCH_WARN);
         else
-            mprf(MSGCH_WARN, "%d monsters come into view.", size);
+        {
+            while (types.size() > max_msgs && !genera.empty())
+                _genus_factoring(types, genera);
+            mpr(_desc_mons_type_map(types), MSGCH_WARN);
+        }
 
         bool warning = false;
         std::string warning_msg = "Ashenzari warns you: ";
@@ -387,7 +449,7 @@ static std::auto_ptr<FixedArray<bool, GXM, GYM> > _tile_detectability()
 
 // Returns true if it succeeded.
 bool magic_mapping(int map_radius, int proportion, bool suppress_msg,
-                   bool force, bool deterministic, bool circular,
+                   bool force, bool deterministic,
                    coord_def pos)
 {
     if (!in_bounds(pos))
@@ -405,13 +467,8 @@ bool magic_mapping(int map_radius, int proportion, bool suppress_msg,
 
     const bool wizard_map = (you.wizard && map_radius == 1000);
 
-    if (!wizard_map)
-    {
-        if (map_radius > 50)
-            map_radius = 50;
-        else if (map_radius < 5)
-            map_radius = 5;
-    }
+    if (map_radius < 5)
+        map_radius = 5;
 
     // now gradually weaker with distance:
     const int pfar     = dist_range((map_radius * 7) / 10);
@@ -429,7 +486,7 @@ bool magic_mapping(int map_radius, int proportion, bool suppress_msg,
     if (!deterministic)
         detectable = _tile_detectability();
 
-    for (radius_iterator ri(pos, map_radius, circular ? C_ROUND : C_SQUARE);
+    for (radius_iterator ri(pos, map_radius, C_ROUND);
          ri; ++ri)
     {
         if (!wizard_map)
@@ -480,6 +537,8 @@ bool magic_mapping(int map_radius, int proportion, bool suppress_msg,
                 env.map_knowledge(*ri).set_feature(grd(*ri));
             else if (!env.map_knowledge(*ri).feat())
                 env.map_knowledge(*ri).set_feature(magic_map_base_feat(grd(*ri)));
+	    if (emphasise(*ri))
+	        env.map_knowledge(*ri).flags |= MAP_EMPHASIZE;
 
             if (wizard_map)
             {
@@ -606,6 +665,8 @@ std::string screenshot()
         for (int x = line.length() - 1; x >= 0; x--)
             if (line[x] == ' ')
                 line.erase(x);
+            else
+                break;
         // see how much it can be left-trimmed
         for (unsigned int x = 0; x < line.length(); x++)
             if (line[x] != ' ')

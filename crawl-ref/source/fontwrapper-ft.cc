@@ -7,10 +7,12 @@
 #include FT_FREETYPE_H
 
 #include "defines.h"
+#include "errno.h"
 #include "files.h"
 #include "format.h"
 #include "fontwrapper-ft.h"
 #include "glwrapper.h"
+#include "syscalls.h"
 #include "tilebuf.h"
 #include "tilefont.h"
 #include "unicode.h"
@@ -43,31 +45,33 @@ bool FTFontWrapper::load_font(const char *font_name, unsigned int font_size,
 
     error = FT_Init_FreeType(&library);
     if (error)
-    {
-        fprintf(stderr, "Failed to initialise freetype library.\n");
-        return false;
-    }
+        die_noline("Failed to initialise freetype library.\n");
 
     // TODO enne - need to find a cross-platform way to also
     // attempt to locate system fonts by name...
+    // 1KB: fontconfig if we are not scared of hefty libraries
     std::string font_path = datafile_path(font_name, false, true);
     if (font_path.c_str()[0] == 0)
-    {
-        fprintf(stderr, "Could not find font '%s'\n", font_name);
-        return false;
-    }
+        die_noline("Could not find font '%s'\n", font_name);
 
-    error = FT_New_Face(library, font_path.c_str(), 0, &face);
+    // Certain versions of freetype have problems reading files on Windows,
+    // do that ourselves.
+    FILE *f = fopen_u(font_path.c_str(), "rb");
+    if (!f)
+        die_noline("Could not read font '%s'\n", font_name);
+    unsigned long size = file_size(f);
+    FT_Byte *ttf = (FT_Byte*)malloc(size);
+    ASSERT(ttf);
+    if (fread(ttf, 1, size, f) != size)
+        die_noline("Could not read font '%s': %s\n", font_name, strerror(errno));
+    fclose(f);
+    // FreeType needs the font until FT_Done_Face(), and we never call it.
+
+    error = FT_New_Memory_Face(library, ttf, size, 0, &face);
     if (error == FT_Err_Unknown_File_Format)
-    {
-        fprintf(stderr, "Unknown font format for file '%s'\n",
-                         font_path.c_str());
-        return false;
-    }
+        die_noline("Unknown font format for file '%s'\n", font_path.c_str());
     else if (error)
-    {
-        fprintf(stderr, "Invalid font from file '%s'\n", font_path.c_str());
-    }
+        die_noline("Invalid font from file '%s'\n", font_path.c_str());
 
     error = FT_Set_Pixel_Sizes(face, font_size, font_size);
     ASSERT(!error);
@@ -484,7 +488,7 @@ formatted_string FTFontWrapper::split(const formatted_string &str,
             ret[idx] = '.';
             ret[idx+1] = '.';
 
-            return ret.substr(0, idx + 2);
+            return ret.chop(idx + 2);
         }
         else
         {

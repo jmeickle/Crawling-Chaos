@@ -97,6 +97,7 @@ void monster::reset()
 {
     mname.clear();
     enchantments.clear();
+    ench_cache.reset();
     ench_countdown = 0;
     inv.init(NON_ITEM);
 
@@ -155,6 +156,7 @@ void monster::init_with(const monster& mon)
     behaviour         = mon.behaviour;
     foe               = mon.foe;
     enchantments      = mon.enchantments;
+    ench_cache        = mon.ench_cache;
     flags             = mon.flags;
     experience        = mon.experience;
     number            = mon.number;
@@ -219,7 +221,8 @@ bool monster::submerged() const
         return (true);
 
     if (grd(pos()) == DNGN_DEEP_WATER
-        && !monster_habitable_grid(this, DNGN_DEEP_WATER)
+        && (!monster_habitable_grid(this, DNGN_DEEP_WATER)
+            || type == MONS_GREY_DRACONIAN)
         && !can_drown())
     {
         return (true);
@@ -233,7 +236,7 @@ bool monster::extra_balanced_at(const coord_def p) const
     const dungeon_feature_type grid = grd(p);
     return (grid == DNGN_SHALLOW_WATER
             && (mons_genus(type) == MONS_NAGA             // tails, not feet
-                || body_size(PSIZE_BODY) > SIZE_MEDIUM));
+                || body_size(PSIZE_BODY) >= SIZE_LARGE));
 }
 
 bool monster::extra_balanced() const
@@ -677,6 +680,9 @@ bool monster::can_throw_large_rocks() const
 
 bool monster::can_speak()
 {
+    if (has_ench(ENCH_MUTE))
+        return (false);
+
     // Priest and wizard monsters can always speak.
     if (is_priest() || is_actual_spellcaster())
         return (true);
@@ -687,9 +693,6 @@ bool monster::can_speak()
     {
         return (false);
     }
-
-    if (has_ench(ENCH_MUTE))
-        return (false);
 
     // Does it have the proper vocal equipment?
     const mon_body_shape shape = get_mon_shape(this);
@@ -1302,6 +1305,9 @@ bool monster::pickup_launcher(item_def &launch, int near, bool force)
 
 static bool _is_signature_weapon(monster* mons, const item_def &weapon)
 {
+    if (weapon.base_type == OBJ_STAVES)
+        return (mons->type == MONS_DEEP_DWARF_ARTIFICER);
+
     if (weapon.base_type != OBJ_WEAPONS)
         return (false);
 
@@ -1368,6 +1374,9 @@ static bool _is_signature_weapon(monster* mons, const item_def &weapon)
             return (weapon_skill(weapon) == SK_SHORT_BLADES
                     || weapon_skill(weapon) == SK_LONG_BLADES);
         }
+
+        if (mons->type == MONS_IGNACIO)
+            return (weapon.sub_type == WPN_EXECUTIONERS_AXE);
     }
 
     if (is_unrandom_artefact(weapon))
@@ -2560,9 +2569,9 @@ int monster::get_experience_level() const
     return (hit_dice);
 }
 
-void monster::moveto(const coord_def& c)
+void monster::moveto(const coord_def& c, bool clear_net)
 {
-    if (c != pos() && in_bounds(pos()))
+    if (clear_net && c != pos() && in_bounds(pos()))
         mons_clear_trapping_net(this);
 
     if (mons_is_projectile(type))
@@ -3758,6 +3767,7 @@ void monster::ghost_init(bool need_pos)
 
     inv.init(NON_ITEM);
     enchantments.clear();
+    ench_cache.reset();
     ench_countdown = 0;
 
     // Summoned player ghosts are already given a position; calling this
@@ -3997,11 +4007,6 @@ bool monster::is_shapeshifter() const
     return (has_ench(ENCH_GLOWING_SHAPESHIFTER, ENCH_SHAPESHIFTER));
 }
 
-bool monster::has_ench(enchant_type ench) const
-{
-    return (enchantments.find(ench) != enchantments.end());
-}
-
 bool monster::has_ench(enchant_type ench, enchant_type ench2) const
 {
     if (ench2 == ENCH_NONE)
@@ -4067,6 +4072,7 @@ bool monster::add_ench(const mon_enchant &ench)
     {
         new_enchantment = true;
         added = &(enchantments[ench.ench] = ench);
+        ench_cache.set(ench.ench, true);
     }
     else
     {
@@ -4314,6 +4320,7 @@ bool monster::del_ench(enchant_type ench, bool quiet, bool effect)
         return (false);
 
     enchantments.erase(et);
+    ench_cache.set(et, false);
     if (effect)
         remove_enchantment_effect(me, quiet);
     return (true);
@@ -5478,6 +5485,9 @@ void monster::apply_enchantment(const mon_enchant &me)
         // 3, 6, 9% of current hp
         int dam = div_rand_round(random2((1 + hit_points)*(me.degree * 3)),100);
 
+        // location, montype, damage (1 hp = 5% chance), spatter, smell_alert
+        bleed_onto_floor(pos(), type, 20, false, true);
+
         if (dam < hit_points)
         {
             hurt(me.agent(), dam);
@@ -5833,7 +5843,9 @@ bool monster::has_lifeforce() const
 
 bool monster::can_mutate() const
 {
-    return (has_lifeforce());
+    const mon_holy_type holi = holiness();
+
+    return (holi != MH_UNDEAD && holi != MH_NONLIVING);
 }
 
 bool monster::can_safely_mutate() const
@@ -5929,7 +5941,7 @@ bool monster::has_action_energy() const
     return (speed_increment >= 80);
 }
 
-void monster::check_redraw(const coord_def &old) const
+void monster::check_redraw(const coord_def &old, bool clear_tiles) const
 {
     if (!crawl_state.io_inited)
         return;
@@ -5946,7 +5958,7 @@ void monster::check_redraw(const coord_def &old) const
         {
             view_update_at(old);
 #ifdef USE_TILE
-            if (!see_old)
+            if (clear_tiles && !see_old)
                 tile_clear_monster(old);
 #endif
         }
@@ -6020,7 +6032,7 @@ void monster::apply_location_effects(const coord_def &oldpos,
     }
 }
 
-bool monster::move_to_pos(const coord_def &newpos)
+bool monster::move_to_pos(const coord_def &newpos, bool clear_net)
 {
     const actor* a = actor_at(newpos);
     if (a && (a != &you || !fedhas_passthrough(this)))
@@ -6033,7 +6045,7 @@ bool monster::move_to_pos(const coord_def &newpos)
         mgrd(pos()) = NON_MONSTER;
 
     // Set monster x,y to new value.
-    moveto(newpos);
+    moveto(newpos, clear_net);
 
     // Set new monster grid pointer to this monster.
     mgrd(newpos) = index;
@@ -6496,6 +6508,7 @@ void monster::react_to_damage(const actor *oppressor, int damage,
             int old_hp                = hit_points;
             uint64_t old_flags        = flags;
             mon_enchant_list old_ench = enchantments;
+            FixedBitArray<NUM_ENCHANTMENTS> old_ench_cache = ench_cache;
             int8_t old_ench_countdown = ench_countdown;
 
             if (!fly_died)
@@ -6506,6 +6519,7 @@ void monster::react_to_damage(const actor *oppressor, int damage,
             hit_points = std::min(old_hp, hit_points);
             flags          = old_flags;
             enchantments   = old_ench;
+            ench_cache     = old_ench_cache;
             ench_countdown = old_ench_countdown;
 
             mounted_kill(this, fly_died ? MONS_FIREFLY : MONS_SPRIGGAN,

@@ -163,7 +163,7 @@ int spellbook_contents(item_def &book, read_book_action_type action,
         out.cprintf(strng);
         out.cprintf(" - ");
 
-        out.cprintf("%-29s", spell_title(stype));
+        out.cprintf("%s", chop_string(spell_title(stype), 29).c_str());
 
         std::string schools;
         if (action == RBOOK_USE_STAFF)
@@ -182,12 +182,7 @@ int spellbook_contents(item_def &book, read_book_action_type action,
                 }
             }
         }
-        out.cprintf("%-30s", schools.c_str());
-
-        char sval[3];
-        itoa(level_diff, sval, 10);
-        out.cprintf(sval);
-        out.cprintf("\n");
+        out.cprintf("%s%d\n", chop_string(schools, 30).c_str(), level_diff);
         spelcount++;
     }
 
@@ -533,7 +528,6 @@ bool you_cannot_memorise(spell_type spell, bool &undead)
         case SPELL_DRAGON_FORM:
         case SPELL_ICE_FORM:
         case SPELL_NECROMUTATION:
-        case SPELL_RESIST_POISON:
         case SPELL_SPIDER_FORM:
         case SPELL_STATUE_FORM:
         case SPELL_STONESKIN:
@@ -572,7 +566,6 @@ bool you_cannot_memorise(spell_type spell, bool &undead)
         case SPELL_INTOXICATE:
         case SPELL_NECROMUTATION:
         case SPELL_REGENERATION:
-        case SPELL_RESIST_POISON:
         case SPELL_SPIDER_FORM:
         case SPELL_STATUE_FORM:
         case SPELL_STONESKIN:
@@ -683,6 +676,7 @@ static bool _get_mem_list(spell_list &mem_spells,
     bool          book_errors    = false;
     unsigned int  num_on_ground  = 0;
     unsigned int  num_books      = 0;
+    unsigned int  num_unknown    = 0;
                   num_unreadable = 0;
 
     // Collect the list of all spells in all available spellbooks.
@@ -704,8 +698,14 @@ static bool _get_mem_list(spell_list &mem_spells,
     for (unsigned int i = 0; i < items.size(); ++i)
     {
         item_def book(*items[i]);
-        if (!item_is_spellbook(book) || !item_type_known(book))
+        if (!item_is_spellbook(book))
             continue;
+
+        if (!item_type_known(book))
+        {
+            num_unknown++;
+            continue;
+        }
 
         num_books++;
         num_on_ground++;
@@ -718,7 +718,23 @@ static bool _get_mem_list(spell_list &mem_spells,
     if (num_books == 0)
     {
         if (!just_check)
-            mpr("You aren't carrying any spellbooks.", MSGCH_PROMPT);
+        {
+            if (num_unknown > 1)
+            {
+                mpr("You must pick those books before reading them.",
+                    MSGCH_PROMPT);
+            }
+            else if (num_unknown == 1)
+            {
+                mpr("You must pick this book before reading it.",
+                    MSGCH_PROMPT);
+            }
+            else
+            {
+                mpr("You aren't carrying or standing over any spellbooks.",
+                    MSGCH_PROMPT);
+            }
+        }
         return (false);
     }
     else if (num_unreadable == num_books)
@@ -1652,8 +1668,6 @@ static void _make_book_randart(item_def &book)
 {
     if (!is_artefact(book))
     {
-        // This may need to get re-initialized at some point.
-        book.special = (random_int() & RANDART_SEED_MASK);
         book.flags |= ISFLAG_RANDART;
         if (!book.props.exists(ARTEFACT_APPEAR_KEY))
         {

@@ -453,11 +453,27 @@ static bool _build_level_vetoable(int level_number, level_area_type level_type,
     return (false);
 }
 
+// Things that are bugs where we want to assert rather than to sweep it under
+// the rug with a veto.
+static void _builder_assertions()
+{
+#ifdef ASSERTS
+    for(rectangle_iterator ri(0); ri; ++ri)
+        if (!in_bounds(*ri))
+            if (!is_valid_border_feat(grd(*ri)))
+            {
+                die("invalid map border at (%d,%d): %s", ri->x, ri->y,
+                    dungeon_feature_name(grd(*ri)));
+            }
+#endif
+}
+
 // Should be called after a level is constructed to perform any final
 // fixups.
 static void _dgn_postprocess_level()
 {
     shoals_postprocess_level();
+    _builder_assertions();
     _calc_density();
 }
 
@@ -792,9 +808,9 @@ static bool _is_perm_down_stair(const coord_def &c)
     }
 }
 
-static bool _is_bottom_exit_stair(const coord_def &c)
+static bool _is_upwards_exit_stair(const coord_def &c)
 {
-    // Is this a valid exit stair from the bottom of a branch? In general,
+    // Is this a valid upwards or exit stair out of a branch? In general,
     // ensure that each region has a stone stair up.
     switch (grd(c))
     {
@@ -923,7 +939,7 @@ int process_disconnected_zones(int x1, int y1, int x2, int y2,
                                _dgn_point_record_stub,
                                dgn_square_travel_ok,
                                choose_stairless ? (at_branch_bottom() ?
-                                                   _is_bottom_exit_stair :
+                                                   _is_upwards_exit_stair :
                                                    _is_exit_stair) : NULL);
 
             // If we want only stairless zones, screen out zones that did
@@ -1653,7 +1669,7 @@ static bool _fixup_stone_stairs(bool preserve_vault_stairs)
 }
 
 static bool _add_feat_if_missing(bool (*iswanted)(const coord_def &),
-    dungeon_feature_type feat)
+                                 dungeon_feature_type feat)
 {
     memset(travel_point_distance, 0, sizeof(travel_distance_grid_t));
     int nzones = 0;
@@ -1667,7 +1683,7 @@ static bool _add_feat_if_missing(bool (*iswanted)(const coord_def &),
             // downstairs.
             const coord_def gc(x, y);
             if (!map_bounds(x, y)
-                || travel_point_distance[x][y]
+                || travel_point_distance[x][y] // already covered previously
                 || !_dgn_square_is_passable(gc))
             {
                 continue;
@@ -1686,6 +1702,7 @@ static bool _add_feat_if_missing(bool (*iswanted)(const coord_def &),
                     && travel_point_distance[ri->x][ri->y] == nzones)
                 {
                     found_feature = true;
+                    break;
                 }
             }
 
@@ -1703,8 +1720,12 @@ static bool _add_feat_if_missing(bool (*iswanted)(const coord_def &),
                     continue;
 
                 grd(rnd) = feat;
-                return (true);
+                found_feature = true;
+                break;
             }
+
+            if (found_feature)
+                continue;
 
             for (rectangle_iterator ri(0); ri; ++ri)
             {
@@ -1715,8 +1736,12 @@ static bool _add_feat_if_missing(bool (*iswanted)(const coord_def &),
                     continue;
 
                 grd(*ri) = feat;
-                return (true);
+                found_feature = true;
+                break;
             }
+
+            if (found_feature)
+                continue;
 
 #ifdef DEBUG_DIAGNOSTICS
             dump_map("debug.map", true, true);
@@ -1737,13 +1762,21 @@ static bool _add_connecting_escape_hatches()
 
     if (branches[you.where_are_you].branch_flags & BFLAG_ISLANDED)
         return (true);
+
     if (you.level_type != LEVEL_DUNGEON)
         return (true);
 
     if (at_branch_bottom())
         return (dgn_count_disconnected_zones(true) == 0);
 
-    return (_add_feat_if_missing(_is_perm_down_stair, DNGN_ESCAPE_HATCH_DOWN));
+    if (!_add_feat_if_missing(_is_perm_down_stair, DNGN_ESCAPE_HATCH_DOWN))
+        return (false);
+
+    // FIXME: shouldn't depend on branch.
+    if (you.where_are_you != BRANCH_ORCISH_MINES)
+        return (true);
+
+    return (_add_feat_if_missing(_is_upwards_exit_stair, DNGN_ESCAPE_HATCH_UP));
 }
 
 static bool _branch_entrances_are_connected()
@@ -2124,39 +2157,23 @@ static void _build_dungeon_level(int level_number, level_area_type level_type)
         _fixup_hell_stairs();
 }
 
-static uint8_t _fix_black_colour(uint8_t incol)
-{
-    if (incol == BLACK)
-        return LIGHTGREY;
-    else
-        return incol;
-}
-
 void dgn_set_colours_from_monsters()
 {
-    if (env.mons_alloc[9] < 0 || env.mons_alloc[9] == MONS_NO_MONSTER
-        || env.mons_alloc[9] >= NUM_MONSTERS)
+    if (env.mons_alloc[9] >= 0 && env.mons_alloc[9] != MONS_NO_MONSTER
+        && env.mons_alloc[9] < NUM_MONSTERS)
     {
-        if (env.floor_colour == BLACK)
-            env.floor_colour = LIGHTGREY;
+        env.floor_colour = mons_class_colour(env.mons_alloc[9]);
     }
-    else
-    {
-        env.floor_colour =
-            _fix_black_colour(mons_class_colour(env.mons_alloc[9]));
-    }
+    if (env.floor_colour == BLACK)
+        env.floor_colour = LIGHTGREY;
 
-    if (env.mons_alloc[8] < 0 || env.mons_alloc[8] == MONS_NO_MONSTER
-        || env.mons_alloc[8] >= NUM_MONSTERS)
+    if (env.mons_alloc[8] >= 0 && env.mons_alloc[8] != MONS_NO_MONSTER
+        && env.mons_alloc[8] < NUM_MONSTERS)
     {
-        if (env.rock_colour == BLACK)
-            env.rock_colour = BROWN;
+        env.rock_colour = mons_class_colour(env.mons_alloc[8]);
     }
-    else
-    {
-        env.rock_colour =
-            _fix_black_colour(mons_class_colour(env.mons_alloc[8]));
-    }
+    if (env.rock_colour == BLACK || env.rock_colour == LIGHTGREY)
+        env.rock_colour = coinflip() ? BROWN : LIGHTRED;
 }
 
 static void _dgn_set_floor_colours()
@@ -3599,27 +3616,6 @@ static bool _make_room(int sx,int sy,int ex,int ey,int max_doors, int doorlevel)
     return (true);
 }
 
-static bool _place_unique_map(const map_def *uniq_map)
-{
-    // If the unique map is guaranteed to not affect connectivity,
-    // allow it to overwrite existing vaults by temporarily
-    // suppressing dgn_Map_Mask.
-    const bool transparent = uniq_map->has_tag("transparent");
-    std::auto_ptr<map_mask> backup_mask;
-    if (transparent)
-    {
-        backup_mask.reset(new map_mask(env.level_map_mask));
-        env.level_map_mask.init(0);
-    }
-
-    bool placed = dgn_place_map(uniq_map, false, false);
-
-    if (transparent)
-        env.level_map_mask = *backup_mask;
-
-    return (placed);
-}
-
 // Place uniques on the level.
 // There is a hidden dependency on the player's actual
 // location (through your_branch()).
@@ -3665,7 +3661,7 @@ static int _place_uniques(int level_number, level_area_type level_type)
             break;
         }
 
-        const bool map_placed = _place_unique_map(uniq_map);
+        const bool map_placed = dgn_place_map(uniq_map, false, false);
         if (map_placed)
         {
             num_placed++;
@@ -4782,6 +4778,7 @@ int dgn_place_monster(mons_spec &mspec,
         mg.hd        = mspec.hd;
         mg.hp        = mspec.hp;
         mg.props     = mspec.props;
+        mg.initial_shifter = mspec.initial_shifter;
 
         // Marking monsters as summoned
         mg.abjuration_duration = mspec.abjuration_duration;
@@ -5358,6 +5355,8 @@ static void _many_pools(dungeon_feature_type pool_type)
         pool_type = DNGN_DEEP_WATER;
     else if (player_in_branch(BRANCH_GEHENNA))
         pool_type = DNGN_LAVA;
+    else if (player_in_branch(BRANCH_CRYPT))
+        return;
 
     const int num_pools = 20 + random2avg(9, 2);
     int pools = 0;
@@ -5919,7 +5918,7 @@ void plan_4(dungeon_feature_type force_wall)
             drawing = static_cast<dungeon_feature_type>(
                       random_choose_weighted(261, DNGN_ROCK_WALL,
                                              116, DNGN_STONE_WALL,
-                                             40, DNGN_METAL_WALL));
+                                             40, DNGN_METAL_WALL, 0));
         }
 
         if (one_chance_in(3))

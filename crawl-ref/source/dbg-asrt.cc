@@ -702,7 +702,8 @@ static NORETURN void _BreakStrToDebugger(const char *mesg, bool assert)
     SDL_VERSION(&SysInfo.version);
     if (SDL_GetWMInfo(&SysInfo) > 0)
     {
-        MessageBox(SysInfo.window, mesg, assert ? "Assertion failed!" : "Error",
+        MessageBoxW(SysInfo.window, OUTW(mesg),
+                   assert ? L"Assertion failed!" : L"Error",
                    MB_OK|MB_ICONERROR);
     }
     // Print the message to STDERR in addition to the above message box,

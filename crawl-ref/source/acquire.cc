@@ -1006,6 +1006,13 @@ static bool _do_book_acquirement(item_def &book, int agent)
                 weights[bk] = 0;
                 continue;
             }
+#if TAG_MAJOR_VERSION == 32
+            if (bk == BOOK_MINOR_MAGIC_II || bk == BOOK_MINOR_MAGIC_III)
+            {
+                weights[bk] = 0;
+                continue;
+            }
+#endif
             weights[bk]    = _book_weight(static_cast<book_type>(bk));
             total_weights += weights[bk];
         }
@@ -1354,8 +1361,10 @@ int acquirement_create_item(object_class_type class_wanted,
     if (is_blood_potion(thing))
         init_stack_blood_potions(thing);
 
-    // Remove curse flag from item.
-    if (you.religion != GOD_ASHENZARI)
+    // Remove curse flag from item, unless worshipping Ashenzari.
+    if (you.religion == GOD_ASHENZARI)
+        do_curse_item(thing, true);
+    else
         do_uncurse_item(thing, false);
 
     if (thing.base_type == OBJ_BOOKS)
@@ -1566,7 +1575,6 @@ bool acquirement(object_class_type class_wanted, int agent,
                 return (false);
             }
 
-#if defined(USE_UNIX_SIGNALS) && defined(SIGHUP_SAVE) && defined(USE_CURSES)
             // If we've gotten a HUP signal then the player will be unable
             // to make a selection.
             if (crawl_state.seen_hups)
@@ -1575,8 +1583,7 @@ bool acquirement(object_class_type class_wanted, int agent,
                 you.turn_is_over = false;
                 return (false);
             }
-#endif
-           break;
+            break;
         }
 
         if (you.species == SP_CAT

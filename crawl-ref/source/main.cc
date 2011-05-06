@@ -70,7 +70,7 @@
 #include "initfile.h"
 #include "invent.h"
 #include "item_use.h"
-#include "it_use3.h"
+#include "evoke.h"
 #include "itemname.h"
 #include "itemprop.h"
 #include "items.h"
@@ -248,6 +248,7 @@ int main(int argc, char *argv[])
 
     // Load in the system environment variables
     get_system_environment();
+    init_signals();
 
     // Parse command line args -- look only for initfile & crawl_dir entries.
     if (!parse_args(argc, argv, true))
@@ -296,6 +297,7 @@ static void _reset_game()
 {
     clrscr();
     crawl_state.type = GAME_TYPE_UNSPECIFIED;
+    crawl_state.updating_scores = false;
     clear_message_store();
     macro_clear_buffers();
     transit_lists_clear();
@@ -498,11 +500,11 @@ static void _god_greeting_message(bool game_start)
 
     std::string msg = god_name(you.religion);
 
-    if (you.religion == GOD_XOM)
+    if (game_start)
+        msg += " newgame";
+    else if (you.religion == GOD_XOM)
     {
-        if (game_start)
-            msg += " newgame";
-        else if (you.gift_timeout <= 1)
+        if (you.gift_timeout <= 1)
             msg += " bored";
         else
             msg += " generic";
@@ -819,8 +821,20 @@ static void _start_running(int dir, int mode)
     if (Hints.hints_events[HINT_SHIFT_RUN] && mode == RMODE_START)
         Hints.hints_events[HINT_SHIFT_RUN] = false;
 
-    if (i_feel_safe(true))
-        you.running.initialise(dir, mode);
+    if (!i_feel_safe(true)) {
+        return;
+    }
+
+    coord_def next_pos = you.pos() + Compass[dir];
+    for (adjacent_iterator ai(next_pos); ai; ++ai) {
+        if (env.grid(*ai) == DNGN_SLIMY_WALL) {
+            mpr("You're about to run into the slime covered wall!",
+                MSGCH_WARN);
+            return;
+        }
+    }
+
+    you.running.initialise(dir, mode);
 }
 
 static bool _cmd_is_repeatable(command_type cmd, bool is_again = false)
@@ -1065,10 +1079,8 @@ static void _update_place_info()
 //
 static void _input()
 {
-#if defined(USE_UNIX_SIGNALS) && defined(SIGHUP_SAVE) && defined(USE_CURSES)
     if (crawl_state.seen_hups)
         sighup_save_and_exit();
-#endif
 
     crawl_state.clear_mon_acting();
 
@@ -1151,7 +1163,11 @@ static void _input()
 
         // Some delays reset you.time_taken.
         if (you.time_taken || you.turn_is_over)
+        {
+            if (you.berserk())
+                _do_berserk_no_combat_penalty();
             world_reacts();
+        }
 
         return;
     }
@@ -1178,10 +1194,8 @@ static void _input()
 #endif
         const command_type cmd = _get_next_cmd();
 
-#if defined(USE_UNIX_SIGNALS) && defined(SIGHUP_SAVE) && defined(USE_CURSES)
         if (crawl_state.seen_hups)
             sighup_save_and_exit();
-#endif
 
         crawl_state.waiting_for_command = false;
 
@@ -1279,6 +1293,25 @@ static bool _prompt_dangerous_portal(dungeon_feature_type ftype)
     }
 }
 
+static bool _check_carrying_orb()
+{
+    // We never picked up the Orb, no problem.
+    if (you.char_direction != GDT_ASCENDING)
+        return (true);
+
+    // So we did pick up the Orb. Now check whether we're carrying it.
+    for (int i = 0; i < ENDOFPACK; i++)
+    {
+        if (you.inv[i].defined()
+            && you.inv[i].base_type == OBJ_ORBS
+            && you.inv[i].sub_type == ORB_ZOT)
+        {
+            return (true);
+        }
+    }
+    return (yes_or_no("You're not carrying the Orb! Leave anyway"));
+}
+
 static void _go_downstairs();
 static void _go_upstairs()
 {
@@ -1340,6 +1373,30 @@ static void _go_upstairs()
     {
         mpr("You are carrying too much to climb upwards.");
         return;
+    }
+
+    const bool leaving_dungeon =
+        level_id::current() == level_id(BRANCH_MAIN_DUNGEON, 1);
+
+    if (leaving_dungeon)
+    {
+        bool stay = (!yesno("Are you sure you want to leave the Dungeon?",
+                            false, 'n') || !_check_carrying_orb());
+
+        if (!stay && crawl_state.game_is_hints())
+        {
+            if (!yesno("Are you *sure*? Doing so will end the game!", false,
+                       'n'))
+            {
+                stay = true;
+            }
+        }
+
+        if (stay)
+        {
+            mpr("Alright, then stay!");
+            return;
+        }
     }
 
     if (you.duration[DUR_MISLED])
@@ -1408,6 +1465,13 @@ static void _go_downstairs()
     if (you.attribute[ATTR_HELD])
     {
         mpr("You're held in a net!");
+        return;
+    }
+
+    if (you.flight_mode() == FL_LEVITATE && !feat_is_gate(ygrd))
+    {
+        mpr("You're floating high up above the floor!");
+        learned_something_new(HINT_LEVITATING);
         return;
     }
 
@@ -1637,6 +1701,12 @@ static void _do_display_map()
 
 static void _do_cycle_quiver(int dir)
 {
+    if (you.species == SP_CAT)
+    {
+        mpr("You can't grasp things well enough to throw them.");
+        return;
+    }
+
     const int cur = you.m_quiver->get_fire_item();
     const int next = get_next_fire_item(cur, dir);
 #ifdef DEBUG_QUIVER
@@ -2100,7 +2170,8 @@ static void _decrement_durations()
 
     if (_decrement_a_duration(DUR_ICY_ARMOUR, delay,
                               "Your icy armour evaporates.", coinflip(),
-                              "Your icy armour starts to melt."))
+                              you.props.exists("melt_armour") ? NULL
+                                  : "Your icy armour starts to melt."))
     {
         you.redraw_armour_class = true;
     }
@@ -2398,19 +2469,11 @@ static void _decrement_durations()
         //     - mutation gives a large plus in order to try and
         //       avoid the mutation being a "death sentence" to
         //       certain characters.
-        //     - knowing the spell gives an advantage just
-        //       so that people who have invested 3 spell levels
-        //       are better off than the casual potion drinker...
-        //       this should make it a bit more interesting for
-        //       Crusaders again.
-        //     - similarly for the amulet
 
         if (you.berserk_penalty != NO_BERSERK_PENALTY)
         {
             const int chance =
-                10 + player_mutation_level(MUT_BERSERK) * 25
-                + (wearing_amulet(AMU_RAGE) ? 10 : 0)
-                + (you.has_spell(SPELL_BERSERKER_RAGE) ? 5 : 0);
+                10 + player_mutation_level(MUT_BERSERK) * 25;
 
             // Note the beauty of Trog!  They get an extra save that's at
             // the very least 20% and goes up to 100%.
@@ -2454,6 +2517,7 @@ static void _decrement_durations()
 
         learned_something_new(HINT_POSTBERSERK);
         Hints.hints_events[HINT_YOU_ENCHANTED] = hints_slow;
+        you.redraw_quiver = true; // Can throw again.
     }
 
     if (_decrement_a_duration(DUR_CORONA, delay))
@@ -2522,7 +2586,8 @@ static void _decrement_durations()
         // It's not normal biology, so Cheibriados won't help.
         if (you.species == SP_MUMMY)
             you.rotting = 0;
-        else if (x_chance_in_y(you.rotting, 20))
+        else if (x_chance_in_y(you.rotting, 20)
+                 && !you.duration[DUR_DEATHS_DOOR])
         {
             mpr("You feel your flesh rotting away.", MSGCH_WARN);
             ouch(1, NON_MONSTER, KILLED_BY_ROTTING);
@@ -2697,7 +2762,7 @@ static void _regenerate_hp_and_mp(int delay)
 
 static void _update_mold_state(const coord_def & pos)
 {
-    if (glowing_mold(pos))
+    if (glowing_mold(pos) && coinflip())
     {
         // Doing a weird little state thing with the two mold
         // fprops. 'glowing' mold should turn back to normal after
@@ -2782,6 +2847,10 @@ static void _player_reacts()
 
     slime_wall_damage(&you, you.time_taken);
 
+    // Icy shield and armour melt over lava.
+    if (grd(you.pos()) == DNGN_LAVA)
+        expose_player_to_element(BEAM_LAVA);
+
     _decrement_durations();
 
     int capped_time = you.time_taken;
@@ -2821,6 +2890,27 @@ static void _player_reacts_to_monsters()
         detect_creatures(1 + you.duration[DUR_TELEPATHY] /
                          (2 * BASELINE_DELAY), true);
 
+    // We have to do the messaging here, because a simple wand of flame will
+    // call _maybe_melt_player_enchantments twice. It also avoid duplicate
+    // messages when melting because of several heating sources.
+    std::string what;
+    if (you.props.exists("melt_armour"))
+    {
+        what = "armour";
+        you.props.erase("melt_armour");
+    }
+
+    if (you.props.exists("melt_shield"))
+    {
+        if (what != "")
+            what += " and ";
+        what += "shield";
+        you.props.erase("melt_shield");
+    }
+
+    if (what != "")
+        mprf(MSGCH_DURATION, "The heat melts your icy %s.", what.c_str());
+
     handle_starvation();
     _decrement_paralysis(you.time_taken);
 
@@ -2835,7 +2925,10 @@ static void _update_golubria_traps()
         if (trap && trap->type == TRAP_GOLUBRIA)
         {
             if (--trap->ammo_qty <= 0)
+            {
+                mpr("Your passage of Golubria closes.");
                 trap->destroy();
+            }
         }
     }
 }
@@ -3467,6 +3560,9 @@ static void _open_door(coord_def move, bool check_confused)
     }
 
     update_exclusion_los(excludes);
+    viewwindow();
+    if (check_for_interesting_features() && you.running.is_explore())
+            stop_running();
 
     you.turn_is_over = true;
 }
@@ -3824,6 +3920,7 @@ static void _move_player(coord_def move)
         return;
 
     const dungeon_feature_type targ_grid = grd(targ);
+
     monster* targ_monst = monster_at(targ);
     if (fedhas_passthrough(targ_monst))
     {
@@ -3933,7 +4030,19 @@ static void _move_player(coord_def move)
             }
         }
 
-        if (!you.confused() && !check_moveto(targ))
+        std::string verb;
+        if (you.flight_mode() == FL_FLY)
+            verb = "fly";
+        else if (you.flight_mode() == FL_LEVITATE)
+            verb = "levitate";
+        else if (you.is_wall_clinging())
+            verb = "cling";
+        else if (you.species == SP_NAGA && !form_changed_physiology())
+            verb = "crawl";
+        else
+            verb = "walk";
+
+        if (!you.confused() && !check_moveto(targ, verb))
         {
             stop_running();
             you.turn_is_over = false;
@@ -3951,9 +4060,13 @@ static void _move_player(coord_def move)
         you.time_taken *= player_movement_speed();
         you.time_taken /= 10;
 
+#ifdef EUCLIDEAN
+        if (move.abs() == 2)
+            you.time_taken *= 1.4;
+#endif
+
         move_player_to_grid(targ, true, false);
 
-        you.check_clinging(true);
         you.walking = move.abs();
         you.prev_move = move;
         move.reset();
@@ -3983,6 +4096,9 @@ static void _move_player(coord_def move)
     {
         if (grd(targ) == DNGN_OPEN_SEA)
             mpr("You can't go out to sea!");
+
+        if (grd(targ) == DNGN_LAVA_SEA)
+            mpr("The endless sea of lava is not a nice place.");
 
         if (feat_is_tree(grd(targ)) && you.religion == GOD_FEDHAS)
             mpr("You cannot walk through the dense trees.");

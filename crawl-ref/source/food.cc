@@ -135,15 +135,11 @@ void set_hunger(int new_hunger_level, bool suppress_msg)
 // to a weapon is done using the wield_weapon code.
 // special cases like staves of power or other special weps are taken
 // care of by calling wield_effects().    {gdl}
-void weapon_switch(int targ, bool force)
+void weapon_switch(int targ)
 {
     // Give the player an option to abort.
-    if (!force && you.weapon()
-        && (targ == -1 || !you.inv[targ].cursed())
-        && !check_old_item_warning(*you.weapon(), OPER_WIELD))
-    {
+    if (you.weapon() && !check_old_item_warning(*you.weapon(), OPER_WIELD))
         return;
-    }
 
     if (targ == -1) // Unarmed Combat.
     {
@@ -169,9 +165,6 @@ void weapon_switch(int targ, bool force)
                  you.inv[targ].name(DESC_INVENTORY).c_str());
             return;
         }
-
-        mprf("Switching back to %s.",
-             you.inv[targ].name(DESC_INVENTORY).c_str());
     }
 
     // Unwield the old weapon and wield the new.
@@ -203,133 +196,8 @@ void weapon_switch(int targ, bool force)
     you.turn_is_over = true;
 }
 
-// Look for a butchering implement. If fallback is true,
-// prompt the user if no obvious options exist.
-// Returns whether a weapon was switched.
-static bool _find_butchering_implement(int &butcher_tool, bool gloved_butcher)
-{
-    // When berserk, you can't change weapons.  Sanity check!
-    if (!can_wield(NULL, true, false, false, true))
-        return (false);
-
-    // If wielding a distortion weapon, never attempt to switch away
-    // automatically.
-    if (const item_def *wpn = you.weapon())
-    {
-        // Otherwise we wouldn't be here.
-        ASSERT(!can_cut_meat(*wpn));
-
-        if (wpn->base_type == OBJ_WEAPONS
-            && item_type_known(*wpn)
-            && get_weapon_brand(*wpn) == SPWPN_DISTORTION)
-        {
-            if (!gloved_butcher)
-                mprf(MSGCH_WARN,
-                    "You're wielding a weapon of distortion, will not "
-                    "autoswap for butchering.");
-
-            return (false);
-        }
-
-        if (!check_old_item_warning(*wpn, OPER_WIELD))
-            return (false);
-    }
-
-    bool potential_candidate = false;
-
-    // Look for a butchering implement in your pack.
-    for (int i = 0; i < ENDOFPACK; ++i)
-    {
-        item_info tool = get_item_info(you.inv[i]);
-        if (tool.defined()
-            && tool.base_type == OBJ_WEAPONS
-            && can_cut_meat(tool)
-            && can_wield(&tool, false, false, false, true)
-            // Don't even suggest autocursing items.
-            // Note that unknown autocursing is OK.
-            && (!is_artefact(tool)
-                || (artefact_known_wpn_property(tool, ARTP_CURSED) <= 0)))
-        {
-            if (Options.easy_butcher
-                && item_known_uncursed(tool)
-                && item_type_known(tool)
-                // Don't even ask!
-                && !needs_handle_warning(tool, OPER_WIELD))
-            {
-                butcher_tool = i;
-                return (true);
-            }
-            else
-                potential_candidate = true;
-        }
-    }
-
-    if (!potential_candidate)
-    {
-        if (!gloved_butcher)
-        {
-            mpr("You don't carry any weapon you could use for butchering.");
-            if (crawl_state.game_is_hints())
-            {
-                mpr("You should pick up the first knife, dagger, sword or axe "
-                    "you find so you can use it to butcher corpses.",
-                    MSGCH_TUTORIAL);
-            }
-        }
-
-        return (false);
-    }
-
-    const int item_slot = prompt_invent_item(
-                              "What would you like to use? (- for none)?",
-                              MT_INVLIST, OSEL_BUTCHERY,
-                              true, true, true, '-', -1, NULL, OPER_WIELD);
-
-    if (prompt_failed(item_slot))
-    {
-        canned_msg(MSG_OK);
-        return (false);
-    }
-    else if (item_slot == PROMPT_GOT_SPECIAL)
-    {
-        if (you.has_claws() || form_can_butcher_barehanded())
-        {
-            butcher_tool = SLOT_BARE_HANDS;
-            return (true);
-        }
-        else
-        {
-            mpr("You can't butcher without a weapon!");
-            return (false);
-        }
-    }
-    else if (item_slot == you.equip[EQ_WEAPON])
-    {
-        mpr("You are already wielding that!");
-        return (false);
-    }
-
-    item_info tool = get_item_info(you.inv[item_slot]);
-    if (tool.defined()
-        && tool.base_type == OBJ_WEAPONS
-        && can_cut_meat(tool))
-    {
-        if (can_wield(&tool))
-        {
-            butcher_tool = item_slot;
-            return (true);
-        }
-
-        mpr("You can't wield this item!");
-        return (false);
-    }
-
-    mpr("That item isn't sharp enough!");
-    return (false);
-}
-
 static bool _prepare_butchery(bool can_butcher, bool removed_gloves,
-                              bool wpn_switch, int butchering_tool)
+                              bool wpn_switch)
 {
     // No preparation necessary.
     if (can_butcher)
@@ -353,28 +221,18 @@ static bool _prepare_butchery(bool can_butcher, bool removed_gloves,
         finish_last_delay();
     }
 
-    if (wpn_switch)
+    if (wpn_switch
+        && !wield_weapon(true, SLOT_BARE_HANDS, false, true, false, false))
     {
-        std::string tool;
-        if (butchering_tool == SLOT_BARE_HANDS)
-            tool = "unarmed";
-        else
-        {
-            item_def& new_wpn(you.inv[butchering_tool]);
-            tool = new_wpn.name(DESC_INVENTORY_EQUIP);
-        }
-
-        mprf("Switching to %s for butchering.", tool.c_str());
-
-        if (!wield_weapon(true, butchering_tool, false, true, false, false, true))
-            return (false);
+        return (false);
     }
 
     // Switched to a good butchering tool.
     return (true);
 }
 
-static bool _butcher_corpse(int corpse_id, bool first_corpse = true,
+static bool _butcher_corpse(int corpse_id, int butcher_tool,
+                            bool first_corpse = true,
                             bool bottle_blood = false)
 {
     ASSERT(corpse_id != -1);
@@ -402,7 +260,8 @@ static bool _butcher_corpse(int corpse_id, bool first_corpse = true,
         dtype = DELAY_BOTTLE_BLOOD;
     }
 
-    start_delay(dtype, work_req, corpse_id, mitm[corpse_id].special);
+    start_delay(dtype, work_req, corpse_id, mitm[corpse_id].special,
+                butcher_tool);
 
     you.turn_is_over = true;
     return (true);
@@ -518,6 +377,8 @@ bool butchery(int which_corpse, bool bottle_blood)
     bool gloved_butcher   = (you.has_claws() && player_wearing_slot(EQ_GLOVES)
                              && !you.inv[you.equip[EQ_GLOVES]].cursed());
 
+    bool knife_butcher    = !barehand_butcher && !gloved_butcher && !you.weapon();
+
     bool can_butcher      = (teeth_butcher || barehand_butcher || birdie_butcher
                              || you.weapon() && can_cut_meat(*you.weapon()));
 
@@ -574,34 +435,37 @@ bool butchery(int which_corpse, bool bottle_blood)
 
     bool wpn_switch     = false;
     bool removed_gloves = false;
-    int butcher_tool    = SLOT_BARE_HANDS;
 
     if (!can_butcher)
     {
-        // Try to find a butchering implement.
-        if (!_find_butchering_implement(butcher_tool, gloved_butcher)
-            && !gloved_butcher)
-        {
-            return (false);
-        }
-
-        if (butcher_tool == SLOT_BARE_HANDS && gloved_butcher)
+        if (gloved_butcher)
             removed_gloves = true;
-        else if (you.equip[EQ_WEAPON] != butcher_tool)
+        else if (you.equip[EQ_WEAPON] != SLOT_BARE_HANDS)
             wpn_switch = true;
     }
+
+    int butcher_tool;
+
+    if (barehand_butcher || gloved_butcher)
+        butcher_tool = SLOT_CLAWS;
+    else if (teeth_butcher)
+        butcher_tool = SLOT_TEETH;
+    else if (birdie_butcher)
+        butcher_tool = SLOT_BIRDIE;
+    else if (wpn_switch || knife_butcher)
+        butcher_tool = SLOT_BUTCHERING_KNIFE;
+    else
+        butcher_tool = you.weapon()->link;
 
     // Butcher pre-chosen corpse, if found, or if there is only one corpse.
     bool success = false;
     if (prechosen && corpse_id == which_corpse
         || num_corpses == 1 && !Options.always_confirm_butcher)
     {
-        if (!_prepare_butchery(can_butcher, removed_gloves, wpn_switch,
-                               butcher_tool))
-        {
+        if (!_prepare_butchery(can_butcher, removed_gloves, wpn_switch))
             return (false);
-        }
-        success = _butcher_corpse(corpse_id, true, bottle_blood);
+
+        success = _butcher_corpse(corpse_id, butcher_tool, true, bottle_blood);
         _terminate_butchery(wpn_switch, removed_gloves, old_weapon, old_gloves);
 
         // Remind player of corpses in pack that could be butchered or
@@ -661,7 +525,7 @@ bool butchery(int which_corpse, bool bottle_blood)
                     if (!did_weap_swap)
                     {
                         if (_prepare_butchery(can_butcher, removed_gloves,
-                                              wpn_switch, butcher_tool))
+                                              wpn_switch))
                         {
                             did_weap_swap = true;
                         }
@@ -697,7 +561,8 @@ bool butchery(int which_corpse, bool bottle_blood)
 
         if (corpse_id != -1)
         {
-            if (_butcher_corpse(corpse_id, first_corpse, bottle_blood))
+            if (_butcher_corpse(corpse_id, butcher_tool, first_corpse,
+                                bottle_blood))
             {
                 success = true;
                 first_corpse = false;
@@ -1493,7 +1358,7 @@ bool eat_from_inventory()
 
 // Returns -1 for cancel, 1 for eaten, 0 for not eaten,
 //         -2 for skip to inventory.
-int prompt_eat_chunks()
+int prompt_eat_chunks(bool only_auto)
 {
     // Full herbivores cannot eat chunks.
     if (player_mutation_level(MUT_HERBIVOROUS) == 3)
@@ -1598,6 +1463,8 @@ int prompt_eat_chunks()
             }
             else if (easy_contam && contam && !bad)
                 autoeat = true;
+            else if (only_auto)
+                return 0;
             else
             {
                 mprf(MSGCH_PROMPT, "%s %s%s? (ye/n/q/i?)",
@@ -2084,10 +1951,10 @@ void finished_eating_message(int food_type)
         case FOOD_APPLE:
         case FOOD_APRICOT:
             mprf("Mmmm... Yummy %s.",
-                (food_type == FOOD_APPLE)   ? "apple." :
-                (food_type == FOOD_PEAR)    ? "pear." :
-                (food_type == FOOD_APRICOT) ? "apricot."
-                                            : "fruit.");
+                (food_type == FOOD_APPLE)   ? "apple" :
+                (food_type == FOOD_PEAR)    ? "pear" :
+                (food_type == FOOD_APRICOT) ? "apricot"
+                                            : "fruit");
             return;
         case FOOD_CHOKO:
             mpr("That choko was very bland.");
@@ -2116,7 +1983,7 @@ void finished_eating_message(int food_type)
             mpr("That grape was delicious!");
             return;
         case FOOD_SULTANA:
-            mpr("That sultana was delicious! (but very small)");
+            mpr("That sultana was delicious... but very small.");
             return;
         case FOOD_LYCHEE:
             mpr("That lychee was delicious!");
@@ -2129,7 +1996,7 @@ void finished_eating_message(int food_type)
     switch (food_type)
     {
     case FOOD_HONEYCOMB:
-        mpr("That honeycomb was delicious.");
+        mpr("That honeycomb was delicious!");
         break;
     case FOOD_ROYAL_JELLY:
         mpr("That royal jelly was delicious!");
@@ -2145,24 +2012,20 @@ void finished_eating_message(int food_type)
             mprf("Mmm... %s.", Options.pizza.c_str());
         else
         {
-            int temp_rand;
-            if (carnivorous) // non-vegetable
-                temp_rand = random2(7);
-            else if (herbivorous) // non-meaty
-                temp_rand = 6 + random2(3);
-            else
-                temp_rand = random2(9);
-
-            mprf("Mmm... %s",
-                (temp_rand == 0) ? "Ham and pineapple." :
-                (temp_rand == 1) ? "Supreme." :
-                (temp_rand == 2) ? "Super Supreme!" :
-                (temp_rand == 3) ? "Pepperoni." :
-                (temp_rand == 4) ? "Yeuchh - Anchovies!" :
-                (temp_rand == 5) ? "Chicken." :
-                (temp_rand == 6) ? "Cheesy." :
-                (temp_rand == 7) ? "Vegetable."
-                                 : "Mushroom.");
+            int temp_rand = random2(9);
+            mprf("%s %s.",
+                (carnivorous && temp_rand >= 6
+                 || herbivorous && temp_rand <= 4
+                 || temp_rand == 3) ? "Yeuchh!" : "Mmm...",
+                (temp_rand == 0) ? "Ham and pineapple" :
+                (temp_rand == 1) ? "Super Supreme" :
+                (temp_rand == 2) ? "Pepperoni" :
+                (temp_rand == 3) ? "Anchovies" :
+                (temp_rand == 4) ? "Chicken" :
+                (temp_rand == 5) ? "Cheesy" :
+                (temp_rand == 6) ? "Vegetable" :
+                (temp_rand == 7) ? "Peppers"
+                                 : "Mushroom");
         }
         break;
     case FOOD_CHEESE:
@@ -2389,7 +2252,9 @@ bool is_contaminated(const item_def &food)
 
     const corpse_effect_type chunk_type = mons_corpse_effect(food.plus);
     return (chunk_type == CE_CONTAMINATED
-            || (player_res_poison(false) && chunk_type == CE_POISON_CONTAM));
+            || (player_res_poison(false) && chunk_type == CE_POISON_CONTAM)
+            || food_is_rotten(food)
+               && player_mutation_level(MUT_SAPROVOROUS) < 3);
 }
 
 // Returns true if a food item (also corpses) will cause rotting.

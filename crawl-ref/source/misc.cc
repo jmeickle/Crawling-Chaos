@@ -1279,6 +1279,9 @@ void merfolk_start_swimming(bool stepped)
     else
         mpr("Your legs become a tail as you dive into the water.");
 
+    if (you.invisible())
+        mpr("...but don't expect to remain undetected.");
+
     you.fishtail = true;
     remove_one_equip(EQ_BOOTS);
     you.redraw_evasion = true;
@@ -1403,6 +1406,8 @@ bool go_berserk(bool intentional, bool potion)
     if (you.berserk_penalty != NO_BERSERK_PENALTY)
         you.berserk_penalty = 0;
 
+    you.redraw_quiver = true; // Account for no firing.
+
     return (true);
 }
 
@@ -1470,7 +1475,7 @@ bool mons_can_hurt_player(const monster* mon, const bool want_move)
     // Even if the monster can not actually reach the player it might
     // still use some ranged form of attack.
     if (you.see_cell_no_trans(mon->pos())
-        && (mons_has_ranged_attack(mon)
+        && (mons_itemuse(mon) >= MONUSE_STARTING_EQUIPMENT
             || mons_has_ranged_ability(mon)
             || mons_has_ranged_spell(mon)))
     {
@@ -2058,9 +2063,7 @@ void setup_environment_effects()
             }
         }
     }
-#ifdef DEBUG_DIAGNOSTICS
-    mprf(MSGCH_DIAGNOSTICS, "%u environment effect seeds", sfx_seeds.size());
-#endif
+    dprf("%u environment effect seeds", sfx_seeds.size());
 }
 
 static void apply_environment_effect(const coord_def &c)
@@ -2393,7 +2396,10 @@ void swap_with_monster(monster* mon_to_swap)
     {
         check_net_will_hold_monster(&mon);
         if (!mon_caught)
+        {
             you.attribute[ATTR_HELD] = 0;
+            you.redraw_quiver = true;
+        }
     }
 
     // Move you to its previous location.
@@ -2405,6 +2411,7 @@ void swap_with_monster(monster* mon_to_swap)
         {
             mpr("The net rips apart!");
             you.attribute[ATTR_HELD] = 0;
+            you.redraw_quiver = true;
             int net = get_trapping_net(you.pos());
             if (net != NON_ITEM)
                 destroy_item(net);
@@ -2413,7 +2420,7 @@ void swap_with_monster(monster* mon_to_swap)
         {
             you.attribute[ATTR_HELD] = 10;
             mpr("You become entangled in the net!");
-
+            you.redraw_quiver = true; // Account for being in a net.
             // Xom thinks this is hilarious if you trap yourself this way.
             if (you_caught)
                 xom_is_stimulated(16);

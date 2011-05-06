@@ -5,6 +5,7 @@
 #include "artefact.h"
 #include "delay.h"
 #include "godpassive.h"
+#include "files.h"
 #include "itemname.h"
 #include "item_use.h"
 #include "libutil.h"
@@ -71,6 +72,7 @@ void attribute_increase()
         MSGCH_INTRINSIC_GAIN);
     learned_something_new(HINT_CHOOSE_STAT);
     mpr("Increase (S)trength, (I)ntelligence, or (D)exterity? ", MSGCH_PROMPT);
+    mouse_control mc(MOUSE_MODE_MORE);
 
     while (true)
     {
@@ -78,7 +80,6 @@ void attribute_increase()
 
         switch (keyin)
         {
-#if defined(USE_UNIX_SIGNALS) && defined(SIGHUP_SAVE) && defined(USE_CURSES)
         CASE_ESCAPE
             // [ds] It's safe to save the game here; when the player
             // reloads, the game will re-prompt for their level-up
@@ -86,7 +87,6 @@ void attribute_increase()
             if (crawl_state.seen_hups)
                 sighup_save_and_exit();
             break;
-#endif
 
         case 's':
         case 'S':

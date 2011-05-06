@@ -222,6 +222,7 @@ formatted_string describe_mutations()
         break;
 
     case SP_MUMMY:
+        result += "You do not eat or drink.\n";
         result += "Your flesh is vulnerable to fire.\n";
         if (you.experience_level > 12)
         {
@@ -1773,10 +1774,8 @@ _schedule_ds_mutations(std::vector<mutation_type> muts)
             dt.level_gained = slots_left.front();
             dt.mutation     = muts_left.front();
 
-#ifdef DEBUG_DIAGNOSTICS
-            mprf(MSGCH_DIAGNOSTICS, "Demonspawn will gain %s at level %d",
+            dprf("Demonspawn will gain %s at level %d",
                     get_mutation_def(dt.mutation).wizname, dt.level_gained);
-#endif
 
             out.push_back(dt);
 
@@ -1978,6 +1977,7 @@ void check_antennae_detect()
                 env.map_knowledge(*ri).set_detected_monster(mc);
 
                 if (mc == MONS_SENSED_TRIVIAL || mc == MONS_SENSED_EASY
+                    || mc == MONS_SENSED_FRIENDLY
                     || testbits(mon->flags, MF_SENSED))
                 {
                     continue;

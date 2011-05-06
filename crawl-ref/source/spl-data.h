@@ -172,7 +172,7 @@ struct spell_desc
      SPFLAG_DIR_OR_TARGET,
      5,
      200,
-     5, 12,
+     5, 12, // capped at LOS, yet this 12 matters since range increases linearly
      0,
      NULL,
      true,
@@ -852,7 +852,7 @@ struct spell_desc
     SPELL_OZOCUBUS_REFRIGERATION, "Ozocubu's Refrigeration",
      SPTYP_ICE,
      SPFLAG_AREA,
-     5,
+     6,
      200,
      -1, -1,
      0,
@@ -1320,6 +1320,7 @@ struct spell_desc
      true
 },
 
+#if TAG_MAJOR_VERSION == 32
 {
     SPELL_RESIST_POISON, "Resist Poison",
      SPTYP_CHARMS | SPTYP_POISON,
@@ -1332,6 +1333,7 @@ struct spell_desc
      false,
      true
 },
+#endif
 
 {
     SPELL_PROJECTED_NOISE, "Projected Noise",
@@ -1821,8 +1823,8 @@ struct spell_desc
     SPELL_DISCHARGE, "Static Discharge",
      SPTYP_CONJURATION | SPTYP_AIR,
      SPFLAG_AREA,
-     4,
-     200,
+     3,
+     100,
      -1, -1,
      0,
      NULL,

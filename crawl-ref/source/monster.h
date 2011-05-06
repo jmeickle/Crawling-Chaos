@@ -2,6 +2,7 @@
 #define MONSTER_H
 
 #include "actor.h"
+#include "bitary.h"
 
 const int KRAKEN_TENTACLE_RANGE = 3;
 #define TIDE_CALL_TURN "tide-call-turn"
@@ -92,6 +93,7 @@ public:
     unsigned short foe;
     int8_t ench_countdown;
     mon_enchant_list enchantments;
+    FixedBitArray<NUM_ENCHANTMENTS> ench_cache;
     uint64_t flags;                    // bitfield of boolean flags
 
     unsigned int experience;
@@ -137,13 +139,13 @@ public:
                        int summon_type = 0);
     bool is_summoned(int* duration = NULL, int* summon_type = NULL) const;
     bool has_action_energy() const;
-    void check_redraw(const coord_def &oldpos) const;
+    void check_redraw(const coord_def &oldpos, bool clear_tiles = true) const;
     void apply_location_effects(const coord_def &oldpos,
                                 killer_type killer = KILL_NONE,
                                 int killernum = -1);
 
-    void moveto(const coord_def& c);
-    bool move_to_pos(const coord_def &newpos);
+    void moveto(const coord_def& c, bool clear_net = true);
+    bool move_to_pos(const coord_def &newpos, bool clear_net = true);
     bool blink_to(const coord_def& c, bool quiet = false);
 
     kill_category kill_alignment() const;
@@ -168,7 +170,7 @@ public:
     // Has ENCH_SHAPESHIFTER or ENCH_GLOWING_SHAPESHIFTER.
     bool is_shapeshifter() const;
 
-    bool has_ench(enchant_type ench) const;
+    bool has_ench(enchant_type ench) const { return ench_cache[ench]; }
     bool has_ench(enchant_type ench, enchant_type ench2) const;
     mon_enchant get_ench(enchant_type ench,
                          enchant_type ench2 = ENCH_NONE) const;
