@@ -197,13 +197,13 @@ static bool _DISPATER_evoke(item_def *item, int* pract, bool* did_work,
 ////////////////////////////////////////////////////
 
 // XXX: Staff giving a boost to poison spells is hardcoded in
-// player_spec_poison()
+// player_spec_alchemy()
 
 static void _olgreb_pluses(item_def *item)
 {
     // Giving Olgreb's staff a little lift since staves of poison have
     // been made better. -- bwr
-    item->plus  = you.skill(SK_POISON_MAGIC) / 3;
+    item->plus  = you.skill(SK_ALCHEMY) / 3;
     item->plus2 = item->plus;
 }
 
@@ -255,10 +255,10 @@ static void _OLGREB_melee_effect(item_def* weapon, actor* attacker,
                                  actor* defender, bool mondied)
 {
     if (defender->alive()
-        && (coinflip() || x_chance_in_y(you.skill(SK_POISON_MAGIC), 8)))
+        && (coinflip() || x_chance_in_y(you.skill(SK_ALCHEMY), 8)))
     {
         defender->poison(attacker, 2, defender->has_lifeforce()
-                                      && x_chance_in_y(you.skill(SK_POISON_MAGIC), 8));
+                                      && x_chance_in_y(you.skill(SK_ALCHEMY), 8));
         if (attacker->atype() == ACT_PLAYER)
             did_god_conduct(DID_POISON, 3);
     }

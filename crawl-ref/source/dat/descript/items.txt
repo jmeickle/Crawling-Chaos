@@ -1246,7 +1246,7 @@ This staff increases the power of fire spells cast by its wielder, and protects 
 %%%%
 staff of poison
 
-This staff increases the power of poisoning spells cast by its wielder, and protects him or her from the effects of poison. If the wielder is skilled in both evocations and poison magic, they can poison those struck by it.
+This staff increases the power of alchemical spells cast by its wielder, and protects him or her from the effects of poison. If the wielder is skilled in both evocations and alchemy, they can poison those struck by it.
 %%%%
 staff of power
 

@@ -166,11 +166,11 @@ Being skilled in a magical "school" makes it easier to learn and cast spells of 
 
 Being skilled in Earth Magic makes Air Magic harder to learn, and vice versa.
 %%%%
-Poison Magic
+Alchemy
 
 Being skilled in a magical "school" makes it easier to learn and cast spells of this school. Many spells belong to a combination of several schools, in which case the average skill in these schools will decide on spellcasting success and power.
 
-Poison magic is particularly useful early on, as many monsters are resistant to poison in the later game. There are poison spells of high utility throughout the game, though.
+Alchemy is particularly useful early on, as many monsters are resistant to poison in the later game. There are alchemy spells of high utility throughout the game, though.
 %%%%
 Invocations
 

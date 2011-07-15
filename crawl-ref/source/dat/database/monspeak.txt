@@ -1262,7 +1262,7 @@ VISUAL:@The_monster@ gestures.
 SPELL:For a moment, the earth shakes beneath you.
 
 %%%%
-Poison Magic player ghost
+Alchemy player ghost
 
 @The_monster@ says, "A minor scratch like that one is certainly harmless."
 

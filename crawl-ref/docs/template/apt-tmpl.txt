@@ -49,7 +49,7 @@ Evo - Evocations
                              Slg - Slings                Ice - Ice Magic
 Exp - Experience             Bws - Bows                  Air - Air Magic
                              Crb - Crossbows             Ear - Earth Magic
-                                                         Poi - Poison Magic
+                                                         Alc - Alchemy
 
 Please do not edit this table directly in docs/aptitudes.txt -- make
 changes to the template in docs/template/apt-tmpl.txt.
@@ -63,5 +63,5 @@ changes to the template in docs/template/apt-tmpl.txt.
 ----------------------------------------------------------------------
 
 
-                 Spc Coj Hex Cha Sum Nec Trl Trm   Fir Ice Air Ear Poi
+                 Spc Coj Hex Cha Sum Nec Trl Trm   Fir Ice Air Ear Alc
 ----------------------------------------------------------------------

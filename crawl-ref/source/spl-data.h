@@ -327,7 +327,7 @@ struct spell_desc
 
 {
     SPELL_MEPHITIC_CLOUD, "Mephitic Cloud",
-     SPTYP_CONJURATION | SPTYP_POISON | SPTYP_AIR,
+     SPTYP_CONJURATION | SPTYP_ALCHEMY | SPTYP_AIR,
      SPFLAG_DIR_OR_TARGET | SPFLAG_AREA | SPFLAG_ALLOW_SELF,
      3,
      200,
@@ -353,7 +353,7 @@ struct spell_desc
 
 {
     SPELL_VENOM_BOLT, "Venom Bolt",
-     SPTYP_CONJURATION | SPTYP_POISON,
+     SPTYP_CONJURATION | SPTYP_ALCHEMY,
      SPFLAG_DIR_OR_TARGET,
      5,
      200,
@@ -366,7 +366,7 @@ struct spell_desc
 
 {
     SPELL_OLGREBS_TOXIC_RADIANCE, "Olgreb's Toxic Radiance",
-     SPTYP_POISON,
+     SPTYP_ALCHEMY,
      SPFLAG_AREA | SPFLAG_BATTLE,
      4,
      0,
@@ -457,7 +457,7 @@ struct spell_desc
 
 {
     SPELL_SUMMON_SCORPIONS, "Summon Scorpions",
-     SPTYP_SUMMONING | SPTYP_POISON,
+     SPTYP_SUMMONING | SPTYP_ALCHEMY,
      SPFLAG_BATTLE,
      4,
      200,
@@ -535,7 +535,7 @@ struct spell_desc
 
 {
     SPELL_POISONOUS_CLOUD, "Poisonous Cloud",
-     SPTYP_CONJURATION | SPTYP_POISON | SPTYP_AIR,
+     SPTYP_CONJURATION | SPTYP_ALCHEMY | SPTYP_AIR,
      SPFLAG_GRID | SPFLAG_AREA | SPFLAG_ALLOW_SELF,
      5,
      200,
@@ -967,7 +967,7 @@ struct spell_desc
 
 {
     SPELL_POISON_ARROW, "Poison Arrow",
-     SPTYP_CONJURATION | SPTYP_POISON,
+     SPTYP_CONJURATION | SPTYP_ALCHEMY,
      SPFLAG_DIR_OR_TARGET,
      6,
      200,
@@ -1034,7 +1034,7 @@ struct spell_desc
 
 {
     SPELL_STING, "Sting",
-     SPTYP_CONJURATION | SPTYP_POISON,
+     SPTYP_CONJURATION | SPTYP_ALCHEMY,
      SPFLAG_DIR_OR_TARGET,
      1,
      25,
@@ -1283,7 +1283,7 @@ struct spell_desc
 
 {
     SPELL_CURE_POISON, "Cure Poison",
-     SPTYP_POISON,
+     SPTYP_ALCHEMY,
      SPFLAG_RECOVERY | SPFLAG_HELPFUL,
      2,
      200,
@@ -1309,7 +1309,7 @@ struct spell_desc
 
 {
     SPELL_POISON_WEAPON, "Poison Weapon",
-     SPTYP_CHARMS | SPTYP_POISON,
+     SPTYP_CHARMS | SPTYP_ALCHEMY,
      SPFLAG_HELPFUL | SPFLAG_BATTLE,
      3,
      0,
@@ -1323,7 +1323,7 @@ struct spell_desc
 #if TAG_MAJOR_VERSION == 32
 {
     SPELL_RESIST_POISON, "Resist Poison",
-     SPTYP_CHARMS | SPTYP_POISON,
+     SPTYP_CHARMS | SPTYP_ALCHEMY,
      SPFLAG_HELPFUL,
      4,
      200,
@@ -1404,7 +1404,7 @@ struct spell_desc
 
 {
     SPELL_SPIDER_FORM, "Spider Form",
-     SPTYP_TRANSMUTATION | SPTYP_POISON,
+     SPTYP_TRANSMUTATION | SPTYP_ALCHEMY,
      SPFLAG_HELPFUL | SPFLAG_CHAOTIC,
      3,
      200,
@@ -1847,7 +1847,7 @@ struct spell_desc
 
 {
     SPELL_INTOXICATE, "Alistair's Intoxication",
-     SPTYP_TRANSMUTATION | SPTYP_POISON,
+     SPTYP_TRANSMUTATION | SPTYP_ALCHEMY,
      SPFLAG_NONE,
      4,
      0,
@@ -2123,7 +2123,7 @@ struct spell_desc
 
 {
     SPELL_NOXIOUS_CLOUD, "Noxious Cloud",
-     SPTYP_CONJURATION | SPTYP_POISON | SPTYP_AIR,
+     SPTYP_CONJURATION | SPTYP_ALCHEMY | SPTYP_AIR,
      SPFLAG_GRID | SPFLAG_AREA | SPFLAG_MONSTER,
      5,
      200,
@@ -2188,7 +2188,7 @@ struct spell_desc
 
 {
     SPELL_POISON_SPLASH, "Poison Splash",
-     SPTYP_POISON,
+     SPTYP_ALCHEMY,
      SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER | SPFLAG_INNATE | SPFLAG_NOISY,
      2,
      0,

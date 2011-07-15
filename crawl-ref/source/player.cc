@@ -1870,7 +1870,7 @@ int player_spec_summ()
     return ss;
 }
 
-int player_spec_poison()
+int player_spec_alchemy()
 {
     int sp = 0;
 
@@ -5945,7 +5945,7 @@ int player::armour_class() const
             break;
 
         case TRAN_SPIDER: // low level (small bonus), also gets EV
-            AC += (200 + 100 * skill(SK_POISON_MAGIC) / 6); // max 6
+            AC += (200 + 100 * skill(SK_ALCHEMY) / 6); // max 6
             break;
 
         case TRAN_ICE_BEAST:

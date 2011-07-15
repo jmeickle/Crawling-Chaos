@@ -1203,7 +1203,7 @@ static void _debug_acquirement_stats(FILE *ostat)
                 "summoning",
                 "divination",
                 "translocation",
-                "poison magic",
+                "alchemy",
                 "earth magic",
                 "air magic",
                 "holy magic"

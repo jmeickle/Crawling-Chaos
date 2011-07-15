@@ -880,7 +880,7 @@ static void _give_items_skills(const newgame_def& ng)
         newgame_make_item(0, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_ROBE);
         newgame_make_item(1, EQ_NONE, OBJ_BOOKS, BOOK_YOUNG_POISONERS);
 
-        you.skills[SK_POISON_MAGIC] = 4;
+        you.skills[SK_ALCHEMY]      = 4;
         you.skills[SK_SPELLCASTING] = 1;
         you.skills[SK_DODGING]      = 2;
         you.skills[SK_STEALTH]      = 2;

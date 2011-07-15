@@ -519,8 +519,8 @@ int spell_enhancement(unsigned int typeflags)
     if (typeflags & SPTYP_SUMMONING)
         enhanced += player_spec_summ();
 
-    if (typeflags & SPTYP_POISON)
-        enhanced += player_spec_poison();
+    if (typeflags & SPTYP_ALCHEMY)
+        enhanced += player_spec_alchemy();
 
     if (typeflags & SPTYP_NECROMANCY)
         enhanced += player_spec_death() - player_spec_holy();
