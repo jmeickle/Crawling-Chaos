@@ -954,7 +954,7 @@ struct spell_desc
 
 {
     SPELL_FULSOME_DISTILLATION, "Fulsome Distillation",
-     SPTYP_TRANSMUTATION | SPTYP_NECROMANCY,
+     SPTYP_ALCHEMY | SPTYP_NECROMANCY,
      SPFLAG_CORPSE_VIOLATING,
      1,
      0,
@@ -1639,7 +1639,7 @@ struct spell_desc
 
 {
     SPELL_IGNITE_POISON, "Ignite Poison",
-     SPTYP_FIRE | SPTYP_TRANSMUTATION,
+     SPTYP_FIRE | SPTYP_ALCHEMY,
      SPFLAG_AREA | SPFLAG_BATTLE,
      5,
      200,
@@ -1860,7 +1860,7 @@ struct spell_desc
 
 {
     SPELL_EVAPORATE, "Evaporate",
-     SPTYP_FIRE | SPTYP_TRANSMUTATION,
+     SPTYP_FIRE | SPTYP_ALCHEMY,
      SPFLAG_DIR_OR_TARGET | SPFLAG_AREA | SPFLAG_ALLOW_SELF,
      2,   // XXX: level 2 or 3, what should it be now? -- bwr
      200,
