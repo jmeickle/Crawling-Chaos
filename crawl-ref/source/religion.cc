@@ -29,7 +29,7 @@
 #include "decks.h"
 #include "delay.h"
 #include "describe.h"
-#include "dgn-actions.h"
+#include "dactions.h"
 #include "dgnevent.h"
 #include "dlua.h"
 #include "effects.h"
@@ -322,7 +322,7 @@ const char* god_gain_power_messages[NUM_GODS][MAX_GOD_ABILITIES] =
     },
     // Ashenzari
     { "",
-      "The more cursed you are, the more Ashenzari helps you learn.",
+      "The more cursed you are, the more Ashenzari supports your skills.",
       "Ashenzari keeps your vision and mind clear.",
       "scry through walls",
       "Ashenzari helps you to reconsider your skills."
@@ -437,7 +437,7 @@ const char* god_lose_power_messages[NUM_GODS][MAX_GOD_ABILITIES] =
     },
     // Ashenzari
     { "",
-      "Ashenzari no longer helps you learn.",
+      "Ashenzari no longer supports your skills.",
       "Ashenzari no longer keeps your vision and mind clear.",
       "scry through walls",
       "Ashenzari no longer helps you to reconsider your skills."
@@ -478,7 +478,25 @@ bool is_chaotic_god(god_type god)
 
 bool is_unavailable_god(god_type god)
 {
-    return (god == GOD_JIYVA && jiyva_is_dead());
+    if (god == GOD_JIYVA && jiyva_is_dead())
+        return (true);
+
+    // Don't allow Fedhas in ZotDef, as his abilities don't fit.
+    if (god == GOD_FEDHAS && crawl_state.game_is_zotdef())
+        return (true);
+
+    return (false);
+}
+
+god_type random_god(bool disallow_no_god)
+{
+    god_type god;
+
+    do
+        god = static_cast<god_type>(random2(NUM_GODS - 1));
+    while (disallow_no_god && god == GOD_NO_GOD);
+
+    return (god);
 }
 
 std::string get_god_powers(god_type which_god)
@@ -743,7 +761,7 @@ std::string get_god_likes(god_type which_god, bool verbose)
         break;
     }
 
-    if (likes.size() == 0 && really_likes.size() == 0)
+    if (likes.empty() && really_likes.empty())
         text += " %s doesn't like anything? This a bug; please report it.";
     else
     {
@@ -751,7 +769,7 @@ std::string get_god_likes(god_type which_god, bool verbose)
         text += comma_separated_line(likes.begin(), likes.end());
         text += ".";
 
-        if (really_likes.size() > 0)
+        if (!really_likes.empty())
         {
             text += " ";
             text += god_name(which_god);
@@ -1980,7 +1998,7 @@ static bool _jiyva_mutate()
 
     if (rand < 10)
         return (delete_mutation(RANDOM_SLIME_MUTATION, true, false, true));
-    else if (rand < 40)
+    else if (rand < 35)
         return (delete_mutation(RANDOM_NON_SLIME_MUTATION, true, false, true));
     else if (rand < 60)
         return (mutate(RANDOM_MUTATION, true, false, true));
@@ -1988,35 +2006,6 @@ static bool _jiyva_mutate()
         return (mutate(RANDOM_SLIME_MUTATION, true, false, true));
     else
         return (mutate(RANDOM_GOOD_MUTATION, true, false, true));
-}
-
-static int _give_first_conjuration_book()
-{
-    // Assume the fire/earth book, as conjurations is strong with fire. -- bwr
-    int book = BOOK_CONJURATIONS_I;
-
-    // Conjuration books are largely Fire or Ice, so we'll use
-    // that as the primary condition, and air/earth to break ties. -- bwr
-    if (you.skills[SK_ICE_MAGIC] > you.skills[SK_FIRE_MAGIC]
-        || you.skills[SK_FIRE_MAGIC] == you.skills[SK_ICE_MAGIC]
-           && you.skills[SK_AIR_MAGIC] > you.skills[SK_EARTH_MAGIC])
-    {
-        book = BOOK_CONJURATIONS_II;
-    }
-    else if (you.skills[SK_FIRE_MAGIC] == 0 && you.skills[SK_EARTH_MAGIC] == 0)
-    {
-        // If we're here it's because we were going to default to the
-        // fire/earth book... but we don't have those skills.  So we
-        // choose randomly based on the species weighting, again
-        // ignoring air/earth which are secondary in these books. - bwr
-        if (random2(100 * species_apt_factor(SK_ICE_MAGIC)) <
-            random2(100 * species_apt_factor(SK_FIRE_MAGIC)))
-        {
-            book = BOOK_CONJURATIONS_II;
-        }
-    }
-
-    return (book);
 }
 
 bool do_god_gift(bool forced)
@@ -2054,7 +2043,7 @@ bool do_god_gift(bool forced)
                 break;
 
             // Should gift catnip instead.
-            if (you.species == SP_CAT)
+            if (you.species == SP_FELID)
                 break;
 
             const bool need_missiles = _need_missile_gift(forced);
@@ -2177,8 +2166,8 @@ bool do_god_gift(bool forced)
                     gift = OBJ_RANDOM;
                 else if (you.religion == GOD_VEHUMET)
                 {
-                    if (!you.had_book[BOOK_CONJURATIONS_I])
-                        gift = _give_first_conjuration_book();
+                    if (!you.had_book[BOOK_CONJURATIONS_II])
+                        gift = BOOK_CONJURATIONS_II;
                     else if (!you.had_book[BOOK_POWER])
                         gift = BOOK_POWER;
                     else if (!you.had_book[BOOK_ANNIHILATIONS])
@@ -2338,7 +2327,7 @@ std::string god_name_jiyva(bool second_name)
     return (name);
 }
 
-god_type str_to_god(const std::string _name, bool exact)
+god_type str_to_god(const std::string &_name, bool exact)
 {
     std::string target(_name);
     trim_string(target);
@@ -2351,7 +2340,7 @@ god_type str_to_god(const std::string _name, bool exact)
     god_type partial      = GOD_NO_GOD;
     for (int i = 0; i < NUM_GODS; ++i)
     {
-        god_type    god  = (god_type) i;
+        god_type    god  = static_cast<god_type>(i);
         std::string name = lowercase_string(god_name(god, false));
 
         if (name == target)
@@ -2546,6 +2535,7 @@ int piety_scale(int piety)
     return (piety);
 }
 
+static void _gain_piety_point();
 void gain_piety(int original_gain, int denominator, bool force, bool should_scale_piety)
 {
     if (original_gain <= 0)
@@ -2564,21 +2554,30 @@ void gain_piety(int original_gain, int denominator, bool force, bool should_scal
         pgn = sprint_modify_piety(pgn);
 
     pgn = div_rand_round(pgn, denominator);
-    if (pgn <= 0)
-        return;
+    while (pgn-- > 0)
+        _gain_piety_point();
+    if (you.piety > you.piety_max[you.religion])
+    {
+        if (you.piety > 160 && you.piety_max[you.religion] <= 160)
+        {
+            mark_milestone("god.maxpiety", "became the Champion of "
+                           + god_name(you.religion) + ".");
+        }
+        you.piety_max[you.religion] = you.piety;
+    }
+}
 
+static void _gain_piety_point()
+{
     // check to see if we owe anything first
     if (you.penance[you.religion] > 0)
     {
-        dec_penance(pgn);
+        dec_penance(1);
         return;
     }
     else if (you.gift_timeout > 0)
     {
-        if (you.gift_timeout > pgn)
-            you.gift_timeout -= pgn;
-        else
-            you.gift_timeout = 0;
+        you.gift_timeout--;
 
         // Slow down piety gain to account for the fact that gifts
         // no longer have a piety cost for getting them.
@@ -2616,25 +2615,14 @@ void gain_piety(int original_gain, int denominator, bool force, bool should_scal
         }
     }
 
-    // Apply hysteresis.
-    {
-        // piety_hysteresis is the amount of _loss_ stored up, so this
-        // may look backwards.
-        const int old_hysteresis = you.piety_hysteresis;
-        you.piety_hysteresis = std::max<int>(0, you.piety_hysteresis - pgn);
-        const int pgn_borrowed = (old_hysteresis - you.piety_hysteresis);
-        pgn -= pgn_borrowed;
-
-#ifdef DEBUG_PIETY
-        mprf(MSGCH_DIAGNOSTICS, "Piety increasing by %d (and %d taken from "
-                                "hysteresis, %d original)",
-             pgn, pgn_borrowed, original_gain);
-#endif
-    }
-
     int old_piety = you.piety;
-
-    you.piety += std::min<int>(MAX_PIETY - you.piety, pgn);
+    // Apply hysteresis.
+    // piety_hysteresis is the amount of _loss_ stored up, so this
+    // may look backwards.
+    if (you.piety_hysteresis)
+        you.piety_hysteresis--;
+    else if (you.piety < MAX_PIETY)
+        you.piety++;
 
     for (int i = 0; i < MAX_GOD_ABILITIES; ++i)
     {
@@ -2871,7 +2859,8 @@ void excommunication(god_type new_god)
     you.duration[DUR_PIETY_POOL] = 0; // your loss
     you.piety = 0;
     you.piety_hysteresis = 0;
-    you.bondage_level = 0;
+    if (old_god == GOD_ASHENZARI)
+        ash_init_bondage(&you);
 
     you.num_current_gifts[old_god] = 0;
 
@@ -2980,13 +2969,11 @@ void excommunication(god_type new_god)
         // leaving your other followers (blessed with friendliness by
         // his power, but not his servants) alone.
         if (!is_good_god(new_god))
-        {
-            _inc_penance(old_god, 50);
             add_daction(DACT_ALLY_HOLY);
-        }
         else
             add_daction(DACT_HOLY_PETS_GO_NEUTRAL);
 
+        _inc_penance(old_god, 50);
         break;
 
     case GOD_ZIN:
@@ -2999,11 +2986,9 @@ void excommunication(god_type new_god)
         // Leaving Zin for a non-good god will make all your followers
         // (originally from TSO) abandon you.
         if (!is_good_god(new_god))
-        {
-            _inc_penance(old_god, 25);
-
             add_daction(DACT_ALLY_HOLY);
-        }
+
+        _inc_penance(old_god, 25);
         break;
 
     case GOD_ELYVILON:
@@ -3014,11 +2999,9 @@ void excommunication(god_type new_god)
         // Leaving Elyvilon for a non-good god will make all your
         // followers (originally from TSO) abandon you.
         if (!is_good_god(new_god))
-        {
-            _inc_penance(old_god, 30);
-
             add_daction(DACT_ALLY_HOLY);
-        }
+
+        _inc_penance(old_god, 30);
         break;
 
     case GOD_JIYVA:
@@ -3036,6 +3019,7 @@ void excommunication(god_type new_god)
 
         _inc_penance(old_god, 30);
         break;
+
     case GOD_FEDHAS:
         if (query_da_counter(DACT_ALLY_PLANT))
         {
@@ -3048,9 +3032,8 @@ void excommunication(god_type new_god)
     case GOD_ASHENZARI:
         if (you.transfer_skill_points > 0)
             ashenzari_end_transfer(false, true);
-        // max_level can be much higher, multi-Zig felids may lose millions
-        you.exp_docked = exp_needed(you.max_level + 1)
-                       - exp_needed(you.max_level);
+        you.exp_docked = exp_needed(std::min<int>(you.max_level, 27)  + 1)
+                       - exp_needed(std::min<int>(you.max_level, 27));
         you.exp_docked_total = you.exp_docked;
         _inc_penance(old_god, 50);
         break;
@@ -3275,6 +3258,12 @@ bool transformed_player_can_join_god(god_type which_god)
     if (which_god == GOD_ZIN && you.form != TRAN_NONE)
         return (false);
 
+    if (which_god == GOD_YREDELEMNUL
+        && (you.form == TRAN_STATUE || you.petrified()))
+    {   // it's rather hard to pray while petrified, though
+        return (false);
+    }
+
     return (true);
 }
 
@@ -3315,7 +3304,7 @@ void god_pitch(god_type which_god)
     mprf("You %s the altar of %s.",
          you.species == SP_NAGA ? "coil in front of" :
          // < TGWi> you curl up on the altar and go to sleep
-         you.species == SP_CAT  ? "sit before"
+         you.species == SP_FELID  ? "sit before"
                                 : "kneel at",
          god_name(which_god).c_str());
     more();
@@ -3382,6 +3371,8 @@ void god_pitch(god_type which_god)
     else
     {
         you.piety = 15; // to prevent near instant excommunication
+        if (you.piety_max[you.religion] < 15)
+            you.piety_max[you.religion] = 15;
         you.piety_hysteresis = 0;
         you.gift_timeout = 0;
     }
@@ -3641,7 +3632,7 @@ bool god_hates_spell(spell_type spell, god_type god)
         }
         break;
     case GOD_YREDELEMNUL:
-        if (is_holy_spell(spell))
+        if (is_holy_spell(spell) || spell == SPELL_STATUE_FORM)
             return (true);
         break;
     case GOD_FEDHAS:
@@ -3813,7 +3804,7 @@ void handle_god_time()
 
         case GOD_FEDHAS:
         case GOD_CHEIBRIADOS:
-            // Fedhas's piety is stable over time but we need a case here to
+            // Fedhas' piety is stable over time but we need a case here to
             // avoid the error message below.
             break;
 
@@ -4084,7 +4075,7 @@ int get_tension(god_type god)
     int total = 0;
 
     bool nearby_monster = false;
-    for (radius_iterator ri(you.get_los()); ri; ri++)
+    for (radius_iterator ri(you.get_los()); ri; ++ri)
     {
         const monster* mon = monster_at(*ri);
 
@@ -4160,6 +4151,14 @@ int get_tension(god_type god)
     return std::max(0, tension);
 }
 
+int get_fuzzied_monster_difficulty(const monster *mons)
+{
+    double factor = sqrt(exp_needed(you.experience_level) / 30.0);
+    int exp = exper_value(mons) * 100;
+    exp = random2(exp) + random2(exp);
+    return exp / (1 + factor);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Stuff for placing god gift monsters after the player's turn has ended.
 /////////////////////////////////////////////////////////////////////////////
@@ -4212,7 +4211,7 @@ static void _place_delayed_monsters()
         if (midx != -1)
             placed++;
 
-        if (_delayed_done_trigger_pos.size() > 0
+        if (!_delayed_done_trigger_pos.empty()
             && _delayed_done_trigger_pos[0] == i)
         {
             cback = _delayed_done_callbacks[0];

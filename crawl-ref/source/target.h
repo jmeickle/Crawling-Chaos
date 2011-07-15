@@ -2,6 +2,7 @@
 #define TARGET_H
 
 #include "beam.h"
+#include "mon-info.h"
 
 enum aff_type // sign and non-zeroness matters
 {
@@ -21,6 +22,7 @@ public:
     coord_def origin;
     coord_def aim;
     const actor* agent;
+    std::string why_not;
 
     virtual bool set_aim(coord_def a);
     virtual bool valid_aim(coord_def a) = 0;
@@ -84,5 +86,7 @@ public:
     std::map<coord_def, aff_type> seen;
     std::vector<std::vector<coord_def> > queue;
 };
+
+typedef std::vector<std::string> (*desc_filter) (const monster_info& mi);
 
 #endif

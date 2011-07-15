@@ -18,7 +18,6 @@
 #include "options.h"
 #include "show.h"
 #include "state.h"
-#include "stuff.h"
 #include "terrain.h"
 #include "viewchar.h"
 #include "viewgeom.h"
@@ -123,6 +122,9 @@ static int _get_mons_colour(const monster_info& mi)
 
     if (mi.is(MB_MIRROR_DAMAGE))
         col = ETC_NECRO;
+
+    if (mi.is(MB_INNER_FLAME))
+        col = ETC_FIRE;
 
     if (mi.attitude == ATT_FRIENDLY)
     {

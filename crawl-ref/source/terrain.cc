@@ -36,7 +36,6 @@
 #include "religion.h"
 #include "species.h"
 #include "spl-transloc.h"
-#include "stuff.h"
 #include "env.h"
 #ifdef USE_TILE
  #include "tileview.h"
@@ -388,7 +387,7 @@ bool feat_is_secret_door(dungeon_feature_type feat)
 
 bool feat_is_statue_or_idol(dungeon_feature_type feat)
 {
-    return (feat >= DNGN_ORCISH_IDOL && feat <= DNGN_GRANITE_STATUE);
+    return (feat == DNGN_ORCISH_IDOL || feat == DNGN_GRANITE_STATUE);
 }
 
 bool feat_is_rock(dungeon_feature_type feat)
@@ -426,6 +425,12 @@ bool feat_is_watery(dungeon_feature_type feat)
     return (feat_is_water(feat) || feat == DNGN_FOUNTAIN_BLUE);
 }
 
+bool feat_is_lava(dungeon_feature_type feat)
+{
+    return (feat == DNGN_LAVA
+            || feat == DNGN_LAVA_SEA);
+}
+
 // Returns GOD_NO_GOD if feat is not an altar, otherwise returns the
 // GOD_* type.
 god_type feat_altar_god(dungeon_feature_type feat)
@@ -443,13 +448,13 @@ dungeon_feature_type altar_for_god(god_type god)
     if (god == GOD_NO_GOD || god >= NUM_GODS)
         return (DNGN_FLOOR);  // Yeah, lame. Tell me about it.
 
-    return static_cast<dungeon_feature_type>(DNGN_ALTAR_FIRST_GOD + god - 1);
+    return (static_cast<dungeon_feature_type>(DNGN_ALTAR_FIRST_GOD + god - 1));
 }
 
 // Returns true if the dungeon feature supplied is an altar.
 bool feat_is_altar(dungeon_feature_type grid)
 {
-    return feat_altar_god(grid) != GOD_NO_GOD;
+    return (feat_altar_god(grid) != GOD_NO_GOD);
 }
 
 bool feat_is_player_altar(dungeon_feature_type grid)
@@ -467,7 +472,7 @@ bool feat_is_branch_stairs(dungeon_feature_type feat)
 
 bool feat_is_tree(dungeon_feature_type feat)
 {
-    return feat == DNGN_TREE || feat == DNGN_SWAMP_TREE;
+    return (feat == DNGN_TREE || feat == DNGN_SWAMP_TREE);
 }
 
 bool feat_is_bidirectional_portal(dungeon_feature_type feat)
@@ -630,8 +635,23 @@ dungeon_feature_type grid_secret_door_appearance(const coord_def &where)
     return (feat);
 }
 
+coord_def get_random_stair()
+{
+    std::vector<coord_def> st;
+    for (rectangle_iterator ri(1); ri; ++ri)
+    {
+        const dungeon_feature_type feat = grd(*ri);
+        if (feat_is_travelable_stair(feat) && !feat_is_escape_hatch(feat))
+        {
+            st.push_back(*ri);
+        }
+    }
+    if (st.empty())
+        return coord_def();        // sanity check: shouldn't happen
+    return st[random2(st.size())];
+}
 
-typedef FixedArray<bool, GXM, GYM> map_mask_boolean;
+
 static std::auto_ptr<map_mask_boolean> _slime_wall_precomputed_neighbour_mask;
 
 static void _precompute_slime_wall_neighbours()
@@ -1632,7 +1652,7 @@ const char *dngn_feature_names[] =
 
 dungeon_feature_type dungeon_feature_by_name(const std::string &name)
 {
-    COMPILE_CHECK(ARRAYSZ(dngn_feature_names) == NUM_FEATURES, c1);
+    COMPILE_CHECK(ARRAYSZ(dngn_feature_names) == NUM_FEATURES);
     if (name.empty())
         return (DNGN_UNSEEN);
 
@@ -1640,10 +1660,15 @@ dungeon_feature_type dungeon_feature_by_name(const std::string &name)
     {
         if (dngn_feature_names[i] == name)
         {
-            if (jiyva_is_dead() && name == "altar_jiyva")
-                return (DNGN_FLOOR);
+            dungeon_feature_type feat = static_cast<dungeon_feature_type>(i);
 
-            return (static_cast<dungeon_feature_type>(i));
+            if (feat_is_altar(feat)
+                && is_unavailable_god(feat_altar_god(feat)))
+            {
+                return (DNGN_FLOOR);
+            }
+
+            return (feat);
         }
     }
 
@@ -1654,7 +1679,7 @@ std::vector<std::string> dungeon_feature_matches(const std::string &name)
 {
     std::vector<std::string> matches;
 
-    COMPILE_CHECK(ARRAYSZ(dngn_feature_names) == NUM_FEATURES, c1);
+    COMPILE_CHECK(ARRAYSZ(dngn_feature_names) == NUM_FEATURES);
     if (name.empty())
         return (matches);
 
@@ -1746,4 +1771,33 @@ bool cell_can_cling_to(const coord_def& from, const coord_def to)
                     return true;
 
         return false;
+}
+
+const char* feat_type_name(dungeon_feature_type feat)
+{
+    if (feat_is_door(feat))
+        return "door";
+    if (feat_is_wall(feat))
+        return "wall";
+    if (feat == DNGN_GRATE)
+        return "grate";
+    if (feat_is_tree(feat))
+        return "tree";
+    if (feat_is_statue_or_idol(feat))
+        return "statue";
+    if (feat_is_water(feat))
+        return "water";
+    if (feat_is_lava(feat))
+        return "lava";
+    if (feat_is_altar(feat))
+        return "altar";
+    if (feat_is_trap(feat))
+        return "trap";
+    if (feat_is_stair(feat))
+        return "stair";
+    if (feat_is_portal(feat))
+        return "portal";
+    if (feat == DNGN_UNSEEN)
+        return "unknown terrain";
+    return "floor";
 }

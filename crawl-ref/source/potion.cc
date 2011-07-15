@@ -28,8 +28,8 @@
 #include "player.h"
 #include "player-equip.h"
 #include "player-stats.h"
+#include "skills.h"
 #include "spl-miscast.h"
-#include "stuff.h"
 #include "terrain.h"
 #include "transform.h"
 #include "xom.h"
@@ -49,7 +49,6 @@
  */
 bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known)
 {
-
     bool effect = true;  // current behaviour is all potions id on quaffing
 
     pow = std::min(pow, 150);
@@ -76,14 +75,14 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known)
             break;
         }
 
-        inc_hp((5 + random2(7)) / factor, false);
+        inc_hp((5 + random2(7)) / factor);
         mpr("You feel better.");
 
         // Only fix rot when healed to full.
         if (you.hp == you.hp_max)
         {
             unrot_hp(1);
-            set_hp(you.hp_max, false);
+            set_hp(you.hp_max);
         }
 
         you.duration[DUR_POISONING] = 0;
@@ -100,14 +99,14 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known)
             break;
         }
 
-        inc_hp((10 + random2avg(28, 3)) / factor, false);
+        inc_hp((10 + random2avg(28, 3)) / factor);
         mpr("You feel much better.");
 
         // only fix rot when healed to full
         if (you.hp == you.hp_max)
         {
             unrot_hp((2 + random2avg(5, 2)) / factor);
-            set_hp(you.hp_max, false);
+            set_hp(you.hp_max);
         }
         break;
 
@@ -367,12 +366,12 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known)
         }
         else
             mpr("A flood of memories washes over you.");
-        you.exp_available += 750 * you.experience_level
-                           - ash_reduce_xp(750 * you.experience_level);
+        you.exp_available += 750 * you.experience_level;
+        train_skills();
         break;
 
     case POT_MAGIC:
-        inc_mp((10 + random2avg(28, 3)), false);
+        inc_mp((10 + random2avg(28, 3)));
         mpr("Magic courses through your body.");
         break;
 

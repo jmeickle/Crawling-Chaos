@@ -133,6 +133,10 @@ book of air
 
 A book of magic spells. You feel a faint breeze as you open the pages.
 %%%%
+book of alchemy
+
+A slightly seared book, with a hole burnt through the cover.
+%%%%
 book of annihilations
 
 While browsing, you note blood leaking from the pages. Even an illiterate will feel the sheer impact of arcane fury contained in this book. It is sought after by sorcerers, for it allows the gifted and resourceful to command destruction with the ease of a twinkle. Feeble wizards, however, may well meet their doom when trying to read this opus.
@@ -140,6 +144,10 @@ While browsing, you note blood leaking from the pages. Even an illiterate will f
 book of brands
 
 This book contains magical spells related to the branding of weapons and launchers, as well as spells that are helpful in all forms of ranged combat.
+%%%%
+book of beasts
+
+A book of magic spells. Be careful to not get bitten!
 %%%%
 book of burglary
 
@@ -164,10 +172,6 @@ A book of magic spells.
 book of charms
 
 A book of magic spells.
-%%%%
-book of chemistry
-
-A slightly seared book, with a hole burnt through the cover.
 %%%%
 book of clouds
 
@@ -257,10 +261,6 @@ book of power
 
 A book of magic spells.
 %%%%
-book of practical magic
-
-A book of magic spells.
-%%%%
 book of spatial translocations
 
 A book of magic spells.
@@ -297,23 +297,15 @@ book of transfigurations
 
 A book of magic spells.
 %%%%
-book of tukima
-
-A book of magic spells.
-%%%%
 book of unlife
 
 A book of magic spells, filled with sigils for binding the dead.
 %%%%
 book of war chants
 
-A book of magic spells.
+A book of spells helpful for a warrior. The versions contained here have a musical form, following the traditions of fighting skalds. Functionally, though, they work the same as spells whose magic words are merely spoken.
 %%%%
 book of wizardry
-
-A book of magic spells.
-%%%%
-book of zoology
 
 A book of magic spells.
 %%%%
@@ -676,7 +668,7 @@ A long handle with a heavy lump on one end.
 %%%%
 manual
 
-A valuable book of magic which allows one to practise a certain skill greatly. As it is used, it gradually disintegrates and will eventually fall apart.
+A valuable book which allows one to practise a certain skill more efficiently.
 %%%%
 meat ration
 
@@ -1109,6 +1101,8 @@ This scroll calls on the powers of Heaven to cause great damage to any nearby un
 scroll of identify
 
 This useful magic scroll allows you to determine the properties of any object.
+
+If used on a deck of cards, this scroll will also give away the top card.
 %%%%
 scroll of immolation
 
@@ -1150,11 +1144,13 @@ Reading the words on this scroll translocates you to a random position.
 %%%%
 scroll of torment
 
-This scroll calls on the powers of Hell to inflict great pain on any nearby creature - including you!
+This scroll calls on the powers of darkness to inflict great pain on any nearby creature - including you!
 %%%%
 scroll of vorpalise weapon
 
 This scroll enchants the wielded weapon so as to make it far more effective at inflicting harm on its wielder's enemies. Using it on a weapon already affected by some kind of permanent branding is not advised. On the other hand, the scroll can make permanent the temporary branding of weapons obtained from some spells.
+
+Brands that are closely tied to one of the gods (Trog, Lugonu, Kikubaaquadgha, The Shining One) cannot be affixed this way. Xom, on the other hand is, let's say... less than predictable.
 %%%%
 scroll of vulnerability
 

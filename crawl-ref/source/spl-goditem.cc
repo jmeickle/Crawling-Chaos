@@ -13,9 +13,11 @@
 #include "cloud.h"
 #include "coord.h"
 #include "coordit.h"
+#include "decks.h"
 #include "describe.h"
 #include "env.h"
 #include "godconduct.h"
+#include "godpassive.h"
 #include "hints.h"
 #include "invent.h"
 #include "itemprop.h"
@@ -60,6 +62,12 @@ int identify(int power, int item_slot, std::string *pre_msg)
 
         if (fully_identified(item))
         {
+            if (is_deck(item) && !top_card_is_known(item))
+            {
+                deck_identify_first(item_slot);
+                ++identified;
+                continue;
+            }
             mpr("Choose an unidentified item, or Esc to abort.");
             if (Options.auto_list)
                 more();
@@ -74,6 +82,9 @@ int identify(int power, int item_slot, std::string *pre_msg)
         set_ident_flags(item, ISFLAG_IDENT_MASK);
         if (Options.autoinscribe_artefacts && is_artefact(item))
             add_autoinscription(item, artefact_auto_inscription(item));
+
+        if (is_deck(item) && !top_card_is_known(item))
+            deck_identify_first(item_slot);
 
         // For scrolls, now id the scroll, unless already known.
         if (power == -1
@@ -184,6 +195,14 @@ static int _can_pacify_monster(const monster* mon, const int healed)
     return (0);
 }
 
+static std::vector<std::string> _desc_mindless(const monster_info& mi)
+{
+    std::vector<std::string> descs;
+    if (mi.intel() <= I_PLANT)
+        descs.push_back("mindless");
+    return descs;
+}
+
 // Returns: 1 -- success, 0 -- failure, -1 -- cancel
 static int _healing_spell(int healed, bool divine_ability,
                           const coord_def& where, bool not_self,
@@ -200,8 +219,8 @@ static int _healing_spell(int healed, bool divine_ability,
                                       mode != TARG_NUM_MODES ? mode :
                                       you.religion == GOD_ELYVILON ?
                                             TARG_ANY : TARG_FRIEND,
-                                      LOS_RADIUS,
-                                      false, true, true, "Heal", NULL);
+                                      LOS_RADIUS, false, true, true, "Heal",
+                                      NULL, false, NULL, _desc_mindless);
     }
     else
     {
@@ -221,7 +240,7 @@ static int _healing_spell(int healed, bool divine_ability,
         }
 
         mpr("You are healed.");
-        inc_hp(healed, false);
+        inc_hp(healed);
         return (1);
     }
 
@@ -351,7 +370,7 @@ bool cast_revivification(int pow)
                 loss++;
 
         dec_max_hp(loss * you.hp_max / 100);
-        set_hp(you.hp_max, false);
+        set_hp(you.hp_max);
 
         if (you.duration[DUR_DEATHS_DOOR])
         {
@@ -381,7 +400,8 @@ void antimagic()
         DUR_PHASE_SHIFT, DUR_SEE_INVISIBLE, DUR_WEAPON_BRAND, DUR_SILENCE,
         DUR_CONDENSATION_SHIELD, DUR_STONESKIN, DUR_BARGAIN,
         DUR_INSULATION, DUR_RESIST_POISON, DUR_RESIST_FIRE, DUR_RESIST_COLD,
-        DUR_SLAYING, DUR_STEALTH, DUR_MAGIC_SHIELD, DUR_SAGE, DUR_PETRIFIED
+        DUR_SLAYING, DUR_STEALTH, DUR_MAGIC_SHIELD, DUR_SAGE, DUR_PETRIFIED,
+        DUR_SHROUD_OF_GOLUBRIA
     };
 
     if (!you.permanent_levitation() && !you.permanent_flight()
@@ -608,7 +628,7 @@ static bool _selectively_remove_curse(std::string *pre_msg)
         if (!used && pre_msg)
             mpr(*pre_msg);
 
-        do_uncurse_item(item);
+        do_uncurse_item(item, true, false, false);
         used = true;
     }
 }
@@ -616,7 +636,15 @@ static bool _selectively_remove_curse(std::string *pre_msg)
 bool remove_curse(bool alreadyknown, std::string *pre_msg)
 {
     if (you.religion == GOD_ASHENZARI && alreadyknown)
-        return _selectively_remove_curse(pre_msg);
+    {
+        if (_selectively_remove_curse(pre_msg))
+        {
+            ash_check_bondage();
+            return true;
+        }
+        else
+            return false;
+    }
 
     bool success = false;
 
@@ -703,7 +731,7 @@ bool curse_item(bool armour, bool alreadyknown, std::string *pre_msg)
     if (armour)
         min_type = EQ_MIN_ARMOUR, max_type = EQ_MAX_ARMOUR;
     else
-        min_type = EQ_LEFT_RING, max_type = EQ_AMULET;
+        min_type = EQ_LEFT_RING, max_type = EQ_RING_EIGHT;
     for (int i = min_type; i <= max_type; i++)
     {
         if (you.equip[i] != -1 && !you.inv[you.equip[i]].cursed())

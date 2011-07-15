@@ -50,7 +50,7 @@ bool cast_deaths_door(int pow)
         mpr("You seem to hear sand running through an hourglass...",
             MSGCH_SOUND);
 
-        set_hp(allowed_deaths_door_hp(), false);
+        set_hp(allowed_deaths_door_hp());
         deflate_hp(you.hp_max, false);
 
         you.set_duration(DUR_DEATHS_DOOR, 10 + random2avg(13, 3)
@@ -71,22 +71,18 @@ void remove_ice_armour()
     you.duration[DUR_ICY_ARMOUR] = 0;
 }
 
-void ice_armour(int pow, bool extending)
+bool ice_armour(int pow)
 {
     if (!player_effectively_in_light_armour())
     {
-        if (!extending)
-            mpr("You are wearing too much armour.");
-
-        return;
+        mpr("You are wearing too much armour.");
+        return (false);
     }
 
     if (you.duration[DUR_STONESKIN])
     {
-        if (!extending)
-            mpr("The spell conflicts with another spell still in effect.");
-
-        return;
+        mpr("The spell conflicts with another spell still in effect.");
+        return (false);
     }
 
     if (you.duration[DUR_ICY_ARMOUR])
@@ -103,6 +99,8 @@ void ice_armour(int pow, bool extending)
 
     you.increase_duration(DUR_ICY_ARMOUR, 20 + random2(pow) + random2(pow), 50,
                           NULL);
+
+    return (true);
 }
 
 void missile_prot(int pow)
@@ -140,23 +138,18 @@ void cast_regen(int pow, bool divine_ability)
     }
 }
 
-void cast_berserk(void)
-{
-    go_berserk(true);
-}
-
-void cast_swiftness(int power)
+bool cast_swiftness(int power)
 {
     if (you.in_water())
     {
         mpr("The water foams!");
-        return;
+        return (false);
     }
 
     if (!you.duration[DUR_SWIFTNESS] && player_movement_speed() <= 6)
     {
         mpr("You can't move any more quickly.");
-        return;
+        return (false);
     }
 
     // [dshaligram] Removed the on-your-feet bit.  Sounds odd when
@@ -164,6 +157,8 @@ void cast_swiftness(int power)
     you.increase_duration(DUR_SWIFTNESS, 20 + random2(power), 100,
                           "You feel quick.");
     did_god_conduct(DID_HASTY, 8, true);
+
+    return (true);
 }
 
 void cast_fly(int power)
@@ -247,7 +242,7 @@ int cast_selective_amnesia(std::string *pre_msg)
 
     if (ep_gain > 0)
     {
-        inc_mp(ep_gain, false);
+        inc_mp(ep_gain);
         mpr("The spell releases its latent energy back to you as "
             "it unravels.");
     }
@@ -264,9 +259,6 @@ void cast_see_invisible(int pow)
         mpr("Your vision seems to sharpen.");
 
         // We might have to turn autopickup back on again.
-        // TODO: Once the spell times out we might want to check all monsters
-        //       in LOS for invisibility and turn autopickup off again, if
-        //       needed.
         autotoggle_autopickup(false);
     }
 
@@ -281,7 +273,7 @@ void cast_silence(int pow)
 
     you.attribute[ATTR_WAS_SILENCED] = 1;
 
-    you.increase_duration(DUR_SILENCE, 10 + random2avg(pow, 2), 100);
+    you.increase_duration(DUR_SILENCE, 10 + pow/4 + random2avg(pow/2, 2), 100);
     invalidate_agrid(true);
 
     if (you.beheld())
@@ -300,4 +292,14 @@ void cast_liquefaction(int pow)
 
     you.increase_duration(DUR_LIQUEFYING, 10 + random2avg(pow, 2), 100);
     invalidate_agrid(true);
+}
+
+void cast_shroud_of_golubria(int pow)
+{
+    if (you.duration[DUR_SHROUD_OF_GOLUBRIA])
+        mpr("Your shroud grows in power.");
+    else
+        mpr("Space distorts slightly along a thin shroud covering your body.");
+
+    you.increase_duration(DUR_SHROUD_OF_GOLUBRIA, 7 + roll_dice(2, pow), 50);
 }

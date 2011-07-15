@@ -21,10 +21,6 @@
 
 #include "ouch.h"
 
-#ifdef TARGET_COMPILER_MINGW
-#include <io.h>
-#endif
-
 #include "externs.h"
 #include "options.h"
 
@@ -764,13 +760,8 @@ void lose_level()
     mprf(MSGCH_WARN,
          "You are now level %d!", you.experience_level);
 
-    // Constant value to avoid grape jelly trick... see level_change() for
-    // where these HPs and MPs are given back.  -- bwr
     ouch(4, NON_MONSTER, KILLED_BY_DRAINING);
-    dec_max_hp(4);
-
     dec_mp(1);
-    dec_max_mp(1);
 
     calc_hp();
     calc_mp();
@@ -956,6 +947,11 @@ static void _yred_mirrors_injury(int dam, int death_source)
 {
     if (yred_injury_mirror())
     {
+        // Cap damage to what was enough to kill you.  Can matter if
+        // Yred saves your life or you have an extra kitty.
+        if (you.hp < 0)
+            dam += you.hp;
+
         if (dam <= 0 || invalid_monster_index(death_source))
             return;
 
@@ -975,8 +971,8 @@ static void _maybe_spawn_jellies(int dam, const char* aux,
     monster_type mon = royal_jelly_ejectable_monster();
 
     // Exclude torment damage.
-    const char *ptr = strstr(aux, "torment");
-    if (you.religion == GOD_JIYVA && you.piety > 160 && ptr == NULL)
+    const bool torment = aux && strstr(aux, "torment");
+    if (you.religion == GOD_JIYVA && you.piety > 160 && !torment)
     {
         int how_many = 0;
         if (dam >= you.hp_max * 3 / 4)
@@ -1030,7 +1026,7 @@ static void _pain_recover_mp(int dam)
             int gain_mp = roll_dice(3, 2 + 3 * player_mutation_level(MUT_POWERED_BY_PAIN));
 
             mpr("You focus.");
-            inc_mp(gain_mp, false);
+            inc_mp(gain_mp);
         }
     }
 }
@@ -1071,7 +1067,7 @@ static void _place_player_corpse(bool explode)
 static void _wizard_restore_life()
 {
     if (you.hp <= 0)
-        set_hp(you.hp_max, false);
+        set_hp(you.hp_max);
     for (int i = 0; i < NUM_STATS; ++i)
     {
         if (you.stat(static_cast<stat_type>(i)) <= 0)
@@ -1115,6 +1111,9 @@ void ouch(int dam, int death_source, kill_method_type death_type,
             dam = 0;
         }
     }
+
+    if (dam != INSTANT_DEATH && you.petrified())
+        dam /= 3;
 
     ait_hp_loss hpl(dam, death_type);
     interrupt_activity(AI_HP_LOSS, &hpl);
@@ -1206,7 +1205,7 @@ void ouch(int dam, int death_source, kill_method_type death_type,
     // Is the player being killed by a direct act of Xom?
     if (crawl_state.is_god_acting()
         && crawl_state.which_god_acting() == GOD_XOM
-        && crawl_state.other_gods_acting().size() == 0)
+        && crawl_state.other_gods_acting().empty())
     {
         you.escaped_death_cause = death_type;
         you.escaped_death_aux   = aux == NULL ? "" : aux;
@@ -1247,7 +1246,7 @@ void ouch(int dam, int death_source, kill_method_type death_type,
     }
 
 #if defined(WIZARD) || defined(DEBUG)
-    if (you.never_die)
+    if (!non_death && crawl_state.disables[DIS_DEATH])
     {
         _wizard_restore_life();
         return;
@@ -1383,7 +1382,7 @@ void screen_end_game(std::string text)
 void _end_game(scorefile_entry &se)
 {
     for (int i = 0; i < ENDOFPACK; i++)
-        if (item_type_unknown(you.inv[i]))
+        if (you.inv[i].defined() && item_type_unknown(you.inv[i]))
             add_inscription(you.inv[i], "unknown");
 
     for (int i = 0; i < ENDOFPACK; i++)
@@ -1422,8 +1421,10 @@ void _end_game(scorefile_entry &se)
             break;
 
         case GOD_KIKUBAAQUDGHA:
-            if (you.is_undead
-                && you.form != TRAN_LICH)
+        {
+            const mon_holy_type holi = you.holiness();
+
+            if (holi == MH_NONLIVING || holi == MH_UNDEAD)
             {
                 simple_god_message(" rasps: \"You have failed me! "
                                    "Welcome... oblivion!\"");
@@ -1434,6 +1435,7 @@ void _end_game(scorefile_entry &se)
                                    "Welcome... death!\"");
             }
             break;
+        }
 
         case GOD_YREDELEMNUL:
             if (you.is_undead)

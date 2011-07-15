@@ -12,7 +12,7 @@
 #include "coord.h"
 #include "coordit.h"
 #include "delay.h"
-#include "dgn-actions.h"
+#include "dactions.h"
 #include "dungeon.h"
 #include "effects.h"
 #include "env.h"
@@ -29,7 +29,6 @@
 #include "player.h"
 #include "religion.h"
 #include "stairs.h"
-#include "stuff.h"
 #include "terrain.h"
 #ifdef USE_TILE
  #include "tileview.h"
@@ -283,13 +282,12 @@ void wizard_create_portal()
 void wizard_create_feature()
 {
     char specs[256];
-    int feat_num;
     dungeon_feature_type feat;
     mpr("Create which feature? ", MSGCH_PROMPT);
 
     if (!cancelable_get_line(specs, sizeof(specs)) && specs[0] != 0)
     {
-        if ((feat_num = atoi(specs)))
+        if (int feat_num = atoi(specs))
         {
             feat = static_cast<dungeon_feature_type>(feat_num);
         }
@@ -404,7 +402,7 @@ void wizard_list_branches()
 
         CrawlVector &temples = val.get_vector();
 
-        if (temples.size() == 0)
+        if (temples.empty())
             continue;
 
         std::vector<std::string> god_names;

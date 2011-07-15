@@ -11,15 +11,21 @@
 #include "delay.h"
 #include "env.h"
 #include "food.h"
+#include "initfile.h"
+#include "itemprop.h"
+#include "items.h"
 #include "libutil.h"
+#include "newgame.h"
+#include "ng-setup.h"
 #include "mapmark.h"
 #include "mon-util.h"
+#include "mutation.h"
 #include "jobs.h"
 #include "ouch.h"
 #include "religion.h"
 #include "shopping.h"
 #include "species.h"
-#include "stairs.h"
+#include "skills.h"
 #include "skills2.h"
 #include "spl-transloc.h"
 #include "spl-util.h"
@@ -78,10 +84,15 @@ LUARET2(you_strength, number, you.strength(), you.max_strength())
 LUARET2(you_intelligence, number, you.intel(), you.max_intel())
 LUARET2(you_dexterity, number, you.dex(), you.max_dex())
 LUARET1(you_exp, number, you.experience_level)
+LUARET1(you_exp_pool, number, you.exp_available)
 LUARET1(you_exp_points, number, you.experience)
 LUARET1(you_skill, number,
         lua_isstring(ls, 1) ? you.skills[str_to_skill(lua_tostring(ls, 1))]
                             : 0)
+LUARET1(you_skill_progress, number,
+        lua_isstring(ls, 1)
+            ? get_skill_percentage(str_to_skill(lua_tostring(ls, 1)))
+            : 0)
 LUARET1(you_res_poison, number, player_res_poison(false))
 LUARET1(you_res_fire, number, player_res_fire(false))
 LUARET1(you_res_cold, number, player_res_cold(false))
@@ -123,6 +134,7 @@ LUARET1(you_taking_stairs, boolean,
         current_delay_action() == DELAY_ASCENDING_STAIRS
         || current_delay_action() == DELAY_DESCENDING_STAIRS)
 LUARET1(you_turns, number, you.num_turns)
+LUARET1(you_time, number, you.elapsed_time)
 LUARET1(you_can_smell, boolean, you.can_smell())
 LUARET1(you_has_claws, number, you.has_claws(false))
 LUARET1(you_level_type_tag, string, you.level_type_tag.c_str())
@@ -180,10 +192,31 @@ static int you_can_consume_corpses(lua_State *ls)
     return (1);
 }
 
+LUAFN(you_mutation)
+{
+    std::string mutname = luaL_checkstring(ls, 1);
+    for (int i = 0; i < NUM_MUTATIONS; ++i)
+    {
+        mutation_type mut = static_cast<mutation_type>(i);
+        if (!is_valid_mutation(mut))
+            continue;
+
+        const mutation_def& mdef = get_mutation_def(mut);
+        if (!strcmp(mutname.c_str(), mdef.wizname))
+        {
+            PLUARET(integer, you.mutation[mut]);
+        }
+    }
+
+    std::string err = make_stringf("No such mutation: '%s'.", mutname.c_str());
+    return (luaL_argerror(ls, 1, err.c_str()));
+}
+
 static const struct luaL_reg you_clib[] =
 {
     { "turn_is_over", you_turn_is_over },
     { "turns"       , you_turns },
+    { "time"        , you_time },
     { "spells"      , l_you_spells },
     { "abilities"   , l_you_abils },
     { "name"        , you_name },
@@ -199,7 +232,9 @@ static const struct luaL_reg you_clib[] =
     { "intelligence", you_intelligence },
     { "dexterity"   , you_dexterity },
     { "skill"       , you_skill },
+    { "skill_progress", you_skill_progress },
     { "xl"          , you_exp },
+    { "exp_pool"    , you_exp_pool },
     { "exp"         , you_exp_points },
     { "res_poison"  , you_res_poison },
     { "res_fire"    , you_res_fire   },
@@ -253,6 +288,8 @@ static const struct luaL_reg you_clib[] =
 
     { "see_cell",          you_see_cell_rel },
     { "see_cell_no_trans", you_see_cell_no_trans_rel },
+
+    { "mutation",          you_mutation },
 
     { NULL, NULL },
 };
@@ -323,32 +360,16 @@ static int _you_uniques(lua_State *ls)
     return (1);
 }
 
-static int _you_num_runes (lua_State *ls)
+LUARET1(you_num_runes, number, runes_in_pack())
+
+static int _you_have_rune(lua_State *ls)
 {
-    std::vector<int> runes;
-    const int num_runes = runes_in_pack(runes);
-
-    lua_pushnumber(ls, num_runes);
-
-    if (num_runes > 0)
-    {
-        lua_newtable(ls);
-
-        int index = 0;
-
-        for (unsigned slot = 0; slot < runes.size(); ++slot)
-        {
-            if (you.inv[runes[slot]].defined())
-            {
-                clua_push_item(ls, &you.inv[runes[slot]]);
-                lua_rawseti(ls, -2, ++index);
-            }
-        }
-
-        return (2);
-    }
-    else
-        return (1);
+    int which_rune = luaL_checkint(ls, 1);
+    bool have_rune = false;
+    if (which_rune >= 0 && which_rune < NUM_RUNE_TYPES)
+        have_rune = you.runes[which_rune];
+    lua_pushboolean(ls, have_rune);
+    return (1);
 }
 
 static int _you_gold(lua_State *ls)
@@ -439,6 +460,35 @@ LUAFN(_you_at_branch_bottom)
     PLUARET(boolean, at_branch_bottom());
 }
 
+LUAWRAP(you_gain_exp, gain_exp(luaL_checkint(ls, 1)))
+
+/*
+ * Init the player class.
+ *
+ * @param combo a string with the species and background abbreviations to use.
+ * @param weapon optional string with the weapon to give.
+ * @return a string with the weapon skill name.
+ */
+LUAFN(you_init)
+{
+    const std::string combo = luaL_checkstring(ls, 1);
+    newgame_def ng;
+    ng.type = GAME_TYPE_NORMAL;
+    ng.species = get_species_by_abbrev(combo.substr(0, 2).c_str());
+    ng.job = get_job_by_abbrev(combo.substr(2, 2).c_str());
+    ng.weapon = str_to_weapon(luaL_checkstring(ls, 2));
+    setup_game(ng);
+    you.save->unlink();
+    you.save = NULL;
+    PLUARET(string, skill_name(weapon_skill(OBJ_WEAPONS, ng.weapon)));
+}
+
+LUARET1(you_exp_needed, number, exp_needed(luaL_checkint(ls, 1)));
+LUAWRAP(you_exercise, exercise(str_to_skill(luaL_checkstring(ls, 1)), 1));
+LUARET1(you_skill_cost_level, number, you.skill_cost_level);
+LUARET1(you_skill_points, number,
+        you.skill_points[str_to_skill(luaL_checkstring(ls, 1))]);
+
 static const struct luaL_reg you_dlib[] =
 {
 { "hear_pos",           you_can_hear_pos },
@@ -453,7 +503,8 @@ static const struct luaL_reg you_dlib[] =
 { "teleport_to",        you_teleport_to },
 { "gold",               _you_gold },
 { "uniques",            _you_uniques },
-{ "num_runes",          _you_num_runes },
+{ "num_runes",          you_num_runes },
+{ "have_rune",          _you_have_rune },
 { "die",                _you_die },
 { "piety",              you_piety },
 { "in_branch",          you_in_branch },
@@ -462,6 +513,12 @@ static const struct luaL_reg you_dlib[] =
 { "shopping_list_del",  _you_shopping_list_del },
 { "stop_running",       you_stop_running },
 { "at_branch_bottom",   _you_at_branch_bottom },
+{ "gain_exp",           you_gain_exp },
+{ "init",               you_init },
+{ "exp_needed",         you_exp_needed },
+{ "exercise",           you_exercise },
+{ "skill_cost_level",   you_skill_cost_level },
+{ "skill_points",       you_skill_points },
 
 { NULL, NULL }
 };

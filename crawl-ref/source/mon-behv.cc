@@ -81,11 +81,8 @@ static void _mon_check_foe_invalid(monster* mon)
 static bool _mon_tries_regain_los(monster* mon)
 {
     // Only intelligent monsters with ranged attack will try to regain LOS.
-    if (mons_intel(mon) < I_NORMAL
-        || !mons_has_ranged_spell(mon, true) && !mons_has_ranged_attack(mon))
-    {
+    if (mons_intel(mon) < I_NORMAL || !mons_has_ranged_attack(mon))
         return false;
-    }
 
     // Any special case should go here.
     if (mons_class_flag(mon->type, M_FIGHTER)
@@ -108,8 +105,7 @@ static void _set_firing_pos(monster* mon, coord_def target)
 {
     const int ideal_range = LOS_RADIUS / 2;
     const int current_distance = mon->pos().distance_from(target);
-    const los_type los = mons_has_los_ability(mon->type) ? LOS_DEFAULT
-                                                         : LOS_NO_TRANS;
+    const los_type los = mons_has_los_attack(mon) ? LOS_DEFAULT : LOS_NO_TRANS;
 
     // We don't consider getting farther away unless already very close.
     const int max_range = std::max(ideal_range, current_distance);
@@ -213,7 +209,7 @@ void handle_behaviour(monster* mon)
                 mpr("Your flesh rots away as the Orb of Zot is desecrated.",
                     MSGCH_DANGER);
                 rot_hp(loss);
-                ouch(1, NON_MONSTER, KILLED_BY_ROTTING);
+                ouch(1, mon->mindex(), KILLED_BY_ROTTING);
             }
         }
     }
@@ -405,7 +401,8 @@ void handle_behaviour(monster* mon)
         if (afoe)
             foepos = afoe->pos();
 
-        if (crawl_state.game_is_zotdef() && mon->foe == MHITYOU)
+        if (crawl_state.game_is_zotdef() && mon->foe == MHITYOU
+            && !mon->wont_attack())
         {
             foepos = PLAYER_POS;
             proxFoe = true;
@@ -579,7 +576,7 @@ void handle_behaviour(monster* mon)
                 // If monster is currently getting into firing position and
                 // see the player and can attack him, clear firing_pos.
                 if (!mon->firing_pos.zero()
-                    && (mons_has_los_ability(mon->type)
+                    && (mons_has_los_attack(mon)
                         || mon->see_cell_no_trans(mon->target)))
                 {
                     mon->firing_pos.reset();
@@ -623,7 +620,8 @@ void handle_behaviour(monster* mon)
             if (isHurt && !isSmart && isMobile
                 && (!mons_is_zombified(mon) || mon->type == MONS_SPECTRAL_THING)
                 && mon->holiness() != MH_PLANT
-                && mon->holiness() != MH_NONLIVING)
+                && mon->holiness() != MH_NONLIVING
+                && !mons_class_flag(mon->type, M_NO_FLEE))
             {
                 new_beh = BEH_FLEE;
 

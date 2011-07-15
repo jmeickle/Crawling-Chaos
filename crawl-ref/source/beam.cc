@@ -64,7 +64,6 @@
 #include "spl-monench.h"
 #include "spl-transloc.h"
 #include "state.h"
-#include "stuff.h"
 #include "teleport.h"
 #include "terrain.h"
 #ifdef USE_TILE
@@ -470,6 +469,15 @@ static void _zappy(zap_type z_type, int power, bolt &pbolt)
 
 bool bolt::can_affect_actor(const actor *act) const
 {
+    std::map<mid_t, int>::const_iterator cnt = hit_count.find(act->mid);
+    if (cnt != hit_count.end() && cnt->second >= 2)
+    {
+        // Note: this is done for balance, even if it hurts realism a bit.
+        // It is arcane knowledge which wall patterns will cause lightning
+        // to bounce thrice, double damage for ordinary bounces is enough.
+        dprf("skipping beam hit, affected them twice already");
+        return false;
+    }
     // If there's a function that checks whether an actor is affected,
     // bypass any generic beam-affects-X logic:
     if (affect_func)
@@ -533,6 +541,7 @@ static beam_type _chaos_beam_flavour()
             10, BEAM_POLYMORPH,
             10, BEAM_BANISH,
             10, BEAM_DISINTEGRATION,
+            10, BEAM_PETRIFY,
             0));
 
     return (flavour);
@@ -600,6 +609,7 @@ void bolt::initialise_fire()
     extra_range_used   = 0;
     in_explosion_phase = false;
     use_target_as_pos  = false;
+    hit_count.clear();
 
     if (special_explosion != NULL)
     {
@@ -1947,7 +1957,7 @@ void bolt::apply_bolt_paralysis(monster* mons)
 // all of its actions and cannot move away (petrifying), and when that times
 // out it remains properly petrified (no movement or actions). The second
 // part is similar to paralysis, except that insubstantial monsters can't be
-// affected and that stabbing damage is drastically reduced.
+// affected and damage is drastically reduced.
 void bolt::apply_bolt_petrify(monster* mons)
 {
     int petrifying = mons->has_ench(ENCH_PETRIFYING);
@@ -2336,26 +2346,26 @@ void bolt::affect_endpoint()
     }
 
     if (name == "noxious blast")
-        big_cloud(CLOUD_STINK, agent(), pos(), 0, 7 + random2(5));
+        big_cloud(CLOUD_STINK, agent(), pos(), 0, 8 + random2(5));
 
     if (name == "blast of poison")
-        big_cloud(CLOUD_POISON, agent(), pos(), 0, 7 + random2(5));
+        big_cloud(CLOUD_POISON, agent(), pos(), 0, 8 + random2(5));
 
     if (origin_spell == SPELL_HOLY_BREATH)
-        big_cloud(CLOUD_HOLY_FLAMES, agent(), pos(), 0, 7 + random2(5));
+        big_cloud(CLOUD_HOLY_FLAMES, agent(), pos(), 0, 8 + random2(5));
 
     if (origin_spell == SPELL_FIRE_BREATH && is_big_cloud)
-        big_cloud(CLOUD_FIRE, agent(), pos(), 0, 7 + random2(5));
+        big_cloud(CLOUD_FIRE, agent(), pos(), 0, 8 + random2(5));
 
     if (name == "foul vapour")
     {
         // death drake; swamp drakes handled earlier
         ASSERT(flavour == BEAM_MIASMA);
-        big_cloud(CLOUD_MIASMA, agent(), pos(), 0, 9);
+        big_cloud(CLOUD_MIASMA, agent(), pos(), 0, 10);
     }
 
     if (name == "freezing blast")
-        big_cloud(CLOUD_COLD, agent(), pos(), random_range(10, 15), 9);
+        big_cloud(CLOUD_COLD, agent(), pos(), random_range(10, 15), 10);
 
     if ((name == "fiery breath" && you.species == SP_RED_DRACONIAN)
         || name == "searing blast") // monster and player red draconian breath abilities
@@ -2631,6 +2641,9 @@ void bolt::affect_place_clouds()
 
     if (name == "blast of choking fumes")
         place_cloud(CLOUD_STINK, p, random2(4) + 3, agent());
+
+    if (name == "blast of calcifying dust")
+        place_cloud(CLOUD_PETRIFY, p, random2(4) + 4, agent());
 }
 
 void bolt::affect_place_explosion_clouds()
@@ -2678,6 +2691,7 @@ void bolt::affect_place_explosion_clouds()
             case 5:  cl_type = CLOUD_GREY_SMOKE;     break;
             case 6:  cl_type = CLOUD_BLUE_SMOKE;     break;
             case 7:  cl_type = CLOUD_PURPLE_SMOKE;   break;
+            case 8:  cl_type = CLOUD_PETRIFY;        break;
             default: cl_type = CLOUD_STEAM;          break;
             }
             break;
@@ -2900,6 +2914,9 @@ bool bolt::is_harmless(const monster* mon) const
     case BEAM_ACID:
         return (mon->res_acid() >= 3);
 
+    case BEAM_PETRIFY:
+        return (mon->res_petrify() || mon->petrified());
+
     default:
         return (false);
     }
@@ -2949,6 +2966,9 @@ bool bolt::harmless_to_player() const
         // Fire and ice can destroy inventory items, acid damage equipment.
         return (false);
 
+    case BEAM_PETRIFY:
+        return (you.res_petrify() > 0 || you.petrified());
+
     default:
         return (false);
     }
@@ -2977,7 +2997,6 @@ void bolt::reflect()
     reflections++;
 
     target = leg_source();
-    extra_range_used += range_used(true);
     source = pos();
 
     // Reset bounce_pos, so that if we somehow reflect again before reaching
@@ -3261,7 +3280,7 @@ void bolt::affect_player_enchantment()
         break;
 
     case BEAM_PETRIFY:
-        you.petrify(agent(), ench_power);
+        you.petrify(agent());
         obvious_effect = true;
         break;
 
@@ -3472,6 +3491,8 @@ void bolt::affect_actor(actor *act)
 
 void bolt::affect_player()
 {
+    hit_count[MID_PLAYER]++;
+
     // Explosions only have an effect during their explosion phase.
     // Special cases can be handled here.
     if (is_explosion && !in_explosion_phase)
@@ -3801,7 +3822,7 @@ bool bolt::determine_damage(monster* mon, int& preac, int& postac, int& final,
     // Hellfire and white draconian breath ignores AC.
     if (!damage_ignores_armour())
     {
-        int ac = std::max(mon->ac, 0);
+        int ac = mon->armour_class();
         if (is_tracer && preac_max_damage > 0)
         {
             tracer_postac_min = std::max(0, preac_min_damage - ac);
@@ -4208,6 +4229,7 @@ void bolt::affect_monster(monster* mon)
         return;
     }
 
+    hit_count[mon->mid]++;
     // First some special cases.
 
     // Digging doesn't affect monsters (should it harm earth elementals?)
@@ -4599,7 +4621,7 @@ bool enchant_monster_with_flavour(monster* mon, actor *foe,
     return dummy.obvious_effect;
 }
 
-bool enchant_monster_invisible(monster* mon, const std::string how)
+bool enchant_monster_invisible(monster* mon, const std::string &how)
 {
     // Store the monster name before it becomes an "it". - bwr
     const std::string monster_name = mon->name(DESC_CAP_THE);
@@ -4845,6 +4867,9 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         return (MON_AFFECTED);
 
     case BEAM_PETRIFY:
+        if (mon->res_petrify())
+            return (MON_UNAFFECTED);
+
         apply_bolt_petrify(mon);
         return (MON_AFFECTED);
 
@@ -4932,6 +4957,19 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
 
         return (MON_AFFECTED);
     }
+
+    case BEAM_INNER_FLAME:
+        if (!mon->has_ench(ENCH_INNER_FLAME)
+            && !mon->is_summoned()
+            && mon->add_ench(mon_enchant(ENCH_INNER_FLAME, 0, agent())))
+        {
+            if (simple_monster_message(mon,
+                                       (mon->body_size(PSIZE_BODY) > SIZE_BIG)
+                                        ? " is filled with an intense inner flame!"
+                                        : " is filled with an inner flame."))
+                obvious_effect = true;
+        }
+        return (MON_AFFECTED);
 
     default:
         break;
@@ -5209,6 +5247,9 @@ bool bolt::explode(bool show_more, bool hole_in_the_middle)
 
     const int r = std::min(ex_size, MAX_EXPLOSION_RADIUS);
     in_explosion_phase = true;
+    // being hit by bounces doesn't exempt you from the explosion (not that it
+    // currently ever matters)
+    hit_count.clear();
 
     if (is_sanctuary(pos()))
     {
@@ -5632,6 +5673,10 @@ actor* bolt::agent() const
 
 bool bolt::is_enchantment() const
 {
+#if TAG_MAJOR_VERSION == 32
+    if (flavour == BEAM_INNER_FLAME)
+        return (true);
+#endif
     return (flavour >= BEAM_FIRST_ENCHANTMENT
             && flavour <= BEAM_LAST_ENCHANTMENT);
 }
@@ -5723,16 +5768,10 @@ static std::string _beam_type_name(beam_type type)
     case BEAM_CHARM:                 return ("enslave");
     case BEAM_BANISH:                return ("banishment");
     case BEAM_DEGENERATE:            return ("degeneration");
-#if TAG_MAJOR_VERSION == 32
-    case BEAM_ENSLAVE_UNDEAD:        return ("enslave undead");
-#endif
     case BEAM_ENSLAVE_SOUL:          return ("enslave soul");
     case BEAM_PAIN:                  return ("pain");
     case BEAM_DISPEL_UNDEAD:         return ("dispel undead");
     case BEAM_DISINTEGRATION:        return ("disintegration");
-#if TAG_MAJOR_VERSION == 32
-    case BEAM_ENSLAVE_DEMON:         return ("enslave demon");
-#endif
     case BEAM_BLINK:                 return ("blink");
     case BEAM_BLINK_CLOSE:           return ("blink close");
     case BEAM_PETRIFY:               return ("petrify");
@@ -5756,6 +5795,8 @@ static std::string _beam_type_name(beam_type type)
     case BEAM_HOLY_FLAME:            return ("cleansing flame");
     case BEAM_HOLY_LIGHT:            return ("holy light");
     case BEAM_AIR:                   return ("air");
+    case BEAM_INNER_FLAME:           return ("inner flame");
+    case BEAM_PETRIFYING_CLOUD:      return ("calcifying dust");
 
     case NUM_BEAMS:                  die("invalid beam type");
     }

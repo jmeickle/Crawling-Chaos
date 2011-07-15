@@ -15,6 +15,7 @@
 
 #include "areas.h"
 #include "beam.h"
+#include "cloud.h"
 #include "colour.h"
 #include "coordit.h"
 #include "describe.h"
@@ -75,47 +76,44 @@ static bool _surge_identify_boosters(spell_type spell)
     const unsigned int typeflags = get_spell_disciplines(spell);
     if ((typeflags & SPTYP_FIRE) || (typeflags & SPTYP_ICE))
     {
-        // Must not be wielding an unIDed staff.
-        // Note that robes of the Archmagi identify on wearing,
-        // so that's less of an issue.
-        const item_def* wpn = you.weapon();
-        if (wpn == NULL
-            || wpn->base_type != OBJ_STAVES
-            || item_ident(*wpn, ISFLAG_KNOW_PROPERTIES))
+        int num_unknown = 0;
+        for (int i = EQ_LEFT_RING; i < NUM_EQUIP; ++i)
         {
-            int num_unknown = 0;
-            for (int i = EQ_LEFT_RING; i <= EQ_RIGHT_RING; ++i)
+            if (i == EQ_AMULET)
+                continue;
+
+            if (player_wearing_slot(i)
+                && !item_type_known(you.inv[you.equip[i]]))
             {
-                if (player_wearing_slot(i)
-                    && !item_ident(you.inv[you.equip[i]],
-                                   ISFLAG_KNOW_PROPERTIES))
+                ++num_unknown;
+            }
+        }
+
+        // We can also identify cases with two unknown rings, both
+        // of fire (or both of ice)...let's skip it.
+        if (num_unknown == 1)
+        {
+            for (int i = EQ_LEFT_RING; i < NUM_EQUIP; ++i)
+            {
+                if (i == EQ_AMULET)
+                    continue;
+
+                if (player_wearing_slot(i))
                 {
-                    ++num_unknown;
+                    item_def& ring = you.inv[you.equip[i]];
+                    if (!item_ident(ring, ISFLAG_KNOW_PROPERTIES)
+                        && (ring.sub_type == RING_FIRE
+                            || ring.sub_type == RING_ICE))
+                    {
+                        set_ident_type(ring.base_type, ring.sub_type,
+                                        ID_KNOWN_TYPE);
+                        set_ident_flags(ring, ISFLAG_KNOW_PROPERTIES);
+                        mprf("You are wearing: %s",
+                             ring.name(DESC_INVENTORY_EQUIP).c_str());
+                    }
                 }
             }
-
-            // We can also identify cases with two unknown rings, both
-            // of fire (or both of ice)...let's skip it.
-            if (num_unknown == 1)
-            {
-                for (int i = EQ_LEFT_RING; i <= EQ_RIGHT_RING; ++i)
-                    if (player_wearing_slot(i))
-                    {
-                        item_def& ring = you.inv[you.equip[i]];
-                        if (!item_ident(ring, ISFLAG_KNOW_PROPERTIES)
-                            && (ring.sub_type == RING_FIRE
-                                || ring.sub_type == RING_ICE))
-                        {
-                            set_ident_type(ring.base_type, ring.sub_type,
-                                            ID_KNOWN_TYPE);
-                            set_ident_flags(ring, ISFLAG_KNOW_PROPERTIES);
-                            mprf("You are wearing: %s",
-                                 ring.name(DESC_INVENTORY_EQUIP).c_str());
-                        }
-                    }
-
-                return (true);
-            }
+            return (true);
         }
     }
     return (false);
@@ -200,7 +198,7 @@ int list_spells(bool toggle_with_I, bool viewing, bool allow_preselect,
     if (toggle_with_I && get_spell_by_letter('I') != SPELL_NO_SPELL)
         toggle_with_I = false;
 
-#ifdef USE_TILE
+#ifdef USE_TILE_LOCAL
     const bool text_only = false;
 #else
     const bool text_only = true;
@@ -209,7 +207,7 @@ int list_spells(bool toggle_with_I, bool viewing, bool allow_preselect,
     ToggleableMenu spell_menu(MF_SINGLESELECT | MF_ANYPRINTABLE
                               | MF_ALWAYS_SHOW_MORE | MF_ALLOW_FORMATTING,
                               text_only);
-#ifdef USE_TILE
+#ifdef USE_TILE_LOCAL
     {
         // [enne] - Hack.  Make title an item so that it's aligned.
         ToggleableMenuEntry* me =
@@ -296,7 +294,7 @@ int list_spells(bool toggle_with_I, bool viewing, bool allow_preselect,
                                     _spell_extra_description(spell),
                                     MEL_ITEM, 1, letter, preselect);
 
-#ifdef USE_TILE
+#ifdef USE_TILE_LOCAL
         me->add_tile(tile_def(tileidx_spell(spell), TEX_GUI));
 #endif
         spell_menu.add_entry(me);
@@ -373,14 +371,6 @@ int spell_fail(spell_type spell)
     dprf("Armour+Shield spell failure penalty: %d", armour_shield_penalty);
     chance += armour_shield_penalty;
 
-    if (you.weapon() && you.weapon()->base_type == OBJ_WEAPONS)
-    {
-        int wpn_penalty = (3 * (property(*you.weapon(), PWPN_SPEED) - 12))/2;
-
-        if (wpn_penalty > 0)
-            chance += wpn_penalty;
-    }
-
     switch (spell_difficulty(spell))
     {
     case  1: chance +=   3; break;
@@ -443,18 +433,11 @@ int spell_fail(spell_type spell)
 int calc_spell_power(spell_type spell, bool apply_intel, bool fail_rate_check,
                      bool cap_power, bool rod)
 {
-    int power;
-    if (rod) {
-        // This is only the average of the power. It's used for display and
-        // calculating range. The real power is randomized in staff_spell()
-        power = (5 + you.skill(SK_EVOCATIONS) * 2);
-    }
+    int power = 0;
+    if (rod)
+        power = 5 + you.skill(SK_EVOCATIONS) * 3;
     else
     {
-        // When checking failure rates, wizardry is handled after the various
-        // stepping calulations.
-        power = (you.skill(SK_SPELLCASTING) / 2)
-                     + (fail_rate_check? 0 : player_mag_abil(false));
         int enhanced = 0;
 
         unsigned int disciplines = get_spell_disciplines(spell);
@@ -469,9 +452,17 @@ int calc_spell_power(spell_type spell, bool apply_intel, bool fail_rate_check,
             {
                 unsigned int bit = (1 << ndx);
                 if (disciplines & bit)
-                    power += (you.skill(spell_type2skill(bit)) * 2) / skillcount;
+                    power += you.skill(spell_type2skill(bit)) * 2;
             }
+            power /= skillcount;
         }
+
+        power += you.skill(SK_SPELLCASTING) / 2;
+
+        // Brilliance boosts spell power a bit (equivalent to three
+        // spell school levels).
+        if (!fail_rate_check && you.duration[DUR_BRILLIANCE])
+            power += 6;
 
         if (apply_intel)
             power = (power * you.intel()) / 10;
@@ -526,7 +517,13 @@ int spell_enhancement(unsigned int typeflags)
         enhanced += player_spec_death() - player_spec_holy();
 
     if (typeflags & SPTYP_FIRE)
+    {
         enhanced += player_spec_fire() - player_spec_cold();
+
+        // if it's raining... {due}
+        if (in_what_cloud(CLOUD_RAIN))
+            enhanced--;
+    }
 
     if (typeflags & SPTYP_ICE)
         enhanced += player_spec_cold() - player_spec_fire();
@@ -539,9 +536,6 @@ int spell_enhancement(unsigned int typeflags)
 
     if (you.attribute[ATTR_SHADOWS])
         enhanced -= 2;
-
-    if (you.duration[DUR_TORNADO])
-        enhanced--;
 
     if (player_equip_ego_type(EQ_BODY_ARMOUR, SPARM_ARCHMAGI))
         enhanced++;
@@ -722,11 +716,9 @@ bool cast_a_spell(bool check_range, spell_type spell)
 
         if (Options.darken_beyond_range)
         {
-            crawl_state.darken_range = calc_spell_range(spell);
-            viewwindow(false);
+            targetter_smite range(&you, calc_spell_range(spell), 0, 0, true);
+            range_view_annotator show_range(&range);
             delay(50);
-            crawl_state.darken_range = -1;
-            viewwindow(false);
         }
         return (false);
     }
@@ -735,7 +727,7 @@ bool cast_a_spell(bool check_range, spell_type spell)
         && (you.hunger_state == HS_STARVING
             || you.hunger <= spell_hunger(spell)))
     {
-        mpr("You don't have the energy to cast that spell.");
+        canned_msg(MSG_NO_ENERGY);
         return (false);
     }
 
@@ -807,6 +799,11 @@ static void _spellcasting_side_effects(spell_type spell, int pow)
         if (spell == SPELL_NECROMUTATION && is_good_god(you.religion))
             excommunication();
     }
+    if (spell == SPELL_STATUE_FORM && you.religion == GOD_YREDELEMNUL
+        && !crawl_state.is_god_acting())
+    {
+        excommunication();
+    }
 
     alert_nearby_monsters();
 }
@@ -822,7 +819,6 @@ static bool _vampire_cannot_cast(spell_type spell)
     // Satiated or less
     switch (spell)
     {
-    case SPELL_BERSERKER_RAGE:
     case SPELL_BLADE_HANDS:
     case SPELL_CURE_POISON:
     case SPELL_DRAGON_FORM:
@@ -947,10 +943,10 @@ static int _setup_evaporate_cast()
 static bool _can_cast_detect()
 {
     if (player_in_mappable_area())
-        return true;
+        return (true);
 
-    mpr("You feel momentarily disoriented.");
-    return false;
+    canned_msg(MSG_DISORIENTED);
+    return (false);
 }
 
 static void _maybe_cancel_repeat(spell_type spell)
@@ -1009,12 +1005,13 @@ static bool _spellcasting_aborted(spell_type spell,
         mpr("The dungeon can only cope with one malign gateway at a time!");
         return (true);
     }
-    if (spell == SPELL_BERSERKER_RAGE && (!you.can_go_berserk(true)
-                                          || !berserk_check_wielded_weapon()))
+
+    if (spell == SPELL_TORNADO
+        && (you.duration[DUR_TORNADO] || you.duration[DUR_TORNADO_COOLDOWN]))
     {
+        mpr("You need to wait for the winds to calm down.");
         return (true);
     }
-
 
     return (false);
 }
@@ -1041,7 +1038,7 @@ targetter* _spell_targetter(spell_type spell, int pow, int range)
 // effects might also land us here.
 // Others are currently unused or unimplemented.
 spret_type your_spells(spell_type spell, int powc,
-                       bool allow_fail, bool check_range, int range_power)
+                       bool allow_fail, bool check_range)
 {
     ASSERT(!crawl_state.game_is_arena());
 
@@ -1050,10 +1047,6 @@ spret_type your_spells(spell_type spell, int powc,
     dist spd;
     bolt beam;
     beam.origin_spell = spell;
-
-    if (range_power == 0)
-        range_power = powc;
-
 
     // [dshaligram] Any action that depends on the spellcasting attempt to have
     // succeeded must be performed after the switch().
@@ -1114,7 +1107,7 @@ spret_type your_spells(spell_type spell, int powc,
         const bool dont_cancel_me = (testbits(flags, SPFLAG_HELPFUL)
                                      || testbits(flags, SPFLAG_ALLOW_SELF));
 
-        const int range = calc_spell_range(spell, range_power, false);
+        const int range = calc_spell_range(spell, powc, false);
 
         targetter *hitfunc = _spell_targetter(spell, powc, range);
 
@@ -1140,9 +1133,7 @@ spret_type your_spells(spell_type spell, int powc,
         if (testbits(flags, SPFLAG_NOT_SELF) && spd.isMe())
         {
             if (spell == SPELL_TELEPORT_OTHER || spell == SPELL_POLYMORPH_OTHER)
-            {
                 mpr("Sorry, this spell works on others only.");
-            }
             else
                 canned_msg(MSG_UNTHINKING_ACT);
 
@@ -1197,15 +1188,14 @@ spret_type your_spells(spell_type spell, int powc,
         if (testbits(env.level_flags, LFLAG_NO_MAGIC_MAP)
             && testbits(flags, SPFLAG_MAPPING))
         {
-            mprf(MSGCH_WARN,
-                 "The warped magic of this place twists your "
-                 "spell in on itself!");
+            mpr("The warped magic of this place twists your spell in on "
+                "itself!", MSGCH_WARN);
             spfl = spfail_chance / 2 - 1;
         }
 
         if (spfl < spfail_chance)
         {
-            mpr("You miscast the spell.");
+            mprf("You miscast %s.", spell_title(spell));
             flush_input_buffer(FLUSH_ON_FAILURE);
             learned_something_new(HINT_SPELL_MISCAST);
 
@@ -1267,7 +1257,7 @@ spret_type your_spells(spell_type spell, int powc,
         if (is_valid_spell(spell))
         {
             mprf(MSGCH_ERROR, "Spell '%s' is not a player castable spell.",
-                spell_title(spell));
+                 spell_title(spell));
         }
         else
             mpr("Invalid spell!", MSGCH_ERROR);
@@ -1285,7 +1275,9 @@ static void _spell_zap_effect(spell_type spell)
     // Deep Dwarves' damage reduction always blocks at least 1 hp.
     if (spell == SPELL_PAIN
         && (you.species != SP_DEEP_DWARF && !player_res_torment()))
+    {
         dec_hp(1, false);
+    }
 }
 
 // Spell failure check has been passed successfully.
@@ -1432,7 +1424,8 @@ static spret_type _do_cast(spell_type spell, int powc,
         break;
 
     case SPELL_AIRSTRIKE:
-        airstrike(powc, spd);
+        if (!cast_airstrike(powc, spd))
+            return SPRET_ABORT;
         break;
 
     case SPELL_FRAGMENTATION:
@@ -1466,15 +1459,15 @@ static spret_type _do_cast(spell_type spell, int powc,
         if (!you.stand_on_solid_ground())
         {
             if (!you.ground_level())
-                mprf("You can't cast this spell without touching the ground.");
+                mpr("You can't cast this spell without touching the ground.");
             else
-                mprf("You need to be on clear, solid ground to cast this spell.");
+                mpr("You need to be on clear, solid ground to cast this spell.");
             return (SPRET_ABORT);
         }
 
         if (you.duration[DUR_LIQUEFYING] || liquefied(you.pos()))
         {
-            mprf("The ground here is already liquefied! You'll have to wait.");
+            mpr("The ground here is already liquefied! You'll have to wait.");
             return (SPRET_ABORT);
         }
 
@@ -1588,6 +1581,7 @@ static spret_type _do_cast(spell_type spell, int powc,
     case SPELL_SUMMON_HORRIBLE_THINGS:
         cast_summon_horrible_things(powc, god);
         break;
+
     case SPELL_MALIGN_GATEWAY:
         if (!cast_malign_gateway(&you, powc, god))
             return (SPRET_ABORT);
@@ -1600,10 +1594,13 @@ static spret_type _do_cast(spell_type spell, int powc,
         for (stack_iterator si(you.pos(), true); si; ++si)
         {
             if (si->base_type == OBJ_CORPSES && si->sub_type == CORPSE_BODY
-                && mons_skeleton(si->plus))
+                && mons_skeleton(si->plus)
+                && mons_class_can_be_zombified(si->plus))
             {
                 turn_corpse_into_skeleton_and_chunks(*si);
-                mprf("Before your eyes, flesh is ripped from the corpse!");
+                mpr("Before your eyes, flesh is ripped from the corpse!");
+                if (Options.chunks_autopickup)
+                    request_autopickup();
                 // Only convert the top one.
                 break;
             }
@@ -1785,10 +1782,6 @@ static spret_type _do_cast(spell_type spell, int powc,
 #endif
 
     // General enhancement.
-    case SPELL_BERSERKER_RAGE:
-        cast_berserk();
-        break;
-
     case SPELL_REGENERATION:
         cast_regen(powc);
         break;
@@ -1802,13 +1795,14 @@ static spret_type _do_cast(spell_type spell, int powc,
         break;
 
     case SPELL_SWIFTNESS:
-        cast_swiftness(powc);
+        if (!cast_swiftness(powc))
+            return (SPRET_ABORT);
         break;
 
     case SPELL_LEVITATION:
         if (liquefied(you.pos()) && you.ground_level())
         {
-            mprf(MSGCH_WARN, "Such puny magic can't pull you from the ground!");
+            mpr("Such puny magic can't pull you from the ground!", MSGCH_WARN);
             return (SPRET_ABORT);
         }
 
@@ -1819,7 +1813,7 @@ static spret_type _do_cast(spell_type spell, int powc,
     case SPELL_FLY:
         if (liquefied(you.pos()) && you.ground_level())
         {
-            mprf(MSGCH_WARN, "Such puny magic can't pull you from the ground!");
+            mpr("Such puny magic can't pull you from the ground!", MSGCH_WARN);
             return (SPRET_ABORT);
         }
 
@@ -1827,7 +1821,8 @@ static spret_type _do_cast(spell_type spell, int powc,
         break;
 
     case SPELL_STONESKIN:
-        cast_stoneskin(powc);
+        if (!cast_stoneskin(powc))
+            return (SPRET_ABORT);
         break;
 
 #if TAG_MAJOR_VERSION == 32
@@ -1837,11 +1832,13 @@ static spret_type _do_cast(spell_type spell, int powc,
 #endif
 
     case SPELL_CONDENSATION_SHIELD:
-        cast_condensation_shield(powc);
+        if (!cast_condensation_shield(powc))
+            return (SPRET_ABORT);
         break;
 
     case SPELL_OZOCUBUS_ARMOUR:
-        ice_armour(powc, false);
+        if (!ice_armour(powc))
+            return (SPRET_ABORT);
         break;
 
     case SPELL_PHASE_SHIFT:
@@ -1975,6 +1972,10 @@ static spret_type _do_cast(spell_type spell, int powc,
             return (SPRET_ABORT);
         break;
 
+    case SPELL_SHROUD_OF_GOLUBRIA:
+        cast_shroud_of_golubria(powc);
+        break;
+
     default:
         return (SPRET_NONE);
     }
@@ -1996,33 +1997,9 @@ const char* failure_rate_to_string(int fail)
                          : "Perfect";    // 100%
 }
 
-static unsigned int _breakpoint_rank(int val, const int breakpoints[],
-                            unsigned int num_breakpoints)
-{
-    unsigned int result = 0;
-    while (result < num_breakpoints && val >= breakpoints[result])
-        ++result;
-
-    return result;
-}
-
 const char* spell_hunger_string(spell_type spell, bool rod)
 {
-    if (you.is_undead == US_UNDEAD)
-        return ("N/A");
-
-    const int hunger = spell_hunger(spell, rod);
-
-    // Spell hunger is "Fruit" if casting the spell five times costs at
-    // most one "Fruit".
-    const char* hunger_descriptions[] = {
-        "None", "Sultana", "Strawberry", "Choko", "Honeycomb", "Ration"
-    };
-
-    const int breakpoints[] = { 1, 15, 41, 121, 401 };
-
-    return (hunger_descriptions[_breakpoint_rank(hunger, breakpoints,
-                                                 ARRAYSZ(breakpoints))]);
+    return hunger_cost_string(spell_hunger(spell, rod));
 }
 
 std::string spell_noise_string(spell_type spell)
@@ -2068,6 +2045,7 @@ std::string spell_noise_string(spell_type spell)
     case SPELL_LIGHTNING_BOLT:
     case SPELL_CHAIN_LIGHTNING:
     case SPELL_CONJURE_BALL_LIGHTNING:
+    case SPELL_TORNADO:
         effect_noise = 25;
         break;
 
@@ -2089,7 +2067,7 @@ std::string spell_noise_string(spell_type spell)
 
     const int breakpoints[] = { 1, 2, 4, 8, 15, 20, 30 };
 
-    const char* desc = noise_descriptions[_breakpoint_rank(noise, breakpoints,
+    const char* desc = noise_descriptions[breakpoint_rank(noise, breakpoints,
                                                 ARRAYSZ(breakpoints))];
 
 #ifdef WIZARD
@@ -2121,7 +2099,7 @@ static int _power_to_barcount(int power)
         return -1;
 
     const int breakpoints[] = { 5, 10, 15, 25, 35, 50, 75, 100, 150 };
-    return (_breakpoint_rank(power, breakpoints, ARRAYSZ(breakpoints)) + 1);
+    return (breakpoint_rank(power, breakpoints, ARRAYSZ(breakpoints)) + 1);
 }
 
 int spell_power_bars(spell_type spell, bool rod)

@@ -346,7 +346,7 @@ InvMenu::InvMenu(int mflags)
     : Menu(mflags, "inventory", false), type(MT_INVLIST), pre_select(NULL),
       title_annotate(NULL)
 {
-#ifdef USE_TILE
+#ifdef USE_TILE_LOCAL
     if (Options.tile_menu_icons)
 #endif
         mdisplay->set_num_columns(2);
@@ -512,7 +512,7 @@ void InvMenu::load_inv_items(int item_selector, int excluded_slot,
         set_title("");
 }
 
-#ifdef USE_TILE
+#ifdef USE_TILE_LOCAL
 bool InvEntry::get_tiles(std::vector<tile_def>& tileset) const
 {
     if (!Options.tile_menu_icons)
@@ -819,6 +819,8 @@ void InvMenu::load_items(const std::vector<const item_def*> &mitems,
             continue;
 
         std::string subtitle = item_class_name(i);
+        if (type == MT_KNOW && i == OBJ_MISCELLANY)
+            subtitle = "Runes"; // hack
 
         // Mention the class selection shortcuts.
         if (is_set(MF_MULTISELECT) && inv_class[i] > 1)
@@ -829,18 +831,10 @@ void InvMenu::load_items(const std::vector<const item_def*> &mitems,
             {
                 const std::string str = "Magical Staves and Rods"; // longest string
                 subtitle += std::string(strwidth(str) - strwidth(subtitle) + 1, ' ');
-                subtitle += "(select all with ";
-#ifdef USE_TILE
-                // For some reason, this is only formatted correctly in the
-                // Tiles version.
-                subtitle += "<w>";
-#endif
+                subtitle += "(select all with <w>";
                 for (unsigned int k = 0; k < glyphs.size(); ++k)
                      subtitle += glyphs[k];
-#ifdef USE_TILE
-                subtitle += "</w><blue>";
-#endif
-                subtitle += ")";
+                subtitle += "</w><blue>)";
             }
         }
 
@@ -1031,7 +1025,7 @@ std::vector<SelItem> select_items(const std::vector<const item_def*> &items,
         menu.load_items(items);
         int new_flags = noselect ? MF_NOSELECT
                                  : MF_MULTISELECT | MF_ALLOW_FILTER;
-        new_flags |= MF_SHOW_PAGENUMBERS;
+        new_flags |= MF_SHOW_PAGENUMBERS | MF_ALLOW_FORMATTING;
         menu.set_flags(new_flags);
         menu.show();
         selected = menu.get_selitems();
@@ -1060,7 +1054,7 @@ static bool _item_class_selected(const item_def &i, int selector)
         return (itype == OBJ_ARMOUR && item_is_equipped(i));
 
     case OSEL_UNIDENT:
-        return !fully_identified(i);
+        return !fully_identified(i) || (is_deck(i) && !top_card_is_known(i));
 
     case OBJ_MISSILES:
         return (itype == OBJ_MISSILES || itype == OBJ_WEAPONS);
@@ -1198,7 +1192,7 @@ unsigned char invent_select(const char *title,
                              Menu::selitem_tfn selitemfn,
                              const std::vector<SelItem> *pre_select)
 {
-    InvMenu menu(flags);
+    InvMenu menu(flags | MF_ALLOW_FORMATTING);
 
     menu.set_preselect(pre_select);
     menu.set_title_annotator(titlefn);
@@ -1345,7 +1339,7 @@ std::vector<SelItem> prompt_invent_items(
                 need_getch  = true;
             }
 
-            if (items.size())
+            if (!items.empty())
             {
                 if (!crawl_state.doing_prev_cmd_again)
                 {
@@ -1410,7 +1404,6 @@ std::vector<SelItem> prompt_invent_items(
 
 static int _digit_to_index(char digit, operation_types oper)
 {
-
     const char iletter = static_cast<char>(oper);
 
     for (int i = 0; i < ENDOFPACK; ++i)
@@ -1643,16 +1636,16 @@ bool check_warning_inscriptions(const item_def& item,
                 equip = you.equip[EQ_AMULET];
             else
             {
-                equip = you.equip[EQ_LEFT_RING];
-                if (equip != -1 && item.link == equip)
-                    return (check_old_item_warning(item, oper));
+                for (int slots = EQ_LEFT_RING; slots < NUM_EQUIP; ++slots)
+                {
+                    if (slots == EQ_AMULET)
+                    continue;
 
-                // Or maybe the other ring?
-                equip = you.equip[EQ_RIGHT_RING];
+                    equip = you.equip[slots];
+                    if (equip != -1 && item.link == equip)
+                        return (check_old_item_warning(item, oper));
+                }
             }
-
-            if (equip != -1 && item.link == equip)
-                return (check_old_item_warning(item, oper));
         }
         else if (oper == OPER_REMOVE || oper == OPER_TAKEOFF)
         {
@@ -1786,7 +1779,7 @@ int prompt_invent_item(const char *prompt,
 
             need_prompt = need_redraw;
 
-            if (items.size())
+            if (!items.empty())
             {
                 if (count)
                     *count = items[0].quantity;
@@ -1868,7 +1861,7 @@ bool prompt_failed(int retval, std::string msg)
             canned_msg(MSG_OK);
     }
     else
-        mprf(MSGCH_PROMPT, msg.c_str());
+        mpr(msg.c_str(), MSGCH_PROMPT);
 
     crawl_state.cancel_cmd_repeat();
 

@@ -15,6 +15,7 @@
 #include "message.h"
 #include "misc.h"
 #include "shout.h"
+#include "skills2.h"
 
 
 // We need to know what brands equate with what missile brands to know if
@@ -41,7 +42,8 @@ static brand_type _convert_to_launcher(brand_type which_brand)
 {
     switch (which_brand)
     {
-    case SPWPN_FREEZING: return SPWPN_FROST; case SPWPN_FLAMING: return SPWPN_FLAME;
+    case SPWPN_FREEZING: return SPWPN_FROST;
+    case SPWPN_FLAMING: return SPWPN_FLAME;
     default: return (which_brand);
     }
 }
@@ -59,6 +61,7 @@ static bool _ok_for_launchers(brand_type which_brand)
     //case SPWPN_PAIN: -- no pain missile type yet
     case SPWPN_RETURNING:
     case SPWPN_CHAOS:
+    case SPWPN_VORPAL:
         return (true);
     default:
         return (false);
@@ -90,11 +93,8 @@ bool brand_weapon(brand_type which_brand, int power)
         return (false);
 
     // Some brandings are restricted to certain damage types.
-    const int wpn_type = get_vorpal_type(weapon);
-    if (which_brand == SPWPN_VENOM && wpn_type == DVORP_CRUSHING
-        || which_brand == SPWPN_VORPAL && wpn_type != DVORP_SLICING
-                                       && wpn_type != DVORP_STABBING
-        || which_brand == SPWPN_DUMMY_CRUSHING && wpn_type != DVORP_CRUSHING)
+    if (which_brand == SPWPN_DUMMY_CRUSHING
+        && !(get_damage_type(weapon) & DAM_BLUDGEON))
     {
         return (false);
     }
@@ -134,7 +134,7 @@ bool brand_weapon(brand_type which_brand, int power)
     std::string msg = weapon.name(DESC_CAP_YOUR);
 
     bool emit_special_message = !temp_brand;
-    int duration_affected = 0;
+    int duration_affected = 10;
     switch (which_brand)
     {
     case SPWPN_FLAME:
@@ -168,7 +168,7 @@ bool brand_weapon(brand_type which_brand, int power)
         duration_affected = 10;
         break;
 
-    case SPWPN_DISTORTION:      //jmf: Added for Warp Weapon.
+    case SPWPN_DISTORTION:
         msg += " seems to ";
         msg += random_choose_string("twist", "bend", "vibrate",
                                     "flex", "wobble", "twang", NULL);
@@ -195,7 +195,23 @@ bool brand_weapon(brand_type which_brand, int power)
         emit_special_message = true;
         break;
 
-    case SPWPN_DUMMY_CRUSHING:  //jmf: Added for Maxwell's Silver Hammer.
+    case SPWPN_HOLY_WRATH:
+        msg += " shines with holy light.";
+        break;
+
+    case SPWPN_ELECTROCUTION:
+        msg += " starts to spark.";
+        break;
+
+    case SPWPN_ANTIMAGIC:
+        msg += " depletes magic around it.";
+        break;
+
+    case SPWPN_CHAOS:
+        msg += " glistens with random hues.";
+        break;
+
+    case SPWPN_DUMMY_CRUSHING:  // Maxwell's Silver Hammer.
         which_brand = SPWPN_VORPAL;
         msg += " glows silver and feels heavier.";
         duration_affected = 7;
@@ -223,6 +239,8 @@ bool brand_weapon(brand_type which_brand, int power)
 
     you.increase_duration(DUR_WEAPON_BRAND,
                           duration_affected + roll_dice(2, power), 50);
+    if (which_brand == SPWPN_ANTIMAGIC)
+        calc_mp();
 
     return (true);
 }

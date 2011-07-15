@@ -349,6 +349,7 @@ public:
     int res_torment() const;
     int res_acid() const;
     int res_wind() const;
+    int res_petrify(bool temp = true) const;
     int res_magic() const;
 
     flight_type flight_mode() const;
@@ -407,7 +408,7 @@ public:
     bool sicken(int strength, bool unused = true);
     bool bleed(const actor *agent, int amount, int degree);
     void paralyse(actor *, int str);
-    void petrify(actor *, int str);
+    void petrify(actor *);
     void slow_down(actor *, int str);
     void confuse(actor *, int strength);
     bool drain_exp(actor *, bool quiet = false, int pow = 3);

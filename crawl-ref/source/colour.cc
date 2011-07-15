@@ -116,7 +116,8 @@ static int _randomized_element_colour(int rand, const coord_def&,
     int accum = 0;
     for (random_colour_map::const_iterator it = rand_vals.begin();
          it != rand_vals.end();
-         ++it) {
+         ++it)
+    {
         if ((accum += it->first) > rand)
             return it->second;
     }
@@ -219,7 +220,7 @@ bool get_tornado_phase(const coord_def& loc)
         int y = loc.y - center.y;
         double dir = atan2(x, y)/PI;
         double dist = sqrt(x*x + y*y);
-        return ((int)floor(dir*2 + dist*0.33 + (you.frame_no % 54)/2.7))&1;
+        return ((int)floor(dir*2 + dist*0.33 - (you.frame_no % 54)/2.7))&1;
     }
 }
 
@@ -356,18 +357,20 @@ void init_element_colours()
                             80,  DARKGREY,
                             40,  LIGHTGREY,
                         0));
-    // assassin
+    // assassin, necromancer
     add_element_colour(_create_random_element_colour_calc(
                             ETC_DEATH, "death",
                             80,  DARKGREY,
                             40,  MAGENTA,
                         0));
+#if TAG_MAJOR_VERSION == 32
     // necromancer
     add_element_colour(_create_random_element_colour_calc(
                             ETC_NECRO, "necro",
                             80,  DARKGREY,
                             40,  MAGENTA,
                         0));
+#endif
     // ie demonology
     add_element_colour(_create_random_element_colour_calc(
                             ETC_UNHOLY, "unholy",
@@ -446,7 +449,7 @@ void init_element_colours()
                             20,  MAGENTA,
                         0));
     add_element_colour(_create_random_element_colour_calc(
-                            ETC_GILA, "gila",
+                            ETC_FLASH, "flash",
                             30,  LIGHTMAGENTA,
                             30,  MAGENTA,
                             30,  YELLOW,

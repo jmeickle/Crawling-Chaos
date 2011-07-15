@@ -13,6 +13,7 @@
 
 #include "externs.h"
 
+#include "areas.h"
 #include "artefact.h"
 #include "cloud.h"
 #include "coordit.h"
@@ -38,7 +39,6 @@
 #include "spl-clouds.h"
 #include "spl-summoning.h"
 #include "stuff.h"
-#include "areas.h"
 #include "view.h"
 #include "xom.h"
 
@@ -102,32 +102,36 @@ static bool _reaching_weapon_attack(const item_def& wpn)
     if (mons && mons->submerged() && feat_is_floor(grd(beam.target)))
         mons = NULL;
 
-    const int x_middle = std::max(beam.target.x, you.pos().x)
+    const int x_first_middle = std::min(beam.target.x, you.pos().x)
+                            + (x_distance / 2);
+    const int y_first_middle = std::min(beam.target.y, you.pos().y)
+                            + (y_distance / 2);
+    const int x_second_middle = std::max(beam.target.x, you.pos().x)
                             - (x_distance / 2);
-    const int y_middle = std::max(beam.target.y, you.pos().y)
+    const int y_second_middle = std::max(beam.target.y, you.pos().y)
                             - (y_distance / 2);
-    const coord_def middle(x_middle, y_middle);
+    const coord_def first_middle(x_first_middle, y_first_middle);
+    const coord_def second_middle(x_second_middle, y_second_middle);
 
     if (x_distance > 2 || y_distance > 2)
     {
         mpr("Your weapon cannot reach that far!");
         return (false);
     }
-    else if (!you.see_cell_no_trans(beam.target)
-             && grd(middle) <= DNGN_MAX_NONREACH)
+    else if (grd(first_middle) <= DNGN_MAX_NONREACH
+             && grd(second_middle) <= DNGN_MAX_NONREACH)
     {
         // Might also be a granite statue/orcish idol which you
         // can reach _past_.
         mpr("There's a wall in the way.");
         return (false);
     }
-    else if (mons == NULL)
-    {
-        // Must return true, otherwise you get a free discovery
-        // of invisible monsters.
-        mpr("You attack empty space.");
-        return (true);
-    }
+
+    // Choose one of the two middle squares (which might be the same).
+    const coord_def middle =
+                     (grd(first_middle) <= DNGN_MAX_NONREACH ? second_middle :
+                     (grd(second_middle) <= DNGN_MAX_NONREACH ? first_middle :
+                     (coinflip() ? first_middle : second_middle)));
 
     // BCR - Added a check for monsters in the way.  Only checks cardinal
     //       directions.  Knight moves are ignored.  Assume the weapon
@@ -136,41 +140,53 @@ static bool _reaching_weapon_attack(const item_def& wpn)
     // If we're attacking more than a space away...
     if (x_distance > 1 || y_distance > 1)
     {
-        bool success = false;
-        // If either the x or the y is the same, we should check for
-        // a monster:
-        if ((beam.target.x == you.pos().x || beam.target.y == you.pos().y)
-            && monster_at(middle))
+        bool success = true;
+        monster *midmons;
+        if ((midmons = monster_at(middle))
+            && !midmons->submerged())
         {
-            const int skill = weapon_skill(wpn.base_type, wpn.sub_type);
-
-            if (x_chance_in_y(5 + (3 * skill), 40))
+            // This chance should possibly depend on your skill with
+            // the weapon.
+            if (coinflip())
             {
-                mpr("You reach to attack!");
-                success = you_attack(mons->mindex(), false);
-            }
-            else
-            {
-                mpr("You could not reach far enough!");
-                return (true);
+                success = false;
+                beam.target = middle;
+                mons = midmons;
+                if (mons->wont_attack())
+                {
+                    // Let's assume friendlies cooperate.
+                    mpr("You could not reach far enough!");
+                    return true;
+                }
             }
         }
+        if (success)
+            mpr("You reach to attack!");
         else
         {
-            mpr("You reach to attack!");
-            success = you_attack(mons->mindex(), false);
-        }
-
-        if (success)
-        {
-            // Monster might have died or gone away.
-            if (monster* m = monster_at(beam.target))
-                if (mons_is_mimic(m->type))
-                    mimic_alert(m);
+            mprf("%s is in the way.",
+                 mons->observable() ? mons->name(DESC_CAP_THE).c_str()
+                                    : "Something you can't see");
         }
     }
-    else
-        you_attack(mons->mindex(), false);
+
+    if (mons == NULL)
+    {
+        // Must return true, otherwise you get a free discovery
+        // of invisible monsters.
+        mpr("You attack empty space.");
+        return (true);
+    }
+    you_attack(mons->mindex(), false);
+
+    if ((beam.target - you.pos()).abs() > 2)
+    {
+        // Reaching to mimics might be done over water, consider this ranged.
+        // It's silly for a weapon attack...
+        if (monster* m = monster_at(beam.target))
+        if (mons_is_mimic(m->type))
+            mimic_alert(m);
+    }
 
     return (true);
 }
@@ -238,7 +254,7 @@ static bool _evoke_horn_of_geryon(item_def &item)
     {
         mpr("You produce a hideous howling noise!", MSGCH_SOUND);
         create_monster(
-            mgen_data::hostile_at(MONS_BEAST, "the horn of Geryon",
+            mgen_data::hostile_at(MONS_HELL_BEAST, "the horn of Geryon",
                 true, 4, 0, you.pos()));
     }
     return (rc);
@@ -316,7 +332,7 @@ static bool _check_crystal_ball(int subtype, bool known)
     int min_evo = 2;
     if (known && subtype == MISC_CRYSTAL_BALL_OF_SEEING)
         min_evo = 3;
-    if (you.skills[SK_EVOCATIONS] < min_evo)
+    if (you.skill(SK_EVOCATIONS) < min_evo)
     {
         mpr("You lack the skill to use this item.");
         return false;
@@ -338,7 +354,7 @@ static bool _ball_of_seeing(void)
     else if (use < 5 && enough_mp(1, true))
     {
         mpr("You feel your power drain away!");
-        set_mp(0, false);
+        set_mp(0);
         // if you're out of mana, the switch chain falls through to confusion
     }
     else if (use < 10 || you.level_type == LEVEL_LABYRINTH)
@@ -365,7 +381,6 @@ bool disc_of_storms(bool drac_breath)
 {
     const int fail_rate = (30 - you.skill(SK_EVOCATIONS));
     bool rc = false;
-    int power;
 
     if ((player_res_electricity() || x_chance_in_y(fail_rate, 100))
          && !drac_breath)
@@ -397,7 +412,7 @@ bool disc_of_storms(bool drac_breath)
                                          you.skill(SK_EVOCATIONS)/3 + 5; // 5--14
             beam.source = you.pos();
             beam.target = you.pos() + coord_def(random2(13)-6, random2(13)-6);
-            power = (drac_breath) ? 25 + you.experience_level : 30 + you.skill(SK_EVOCATIONS) * 2;
+            int power = (drac_breath) ? 25 + you.experience_level : 30 + you.skill(SK_EVOCATIONS) * 2;
             // Non-controlleable, so no player tracer.
             zapping(which_zap, power, beam);
 
@@ -519,30 +534,54 @@ void tome_of_power(int slot)
     }
 }
 
+void stop_studying_manual(bool finish)
+{
+    if (finish)
+    {
+        mprf("You have finished your manual of %s and toss it away.",
+             skill_name(you.manual_skill));
+        dec_inv_item_quantity(you.manual_index, 1);
+    }
+    else
+        mprf("You stop studying %s.", skill_name(you.manual_skill));
+
+    you.manual_skill = SK_NONE;
+    you.manual_index = -1;
+}
+
 void skill_manual(int slot)
 {
-    // Removed confirmation request because you know it's
-    // a manual in advance.
-    you.turn_is_over = true;
     item_def& manual(you.inv[slot]);
     const bool known = item_type_known(manual);
     if (!known)
         set_ident_flags(manual, ISFLAG_KNOW_TYPE);
     const skill_type skill = static_cast<skill_type>(manual.plus);
 
-    mprf("You read about %s.", skill_name(skill));
-
-    practise(EX_READ_MANUAL, skill);
-
-    if (--manual.plus2 <= 0)
+    if (skill == you.manual_skill)
     {
-        mpr("The manual crumbles into dust.");
-        dec_inv_item_quantity(slot, 1);
+        stop_studying_manual();
+        you.turn_is_over = true;
+        return;
     }
-    else
-        mpr("The manual looks somewhat more worn.");
 
-    xom_is_stimulated(known ? 14 : 64);
+    if (!known)
+    {
+        std::string prompt = make_stringf("This is a manual of %s. Do you want "
+                                          "to study it?", skill_name(skill));
+        if (!yesno(prompt.c_str()))
+        {
+            canned_msg(MSG_OK);
+            return;
+        }
+    }
+
+    if (!is_invalid_skill(you.manual_skill))
+        stop_studying_manual();
+
+    mprf("You start studying %s.", skill_name(skill));
+    you.manual_skill = skill;
+    you.manual_index = slot;
+    you.turn_is_over = true;
 }
 
 static bool _box_of_beasts(item_def &box)
@@ -554,7 +593,7 @@ static bool _box_of_beasts(item_def &box)
     if (x_chance_in_y(60 + you.skill(SK_EVOCATIONS), 100))
     {
         const monster_type beasts[] = {
-            MONS_MEGABAT,   MONS_HOUND,     MONS_JACKAL,
+            MONS_BAT,       MONS_HOUND,     MONS_JACKAL,
             MONS_RAT,       MONS_ICE_BEAST, MONS_SNAKE,
             MONS_YAK,       MONS_BUTTERFLY, MONS_WATER_MOCCASIN,
             MONS_CROCODILE, MONS_HELL_HOUND
@@ -613,7 +652,7 @@ static bool _ball_of_energy(void)
     else if (use < 4 && enough_mp(1, true))
     {
         mpr("You feel your power drain away!");
-        set_mp(0, false);
+        set_mp(0);
     }
     else if (use < 6)
     {
@@ -631,12 +670,12 @@ static bool _ball_of_energy(void)
             || one_chance_in(25))
         {
             mpr("You feel your power drain away!");
-            set_mp(0, false);
+            set_mp(0);
         }
         else
         {
             mpr("You are suffused with power!");
-            inc_mp(6 + roll_dice(2, you.skill(SK_EVOCATIONS)), false);
+            inc_mp(6 + roll_dice(2, you.skill(SK_EVOCATIONS)));
 
             ret = true;
         }
@@ -744,7 +783,7 @@ bool evoke_item(int slot)
                      && x_chance_in_y(you.skill(SK_EVOCATIONS) + 11, 40))
             {
                 mpr("You channel some magical energy.");
-                inc_mp(1 + random2(3), false);
+                inc_mp(1 + random2(3));
                 make_hungry(50, false, true);
                 pract = 1;
                 did_work = true;
@@ -827,7 +866,7 @@ bool evoke_item(int slot)
 
         case MISC_BOX_OF_BEASTS:
             if (_box_of_beasts(item))
-                pract = 1;
+                pract = 1, ident = true;
             break;
 
         case MISC_CRYSTAL_BALL_OF_ENERGY:

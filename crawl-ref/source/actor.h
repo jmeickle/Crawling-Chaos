@@ -189,7 +189,7 @@ public:
     virtual void poison(actor *attacker, int amount = 1, bool force = false) = 0;
     virtual bool sicken(int amount, bool allow_hint = true) = 0;
     virtual void paralyse(actor *attacker, int strength) = 0;
-    virtual void petrify(actor *attacker, int strength) = 0;
+    virtual void petrify(actor *attacker) = 0;
     virtual void slow_down(actor *attacker, int strength) = 0;
     virtual void confuse(actor *attacker, int strength) = 0;
     virtual void put_to_sleep(actor *attacker, int strength) = 0;
@@ -249,6 +249,7 @@ public:
     virtual int res_negative_energy() const = 0;
     virtual int res_torment() const = 0;
     virtual int res_wind() const = 0;
+    virtual int res_petrify(bool temp = true) const = 0;
     virtual int res_magic() const = 0;
     virtual int check_res_magic(int power);
 
@@ -287,6 +288,7 @@ public:
     virtual int liquefying_radius2 () const = 0;
     virtual bool glows_naturally() const = 0;
 
+    virtual bool petrifying() const = 0;
     virtual bool petrified() const = 0;
 
     virtual bool handle_trap();

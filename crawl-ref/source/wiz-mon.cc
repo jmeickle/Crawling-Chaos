@@ -39,7 +39,6 @@
 #include "showsymb.h"
 #include "spl-miscast.h"
 #include "spl-util.h"
-#include "stuff.h"
 #include "terrain.h"
 #include "view.h"
 #include "viewmap.h"
@@ -467,6 +466,14 @@ void debug_stethoscope(int mon)
          mons.base_monster != MONS_NO_MONSTER ?
          get_monster_data(mons.base_monster)->name : "",
          mons.mid, mons.number, mons.stealth(), mons.flags);
+
+    if (mons.damage_total)
+    {
+        mprf(MSGCH_DIAGNOSTICS,
+             "pdam=%1.1f/%d (%d%%)",
+             0.5 * mons.damage_friendly, mons.damage_total,
+             50 * mons.damage_friendly / mons.damage_total);
+    }
 
     // Print habitat and behaviour information.
     const habitat_type hab = mons_habitat(&mons);
@@ -1116,7 +1123,7 @@ void debug_pathfind(int mid)
             path_str += info;
         }
         mpr(path_str.c_str());
-        mprf("-> path length: %d", path.size());
+        mprf("-> path length: %u", (unsigned int)path.size());
 
         mpr("");
         path = mp.calc_waypoints();
@@ -1129,7 +1136,7 @@ void debug_pathfind(int mid)
             path_str += info;
         }
         mpr(path_str.c_str());
-        mprf("-> #waypoints: %d", path.size());
+        mprf("-> #waypoints: %u", (unsigned int)path.size());
     }
 }
 

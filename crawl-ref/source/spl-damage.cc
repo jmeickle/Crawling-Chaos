@@ -13,6 +13,7 @@
 #include "beam.h"
 #include "cloud.h"
 #include "coord.h"
+#include "coordit.h"
 #include "directn.h"
 #include "env.h"
 #include "food.h"
@@ -492,6 +493,58 @@ void cast_refrigeration(int pow, bool non_player, bool freeze_potions)
     }
 }
 
+// Screaming Sword
+void sonic_damage(bool scream)
+{
+    // First build the message.
+    counted_monster_list affected_monsters;
+
+    for (monster_iterator mi(&you); mi; ++mi)
+        if (cell_see_cell(you.pos(), mi->pos()) && !silenced(mi->pos()))
+            _record_monster_by_name(affected_monsters, *mi);
+
+    /* dpeg sez:
+       * damage applied to everyone but the wielder (reasoning: the sword
+         does not like competitors, so no allies)
+       -- so sorry, Beoghites, Jiyvaites and the rest.
+    */
+
+    if (!affected_monsters.empty())
+    {
+        const std::string message =
+            make_stringf("%s %s hurt by the noise.",
+                         _describe_monsters(affected_monsters).c_str(),
+                         _monster_count(affected_monsters) == 1? "is" : "are");
+        if (strwidth(message) < get_number_of_cols() - 2)
+            mpr(message.c_str());
+        else
+        {
+            // Exclamation mark to suggest that a lot of creatures were
+            // affected.
+            mpr("The monsters around you reel from the noise!");
+        }
+    }
+
+    // Now damage the creatures.
+    for (monster_iterator mi(you.get_los()); mi; ++mi)
+    {
+        if (!cell_see_cell(you.pos(), mi->pos()) || silenced(mi->pos()))
+            continue;
+        int hurt = (random2(2) + 1) * (random2(2) + 1) * (random2(3) + 1)
+                 + (random2(3) + 1) + 1;
+        if (scream)
+            hurt = std::max(hurt * 2, 16);
+        int cap = scream ? mi->max_hit_points / 2 : mi->max_hit_points * 3 / 10;
+        hurt = std::min(hurt, std::max(cap, 1));
+        /* per dpeg:
+         * damage is universal (well, only to those who can hear, but not sure
+           we can determine that in-game), i.e. smiting, no resists
+        */
+        dprf("damage done: %d", hurt);
+        mi->hurt(&you, hurt);
+    }
+}
+
 bool vampiric_drain(int pow, monster* mons)
 {
     if (mons == NULL || mons->submerged())
@@ -570,7 +623,7 @@ bool vampiric_drain(int pow, monster* mons)
     if (hp_gain && !mons_was_summoned)
     {
         mpr("You feel life coursing into your body.");
-        inc_hp(hp_gain, false);
+        inc_hp(hp_gain);
     }
 
     return (true);
@@ -631,68 +684,68 @@ bool cast_freeze(int pow, monster* mons)
     return (true);
 }
 
-int airstrike(int pow, const dist &beam)
+bool cast_airstrike(int pow, const dist &beam)
 {
-    bool success = false;
-
     monster* mons = monster_at(beam.target);
     if (mons && (mons->submerged() ||
                  (cell_is_solid(beam.target) && mons_wall_shielded(mons))))
         mons = NULL;
 
     if (mons == NULL)
-        canned_msg(MSG_SPELL_FIZZLES);
-    else
     {
-        if (mons->res_wind() > 0)
-        {
-            mprf("The air twists arounds and harmlessly tosses %s around.",
-                 mons->name(DESC_NOCAP_THE).c_str());
-            // Bailing out early, no need to upset the gods or the target.
-            return (false);
-        }
-
-        god_conduct_trigger conducts[3];
-        disable_attack_conducts(conducts);
-
-        success = !stop_attack_prompt(mons, false, you.pos());
-
-        if (success)
-        {
-            set_attack_conducts(conducts, mons);
-
-            mprf("The air twists around and strikes %s!",
-                 mons->name(DESC_NOCAP_THE).c_str());
-            noisy(4, beam.target);
-
-            behaviour_event(mons, ME_ANNOY, MHITYOU);
-            if (mons_is_mimic(mons->type))
-                mimic_alert(mons);
-        }
-
-        enable_attack_conducts(conducts);
-
-        if (success)
-        {
-            int hurted = 8 + random2(random2(4) + (random2(pow) / 6)
-                           + (random2(pow) / 7));
-
-            bolt pbeam;
-            pbeam.flavour = BEAM_AIR;
-            hurted = mons->beam_resists(pbeam, hurted, false);
-            // perhaps we should let the beam subtract AC and do damage too?
-
-            hurted -= random2(1 + mons->ac);
-
-            hurted = std::max(0, hurted);
-
-            mons->hurt(&you, hurted);
-            if (mons->alive())
-                print_wounds(mons);
-        }
+        canned_msg(MSG_SPELL_FIZZLES);
+        return true; // still losing a turn
     }
 
-    return (success);
+    if (mons->res_wind() > 0)
+    {
+        if (mons->observable())
+        {
+            mprf("But air would do no harm to %s!",
+                 mons->name(DESC_NOCAP_THE).c_str());
+            return false;
+        }
+        mprf("The air twists arounds and harmlessly tosses %s around.",
+             mons->name(DESC_NOCAP_THE).c_str());
+        // Bailing out early, no need to upset the gods or the target.
+        return true; // you still did discover the invisible monster
+    }
+
+    god_conduct_trigger conducts[3];
+    disable_attack_conducts(conducts);
+
+    if (stop_attack_prompt(mons, false, you.pos()))
+        return false;
+
+    set_attack_conducts(conducts, mons);
+
+    mprf("The air twists around and strikes %s!",
+         mons->name(DESC_NOCAP_THE).c_str());
+    noisy(4, beam.target);
+
+    behaviour_event(mons, ME_ANNOY, MHITYOU);
+    if (mons_is_mimic(mons->type))
+        mimic_alert(mons);
+
+    enable_attack_conducts(conducts);
+
+    int hurted = 8 + random2(random2(4) + (random2(pow) / 6)
+                   + (random2(pow) / 7));
+
+    bolt pbeam;
+    pbeam.flavour = BEAM_AIR;
+    hurted = mons->beam_resists(pbeam, hurted, false);
+    // perhaps we should let the beam subtract AC and do damage too?
+
+    hurted -= random2(1 + mons->armour_class());
+
+    hurted = std::max(0, hurted);
+
+    mons->hurt(&you, hurted);
+    if (mons->alive())
+        print_wounds(mons);
+
+    return true;
 }
 
 // Just to avoid typing this over and over.
@@ -722,7 +775,7 @@ static bool _player_hurt_monster(monster& m, int damage,
 // Here begin the actual spells:
 static int _shatter_monsters(coord_def where, int pow, int, actor *)
 {
-    dice_def dam_dice(0, 5 + pow / 3); // number of dice set below
+    dice_def dam_dice(0, 5 + pow / 3); // Number of dice set below.
     monster* mon = monster_at(where);
 
     if (mon == NULL)
@@ -733,69 +786,54 @@ static int _shatter_monsters(coord_def where, int pow, int, actor *)
     // made out of the substance. - bwr
     switch (mon->type)
     {
-    case MONS_SILVER_STATUE: // 3/2 damage
-        dam_dice.num = 4;
-        break;
-
-    case MONS_CURSE_SKULL:      // double damage
+    // Double damage to stone, metal and crystal.
+    case MONS_EARTH_ELEMENTAL:
     case MONS_CLAY_GOLEM:
     case MONS_STONE_GOLEM:
-    case MONS_IRON_GOLEM:
-    case MONS_CRYSTAL_GOLEM:
-    case MONS_ORANGE_STATUE:
     case MONS_STATUE:
-    case MONS_EARTH_ELEMENTAL:
     case MONS_GARGOYLE:
+    case MONS_IRON_ELEMENTAL:
+    case MONS_IRON_GOLEM:
+    case MONS_METAL_GARGOYLE:
+    case MONS_CRYSTAL_GOLEM:
+    case MONS_SILVER_STATUE:
+    case MONS_ORANGE_STATUE:
+    case MONS_ROXANNE:
         dam_dice.num = 6;
         break;
 
-    case MONS_PULSATING_LUMP:
-    case MONS_JELLY:
-    case MONS_SLIME_CREATURE:
-    case MONS_BROWN_OOZE:
-    case MONS_AZURE_JELLY:
-    case MONS_DEATH_OOZE:
-    case MONS_ACID_BLOB:
-    case MONS_ROYAL_JELLY:
-    case MONS_OOZE:
+    // 1/3 damage to liquids.
     case MONS_JELLYFISH:
     case MONS_WATER_ELEMENTAL:
         dam_dice.num = 1;
-        dam_dice.size /= 2;
-        break;
-
-    case MONS_DANCING_WEAPON:     // flies, but earth based
-    case MONS_MOLTEN_GARGOYLE:
-    case MONS_QUICKSILVER_DRAGON:
-        // Soft, earth creatures... would normally resist to 1 die, but
-        // are sensitive to this spell. - bwr
-        dam_dice.num = 2;
         break;
 
     default:
-        if (mon->is_insubstantial()) // no damage
-            dam_dice.num = 0;
-        else if (mons_flies(mon))    // 1/3 damage
-            dam_dice.num = 1;
-        else if (mon->is_icy())      // 3/2 damage
-            dam_dice.num = 4;
-        else if (mon->is_skeletal()) // double damage
-            dam_dice.num = 6;
-        else
-        {
-            const bool petrifying = mon->petrifying();
-            const bool petrified = mon->petrified() && !petrifying;
+        const bool petrifying = mon->petrifying();
+        const bool petrified = mon->petrified() && !petrifying;
 
-            // Petrifying or petrified monsters can be shattered.
-            if (petrifying || petrified)
-                dam_dice.num = petrifying ? 4 : 6; // 3/2 or double damage
-            else
-                dam_dice.num = 3;
-        }
+        // Extra damage to petrifying/petrified things.
+        if (petrifying || petrified)
+            dam_dice.num = petrifying ? 4 : 6;
+        // No damage to insubstantials.
+        else if (mon->is_insubstantial())
+            dam_dice.num = 0;
+        // 1/3 damage to fliers and slimes.
+        else if (mons_flies(mon) || mons_is_slime(mon))
+            dam_dice.num = 1;
+        // 3/2 damage to ice.
+        else if (mon->is_icy())
+            dam_dice.num = 4;
+        // Double damage to bone.
+        else if (mon->is_skeletal())
+            dam_dice.num = 6;
+        // Normal damage to everything else.
+        else
+            dam_dice.num = 3;
         break;
     }
 
-    int damage = std::max(0, dam_dice.roll() - random2(mon->ac));
+    int damage = std::max(0, dam_dice.roll() - random2(mon->armour_class()));
 
     if (damage > 0)
         _player_hurt_monster(*mon, damage);
@@ -1144,7 +1182,6 @@ static int _ignite_poison_monsters(coord_def where, int pow, int, actor *actor)
 
 static int _ignite_poison_player(coord_def where, int pow, int, actor *actor)
 {
-
     if (actor->is_player() || where != you.pos())
         return (0);
 
@@ -1370,7 +1407,7 @@ bool cast_fragmentation(int pow, const dist& spd)
 
     if (!exists_ray(you.pos(), spd.target))
     {
-        mpr("There's a wall in the way!");
+        mpr("There's something in the way!");
         return (false);
     }
 
@@ -1413,6 +1450,17 @@ bool cast_fragmentation(int pow, const dist& spd)
                                  BEAM_DISINTEGRATION);
             break;
 
+        case MONS_TOENAIL_GOLEM:
+            explode         = true;
+            beam.name       = "blast of toenail fragments";
+            beam.colour     = RED;
+            beam.damage.num = 2;
+            if (_player_hurt_monster(*mon, beam.damage.roll(),
+                                     BEAM_DISINTEGRATION))
+                beam.damage.num ++;
+            break;
+
+        case MONS_IRON_ELEMENTAL:
         case MONS_IRON_GOLEM:
         case MONS_METAL_GARGOYLE:
             explode         = true;
@@ -1424,11 +1472,11 @@ bool cast_fragmentation(int pow, const dist& spd)
                 beam.damage.num += 2;
             break;
 
-        case MONS_CLAY_GOLEM:   // Assume baked clay and not wet loam.
-        case MONS_STONE_GOLEM:
         case MONS_EARTH_ELEMENTAL:
-        case MONS_GARGOYLE:
+        case MONS_CLAY_GOLEM:
+        case MONS_STONE_GOLEM:
         case MONS_STATUE:
+        case MONS_GARGOYLE:
             explode         = true;
             beam.ex_size    = 2;
             beam.name       = "blast of rock fragments";
@@ -1443,17 +1491,16 @@ bool cast_fragmentation(int pow, const dist& spd)
         case MONS_ORANGE_STATUE:
             explode         = true;
             beam.ex_size    = 2;
+            beam.damage.num = 4;
             if (mon->type == MONS_SILVER_STATUE)
             {
                 beam.name       = "blast of silver fragments";
                 beam.colour     = WHITE;
-                beam.damage.num = 3;
             }
             else
             {
                 beam.name       = "blast of orange crystal shards";
                 beam.colour     = LIGHTRED;
-                beam.damage.num = 6;
             }
 
             {
@@ -1468,18 +1515,43 @@ bool cast_fragmentation(int pow, const dist& spd)
             break;
 
         case MONS_CRYSTAL_GOLEM:
+        case MONS_ROXANNE:
             explode         = true;
             beam.ex_size    = 2;
-            beam.name       = "blast of crystal shards";
-            beam.colour     = WHITE;
             beam.damage.num = 4;
+            if (mon->type == MONS_CRYSTAL_GOLEM)
+            {
+                beam.name       = "blast of crystal shards";
+                beam.colour     = GREEN;
+            }
+            else
+            {
+                beam.name       = "blast of sapphire shards";
+                beam.colour     = BLUE;
+            }
             if (_player_hurt_monster(*mon, beam.damage.roll(),
                                      BEAM_DISINTEGRATION))
                 beam.damage.num += 2;
             break;
 
         default:
-            if (mon->is_icy()) // blast of ice
+            const bool petrifying = mon->petrifying();
+            const bool petrified = mon->petrified() && !petrifying;
+
+            // Petrifying or petrified monsters can be exploded.
+            if (petrifying || petrified)
+            {
+                explode         = true;
+                beam.ex_size    = petrifying ? 1 : 2;
+                beam.name       = "blast of petrified fragments";
+                beam.colour     = mons_class_colour(mon->type);
+                beam.damage.num = petrifying ? 2 : 3;
+                if (_player_hurt_monster(*mon, beam.damage.roll(),
+                                         BEAM_DISINTEGRATION))
+                    beam.damage.num++;
+                break;
+            }
+            else if (mon->is_icy()) // blast of ice
             {
                 explode         = true;
                 beam.name       = "icy blast";
@@ -1513,25 +1585,6 @@ bool cast_fragmentation(int pow, const dist& spd)
                           beam.damage.num += 2;
                   }
                   goto all_done; // i.e., no "Foo Explodes!"
-            }
-            else
-            {
-                const bool petrifying = mon->petrifying();
-                const bool petrified = mon->petrified() && !petrifying;
-
-                // Petrifying or petrified monsters can be exploded.
-                if (petrifying || petrified)
-                {
-                    explode         = true;
-                    beam.ex_size    = petrifying ? 1 : 2;
-                    beam.name       = "blast of petrified fragments";
-                    beam.colour     = mons_class_colour(mon->type);
-                    beam.damage.num = petrifying ? 2 : 3;
-                    if (_player_hurt_monster(*mon, beam.damage.roll(),
-                                             BEAM_DISINTEGRATION))
-                        beam.damage.num++;
-                    break;
-                }
             }
 
             // Mark that a monster was targeted.
@@ -1683,7 +1736,8 @@ bool cast_fragmentation(int pow, const dist& spd)
     case DNGN_TRAP_MECHANICAL:
     {
         trap_def* ptrap = find_trap(spd.target);
-        if (ptrap && ptrap->category() != DNGN_TRAP_MECHANICAL)
+        ASSERT(ptrap);
+        if (ptrap->category() != DNGN_TRAP_MECHANICAL)
         {
             // Non-mechanical traps don't explode with this spell. -- bwr
             break;
@@ -1797,4 +1851,92 @@ bool cast_sandblast(int pow, bolt &beam)
         dec_inv_item_quantity(you.equip[EQ_WEAPON], 1);
 
     return (success);
+}
+
+// Find an enemy who would suffer from Awaken Forest.
+actor* forest_near_enemy(const actor *mon)
+{
+    const coord_def pos = mon->pos();
+
+    for (radius_iterator ri(pos, LOS_RADIUS); ri; ++ri)
+    {
+        actor* foe = actor_at(*ri);
+        if (!foe || mons_aligned(foe, mon))
+            continue;
+
+        for (adjacent_iterator ai(*ri); ai; ++ai)
+            if (feat_is_tree(grd(*ai)) && cell_see_cell(pos, *ai, LOS_DEFAULT))
+                return (foe);
+    }
+
+    return (NULL);
+}
+
+// Print a message only if you can see any affected trees.
+void forest_message(const coord_def pos, const std::string &msg, msg_channel_type ch)
+{
+    for (radius_iterator ri(pos, LOS_RADIUS); ri; ++ri)
+        if (feat_is_tree(grd(*ri))
+            && cell_see_cell(you.pos(), *ri, LOS_DEFAULT)
+            && cell_see_cell(pos, *ri, LOS_DEFAULT))
+        {
+            mpr(msg, ch);
+            return;
+        }
+}
+
+void forest_damage(const actor *mon)
+{
+    const coord_def pos = mon->pos();
+
+    if (one_chance_in(4))
+        forest_message(pos, random_choose_string(
+            "The trees move their gnarly branches around.",
+            "You feel roots moving beneath the ground.",
+            "Branches wave dangerously above you.",
+            "Trunks creak and shift.",
+            "Tree limbs sway around you.",
+            0), MSGCH_TALK_VISUAL);
+
+    for (radius_iterator ri(pos, LOS_RADIUS); ri; ++ri)
+    {
+        actor* foe = actor_at(*ri);
+        if (!foe || mons_aligned(foe, mon))
+            continue;
+
+        for (adjacent_iterator ai(*ri); ai; ++ai)
+            if (feat_is_tree(grd(*ai)) && cell_see_cell(pos, *ai, LOS_DEFAULT))
+            {
+                const int damage = 5 + random2(10);
+                if (foe->atype() == ACT_PLAYER)
+                {
+                    mpr(random_choose_string(
+                        "You are hit by a branch!",
+                        "A tree reaches out and hits you!",
+                        "A root smacks you from below.",
+                        0));
+                    ouch(damage, mon->mindex(), KILLED_BY_BEAM,
+                         "angry trees", true);
+                }
+                else
+                {
+                    if (you.see_cell(foe->pos()))
+                    {
+                        const char *msg = random_choose_string(
+                            "%s is hit by a branch!",
+                            "A tree reaches out and hits %s!",
+                            "A root smacks %s from below.",
+                            0);
+                        const bool up = *msg == '%';
+                        // "it" looks butt-ugly here...
+                        mprf(msg, foe->visible_to(&you) ?
+                                      foe->name(up ? DESC_CAP_THE
+                                                   : DESC_NOCAP_THE).c_str()
+                                    : up ? "Something" : "something");
+                    }
+                    foe->hurt(mon, damage);
+                }
+                break;
+            }
+    }
 }

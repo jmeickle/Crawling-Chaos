@@ -10,6 +10,7 @@
 #include "dungeon.h"
 #include "dgn-shoals.h"
 #include "dgn-swamp.h"
+#include "dgn-layouts.h"
 #include "cluautil.h"
 #include "coord.h"
 #include "coordit.h"
@@ -769,7 +770,7 @@ LUAFN(dgn_replace_random)
             if (lines(x, y) == find)
                 loc.push_back(coord_def(x, y));
 
-    if (!loc.size())
+    if (loc.empty())
     {
         if (required)
             return (luaL_error(ls, "Could not find '%c'", find));
@@ -903,19 +904,19 @@ LUAFN(dgn_layout_type)
 
 LUAFN(dgn_layout_basic)
 {
-    builder_basic(you.absdepth0);
+    dgn_build_basic_level(you.absdepth0);
     return 0;
 }
 
 LUAFN(dgn_layout_bigger_room)
 {
-    bigger_room();
+    dgn_build_bigger_room_level();
     return 0;
 }
 
-LUAFN(dgn_layout_plan_4)
+LUAFN(dgn_layout_chaotic_city)
 {
-    plan_4(NUM_FEATURES);
+    dgn_build_chaotic_city_level(NUM_FEATURES);
     return 0;
 }
 
@@ -963,7 +964,7 @@ const struct luaL_reg dgn_build_dlib[] =
 
     { "layout_basic", &dgn_layout_basic },
     { "layout_bigger_room", &dgn_layout_bigger_room },
-    { "layout_plan_4", &dgn_layout_plan_4 },
+    { "layout_chaotic_city", &dgn_layout_chaotic_city },
     { "layout_shoals", &dgn_layout_shoals },
     { "layout_swamp", &dgn_layout_swamp },
 

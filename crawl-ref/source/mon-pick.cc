@@ -186,6 +186,7 @@ bool mons_abyss(int mcls)
     case MONS_DEEP_DWARF_BERSERKER:
     case MONS_DEEP_DWARF_DEATH_KNIGHT:
     case MONS_UNBORN_DEEP_DWARF:
+    case MONS_KENKU:
         return (true);
     default:
         return (false);
@@ -332,6 +333,7 @@ int mons_rare_abyss(int mcls)
     case MONS_DEEP_DWARF_BERSERKER:
     case MONS_DEEP_DWARF_DEATH_KNIGHT:
     case MONS_UNBORN_DEEP_DWARF:
+    case MONS_KENKU:
         return 5;
 
     case MONS_AIR_ELEMENTAL:
@@ -482,7 +484,7 @@ int mons_standard_level(int mcls)
     case MONS_SMALL_SNAKE:
         return 2;
 
-    case MONS_MEGABAT:
+    case MONS_BAT:
     case MONS_KOBOLD:
     case MONS_RAT:
         return 4;
@@ -546,7 +548,6 @@ int mons_standard_level(int mcls)
         return 11;
 
     case MONS_EYE_OF_DRAINING:
-    case MONS_GILA_MONSTER:
     case MONS_MANTICORE:
     case MONS_PLANT:
     case MONS_WYVERN:
@@ -577,6 +578,7 @@ int mons_standard_level(int mcls)
     case MONS_TRAPDOOR_SPIDER:
         return 14;
 
+    case MONS_BASILISK:
     case MONS_BRAIN_WORM:
     case MONS_CYCLOPS:
     case MONS_EFREET:
@@ -584,6 +586,7 @@ int mons_standard_level(int mcls)
     case MONS_HYDRA:
     case MONS_MOTTLED_DRAGON:
     case MONS_SKELETAL_WARRIOR:
+    case MONS_CATOBLEPAS:
     // feature mimics
     case MONS_PORTAL_MIMIC:
     case MONS_STAIR_MIMIC:
@@ -749,7 +752,7 @@ int mons_standard_rare(int mcls)
     case MONS_SALAMANDER:
         return 500;
 
-    case MONS_MEGABAT:
+    case MONS_BAT:
     case MONS_GIANT_FROG:
     case MONS_GOBLIN:
     case MONS_HILL_GIANT:
@@ -855,9 +858,10 @@ int mons_standard_rare(int mcls)
 
     case MONS_FREEZING_WRAITH:
     case MONS_GIANT_AMOEBA:
-    case MONS_GILA_MONSTER:
+    case MONS_BASILISK:
     case MONS_GLOWING_SHAPESHIFTER:
     case MONS_SOLDIER_ANT:
+    case MONS_CATOBLEPAS:
         return 35;
 
     case MONS_BOULDER_BEETLE:
@@ -1280,7 +1284,7 @@ int mons_lair_level(int mcls)
     switch (mcls)
     {
     case MONS_GIANT_GECKO:
-    case MONS_MEGABAT:
+    case MONS_BAT:
     case MONS_JACKAL:
     case MONS_GIANT_NEWT:
     case MONS_RAT:
@@ -1291,7 +1295,6 @@ int mons_lair_level(int mcls)
         break;
 
     case MONS_GIANT_FROG:
-    case MONS_GILA_MONSTER:
     case MONS_PORCUPINE:
     case MONS_HOUND:
     case MONS_BLACK_BEAR:
@@ -1319,6 +1322,7 @@ int mons_lair_level(int mcls)
     case MONS_SPINY_FROG:
     case MONS_WAR_DOG:
     case MONS_YELLOW_WASP:
+    case MONS_BASILISK:
         mlev += 3;
         break;
 
@@ -1344,6 +1348,7 @@ int mons_lair_level(int mcls)
     case MONS_WYVERN:
     case MONS_TRAPDOOR_SPIDER:
     case MONS_ROCK_WORM:
+    case MONS_CATOBLEPAS:
         mlev += 5;
         break;
 
@@ -1380,7 +1385,7 @@ int mons_lair_rare(int mcls)
     case MONS_RAT:
         return 200;
 
-    case MONS_MEGABAT:
+    case MONS_BAT:
     case MONS_GIANT_TOAD:
     case MONS_GIANT_FROG:
     case MONS_PORCUPINE:
@@ -1400,7 +1405,6 @@ int mons_lair_rare(int mcls)
 
     case MONS_JACKAL:
     case MONS_IGUANA:
-    case MONS_GILA_MONSTER:
         return 70;
 
     case MONS_GREEN_RAT:
@@ -1424,6 +1428,9 @@ int mons_lair_rare(int mcls)
     case MONS_YAK:
         return 50;
 
+    case MONS_BASILISK:
+        if (Version::ReleaseType() == VER_ALPHA)
+            return 35;
     case MONS_BLACK_MAMBA:
         return 47;
 
@@ -1459,6 +1466,9 @@ int mons_lair_rare(int mcls)
     case MONS_POLAR_BEAR:
         return 15;
 
+    case MONS_CATOBLEPAS:
+        if (Version::ReleaseType() == VER_ALPHA)
+            return 47;
     case MONS_GOLIATH_BEETLE:
     case MONS_SCORPION:
     case MONS_OKLOB_PLANT:
@@ -1506,7 +1516,7 @@ int mons_swamp_level(int mcls)
 
     switch (mcls)
     {
-    case MONS_MEGABAT:
+    case MONS_BAT:
     case MONS_GIANT_FROG:
     case MONS_GIANT_AMOEBA:
     case MONS_GIANT_SLUG:
@@ -1578,7 +1588,7 @@ int mons_swamp_rare(int mcls)
     case MONS_ALLIGATOR:
         return 150;
 
-    case MONS_MEGABAT:
+    case MONS_BAT:
     case MONS_FUNGUS:
         return 99;
 
@@ -1657,7 +1667,7 @@ int mons_shoals_level(int mcls)
     switch (mcls)
     {
     case MONS_BUTTERFLY:
-    case MONS_MEGABAT:
+    case MONS_BAT:
         break;
 
     case MONS_MERFOLK:
@@ -1712,7 +1722,7 @@ int mons_shoals_rare(int mcls)
         return 40;
 
     case MONS_HIPPOGRIFF:
-    case MONS_MEGABAT:
+    case MONS_BAT:
     case MONS_BUTTERFLY:
     case MONS_SHARK:
         return 35;
@@ -2470,6 +2480,59 @@ int mons_hallzot_rare(int mcls)
 }
 
 // The Hells
+
+// The Vestibule of Hell
+int mons_vestibule_level(int mcls)
+{
+    int mlev = absdungeon_depth(BRANCH_VESTIBULE_OF_HELL, 1);
+
+    if (!mons_vestibule_rare(mcls))
+        return mlev + 99;
+    // Depths are irrelevant for a depth-1 branch.
+    return mlev + 1;
+}
+
+int mons_vestibule_rare(int mcls)
+{
+    switch (mcls)
+    {
+    case MONS_SUN_DEMON:
+    case MONS_REAPER:
+    case MONS_SOUL_EATER:
+    case MONS_ICE_DEVIL:
+        return 50;
+
+    case MONS_HELL_KNIGHT:
+    case MONS_NECROMANCER:
+    case MONS_HELL_HOG:
+        return 25;
+
+    case MONS_DEMONIC_CRAWLER:
+    case MONS_HELL_HOUND:
+    case MONS_ORANGE_RAT:
+    case MONS_RED_DEVIL:
+    case MONS_HAIRY_DEVIL:
+    case MONS_BLUE_DEVIL:
+    case MONS_IRON_DEVIL:
+    case MONS_LOROCYPROCA:
+        return 20;
+
+    case MONS_GREEN_DEATH:
+    case MONS_BLUE_DEATH:
+    case MONS_BALRUG:
+    case MONS_CACODEMON:
+        return 15;
+
+    case MONS_HELLION:
+    case MONS_TORMENTOR:
+    case MONS_TENTACLED_MONSTROSITY:
+    case MONS_HELLEPHANT:
+        return 10;
+
+    default:
+        return 0;
+    }
+}
 
 // The Iron City of Dis
 int mons_dis_level(int mcls)

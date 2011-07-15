@@ -22,10 +22,6 @@
 #include <unistd.h>
 #endif
 
-#ifdef TARGET_COMPILER_MINGW
-#include <io.h>
-#endif
-
 #ifdef HAVE_UTIMES
 #include <sys/time.h>
 #endif
@@ -46,7 +42,7 @@
 #include "coordit.h"
 #include "debug.h"
 #include "delay.h"
-#include "dgn-actions.h"
+#include "dactions.h"
 #include "dgn-overview.h"
 #include "directn.h"
 #include "dungeon.h"
@@ -81,7 +77,6 @@
 #include "show.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
 #include "syscalls.h"
 #include "tags.h"
 #ifdef USE_TILE
@@ -415,7 +410,7 @@ static std::vector<std::string> _get_base_dirs()
 
     const std::string prefixes[] = {
         std::string("dat") + FILE_SEPARATOR,
-#ifdef USE_TILE
+#ifdef USE_TILE_LOCAL
         std::string("dat/tiles") + FILE_SEPARATOR,
 #endif
         std::string("docs") + FILE_SEPARATOR,
@@ -423,7 +418,7 @@ static std::vector<std::string> _get_base_dirs()
 #ifndef DATA_DIR_PATH
         std::string("..") + FILE_SEPARATOR + "docs" + FILE_SEPARATOR,
         std::string("..") + FILE_SEPARATOR + "dat" + FILE_SEPARATOR,
-#ifdef USE_TILE
+#ifdef USE_TILE_LOCAL
         std::string("..") + FILE_SEPARATOR + "dat/tiles" + FILE_SEPARATOR,
 #endif
         std::string("..") + FILE_SEPARATOR + "settings" + FILE_SEPARATOR,
@@ -895,10 +890,6 @@ static void _place_player_on_stair(level_area_type old_level_type,
         if (player_in_hell())
             stair_taken = DNGN_ENTER_HELL;
     }
-    else if (stair_taken == DNGN_EXIT_ABYSS)
-    {
-        stair_taken = DNGN_STONE_STAIRS_UP_I;
-    }
     else if (stair_taken == DNGN_ENTER_PORTAL_VAULT)
     {
         stair_taken = DNGN_STONE_ARCH;
@@ -1004,7 +995,6 @@ static void _grab_followers()
     int non_stair_using_allies = 0;
     monster* dowan = NULL;
     monster* duvessa = NULL;
-    monster* pikel = NULL;
 
     // Handle nearby ghosts.
     for (adjacent_iterator ai(you.pos()); ai; ++ai)
@@ -1029,10 +1019,6 @@ static void _grab_followers()
                 mpr("The ghost fades into the shadows.");
             monster_teleport(fmenv, true);
         }
-
-        // From here, we can't fail, so check to see if we've got Pikel
-        if (mons_is_pikel(fmenv))
-            pikel = fmenv;
     }
 
     // Deal with Dowan and Duvessa here.
@@ -1098,9 +1084,6 @@ static void _grab_followers()
             continue;
         mons->flags &= ~MF_TAKING_STAIRS;
     }
-
-    if (pikel && !pikel->alive())
-        pikel_band_neutralise(true);
 }
 
 // Should be called after _grab_followers(), so that items carried by
@@ -1344,23 +1327,15 @@ bool load(dungeon_feature_type stair_taken, load_mode_type load_mode,
         if (just_created_level)
             level_welcome_messages();
 
-        // Centaurs have difficulty with stairs
-        int timeval = ((you.species != SP_CENTAUR) ? player_movement_speed()
-                                                   : 15);
+        // new levels have less wary monsters, and we don't
+        // want them to attack players quite as soon:
+        you.time_taken *= (just_created_level ? 1 : 2);
 
-        // new levels have less wary monsters:
-        if (just_created_level)
-            timeval /= 2;
+        you.time_taken = div_rand_round(you.time_taken, 3);
 
-        timeval -= (stepdown_value(check_stealth(), 50, 50, 150, 150) / 10);
+        dprf("arrival time: %d", you.time_taken);
 
-        dprf("arrival time: %d", timeval);
-
-        if (timeval > 0)
-        {
-            you.time_taken = timeval;
-            handle_monsters();
-        }
+        handle_monsters();
 
         if (just_created_level)
             run_map_epilogues();
@@ -1453,7 +1428,7 @@ bool load(dungeon_feature_type stair_taken, load_mode_type load_mode,
                 if (coinflip())
                 {
                     // Stairs stop fleeing from you now you actually caught one.
-                    mprf("%s settles down.", stair_str.c_str(), verb.c_str());
+                    mprf("%s settles down.", stair_str.c_str());
                     you.duration[DUR_REPEL_STAIRS_MOVE]  = 0;
                     you.duration[DUR_REPEL_STAIRS_CLIMB] = 0;
                 }
@@ -1691,7 +1666,7 @@ bool load_ghost(bool creating_level)
     if (do_diagnostics)
     {
         mprf(MSGCH_DIAGNOSTICS, "Loaded ghost file with %u ghost(s)",
-             ghosts.size());
+             (unsigned int)ghosts.size());
     }
 #endif
 
@@ -1739,7 +1714,7 @@ bool load_ghost(bool creating_level)
     if (do_diagnostics && unplaced_ghosts > 0)
     {
         mprf(MSGCH_DIAGNOSTICS, "Unable to place %u ghost(s)",
-             ghosts.size());
+             (unsigned int)ghosts.size());
         ghost_errors = true;
     }
     if (ghost_errors)
@@ -1915,7 +1890,7 @@ bool get_save_version(reader &file, int &major, int &minor)
     {
         file.read(buf, 2);
     }
-    catch (short_read_exception E)
+    catch (short_read_exception& E)
     {
         // Empty file?
         major = minor = -1;
@@ -2311,13 +2286,9 @@ void sighup_save_and_exit()
     if (crawl_state.saving_game || crawl_state.updating_scores)
         return;
 
-#ifdef UNIX
     // Set up an alarm to force-kill Crawl if it rudely ignores the
     // hangup signal.
     alarm(10);
-#else
-    #warning FIXME -- hanging process if anything bad happens during shutdown
-#endif
 
     interrupt_activity(AI_FORCE_INTERRUPT);
 

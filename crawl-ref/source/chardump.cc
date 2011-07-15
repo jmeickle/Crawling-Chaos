@@ -50,7 +50,6 @@
 #include "spl-util.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
 #include "env.h"
 #include "transform.h"
 #include "travel.h"
@@ -371,13 +370,21 @@ static void _sdump_visits(dump_params &par)
 
         if (num_zigs > 0)
         {
-            text += make_stringf("You %svisited %d Ziggurat",
-                                 have.c_str(), num_zigs);
+            text += make_stringf("You %s%s %d Ziggurat",
+                                 have.c_str(),
+                                 (num_zigs == you.zigs_completed) ? "completed"
+                                                                  : "visited",
+                                 num_zigs);
             if (num_zigs > 1)
                 text += "s";
-            text += make_stringf(", and %s %d of %s levels.\n",
+            if (num_zigs != you.zigs_completed && you.zigs_completed)
+                text += make_stringf(" (completing %d)", you.zigs_completed);
+            text += make_stringf(", and %s %d of %s levels",
                                  seen.c_str(), zig_levels,
                                  num_zigs > 1 ? "their" : "its");
+            if (num_zigs != 1 && !you.zigs_completed)
+                text += make_stringf(" (deepest: %d)", you.zig_max);
+            text += ".\n";
         }
 
         if (!misc_portals.empty())
@@ -604,7 +611,7 @@ static void _sdump_notes(dump_params &par)
     if (note_list.empty())
         return;
 
-    text += "\nNotes\nTurn   | Place   | Note\n";
+    text += "\nNotes\nTurn   | Place    | Note\n";
     text += "--------------------------------------------------------------\n";
     for (unsigned i = 0; i < note_list.size(); ++i)
     {
@@ -745,10 +752,10 @@ static void _sdump_inventory(dump_params &par)
     std::string &text(par.text);
     std::string text2;
 
-    int inv_class2[OBJ_GOLD];
+    int inv_class2[NUM_OBJECT_CLASSES];
     int inv_count = 0;
 
-    for (i = 0; i < OBJ_GOLD; i++)
+    for (i = 0; i < NUM_OBJECT_CLASSES; i++)
         inv_class2[i] = 0;
 
     for (i = 0; i < ENDOFPACK; i++)
@@ -770,7 +777,7 @@ static void _sdump_inventory(dump_params &par)
     {
         text += "Inventory:\n\n";
 
-        for (i = 0; i < OBJ_GOLD; i++)
+        for (i = 0; i < NUM_OBJECT_CLASSES; i++)
         {
             if (inv_class2[i] != 0)
             {
@@ -848,13 +855,7 @@ static void _sdump_skills(dump_params &par)
 {
     std::string &text(par.text);
 
-    if (par.se)
-        text += " You had ";
-    else
-        text += " You have ";
-
-    text += make_stringf("%d experience left.\n", you.exp_available);
-    text += "\n   Skills:\n";
+    text += "   Skills:\n";
 
     dump_skills(text);
     text += "\n";
@@ -1291,7 +1292,7 @@ void display_notes()
     scr.set_flags(MF_START_AT_END);
     scr.set_tag("notes");
     scr.set_highlighter(new MenuHighlighter);
-    scr.set_title(new MenuEntry("Turn   | Place   | Note"));
+    scr.set_title(new MenuEntry("Turn   | Place    | Note"));
     for (unsigned int i = 0; i < note_list.size(); ++i)
     {
         std::string prefix = note_list[i].describe(true, true, false);

@@ -138,6 +138,7 @@ struct bolt
     bool        can_see_invis;   // tracer firer can see invisible?
     mon_attitude_type attitude;  // attitude of whoever fired tracer
     int         foe_ratio;       // 100* foe ratio (see mons_should_fire())
+    std::map<mid_t, int> hit_count; // how many times targets were affected
 
     tracer_info foe_info;
     tracer_info friend_info;
@@ -304,7 +305,7 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
 bool enchant_monster_with_flavour(monster* mon, actor *atk,
                                   beam_type flavour, int powc = 0);
 
-bool enchant_monster_invisible(monster* mon, const std::string how);
+bool enchant_monster_invisible(monster* mon, const std::string &how);
 
 void mass_enchantment(enchant_type wh_enchant, int pow,
                        int *m_succumbed = NULL, int *m_attempted = NULL);

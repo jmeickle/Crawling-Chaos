@@ -9,6 +9,7 @@
 #include "areas.h"
 
 #include "act-iter.h"
+#include "art-enum.h"
 #include "beam.h"
 #include "cloud.h"
 #include "coord.h"
@@ -129,8 +130,8 @@ static void _update_agrid()
         {
             _agrid_centres.push_back(area_centre(AREA_LIQUID, ai->pos(), r));
 
-            for (radius_iterator ri(ai->pos(),r, C_CIRCLE, ai->get_los());
-                ri; ++ri)
+            for (radius_iterator ri(ai->pos(), r, C_CIRCLE, ai->get_los());
+                 ri; ++ri)
             {
                 dungeon_feature_type f = grd(*ri);
 
@@ -179,7 +180,7 @@ coord_def find_centre_for (const coord_def& f, area_centre_type at)
     if (_agrid(f) == 0)
         return coord_def(-1, -1);
 
-    if (_agrid_centres.size() == 0)
+    if (_agrid_centres.empty())
         return coord_def(-1, -1);
 
     coord_def possible = coord_def(-1, -1);
@@ -507,22 +508,33 @@ bool actor::haloed() const
 
 int player::halo_radius2() const
 {
+    int size = -1;
+
     if (you.religion == GOD_SHINING_ONE && you.piety >= piety_breakpoint(0)
         && !you.penance[GOD_SHINING_ONE])
     {
         // Preserve the middle of old radii.
         const int r = you.piety - 10;
         // The cap is 64, just less than the LOS of 65.
-        return std::min(LOS_RADIUS*LOS_RADIUS, r * r / 400);
+        size = std::min(LOS_RADIUS*LOS_RADIUS, r * r / 400);
     }
 
-    return (-1);
+    if (player_equip_unrand(UNRAND_BRILLIANCE))
+        size = std::max(size, 9);
+
+    return (size);
 }
 
 int monster::halo_radius2() const
 {
+    item_def* weap = mslot_item(MSLOT_WEAPON);
+    int size = -1;
+
+    if (weap && weap->special == UNRAND_BRILLIANCE)
+        size = 9;
+
     if (holiness() != MH_HOLY)
-        return (-1);
+        return size;
     // The values here depend on 1. power, 2. sentience.  Thus, high-ranked
     // sentient celestials have really big haloes, while holy animals get
     // small ones.
@@ -546,8 +558,9 @@ int monster::halo_radius2() const
         return (10);
     case MONS_APIS:
         return (4);
-    case MONS_PALADIN:
-        return (4);  // mere humans
+    case MONS_PALADIN: // If a paladin finds the mace of brilliance
+                       // it needs a larger halo
+        return (std::max(4, size));  // mere humans
     case MONS_BLESSED_TOE:
         return (17);
     case MONS_SILVER_STAR:

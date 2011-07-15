@@ -53,6 +53,7 @@
 #include "potion.h"
 #include "religion.h"
 #include "skills.h"
+#include "skills2.h"
 #include "species.h"
 #include "spl-cast.h"
 #include "spl-damage.h"
@@ -64,7 +65,6 @@
 #include "spl-miscast.h"
 #include "spl-util.h"
 #include "state.h"
-#include "stuff.h"
 #include "areas.h"
 #include "transform.h"
 #include "hints.h"
@@ -150,13 +150,13 @@ struct ability_def
     unsigned int        food_cost;      // + rand2avg( food_cost, 2 )
     generic_cost        piety_cost;     // + random2( (piety_cost + 1) / 2 + 1 )
     unsigned int        flags;          // used for additonal cost notices
-    unsigned int        xp_cost;        // experience point cost of ability
+    unsigned int        zp_cost;        // zot point cost of ability
 };
 
 static int  _find_ability_slot(ability_type which_ability);
 static bool _activate_talent(const talent& tal);
 static bool _do_ability(const ability_def& abil);
-static void _pay_ability_costs(const ability_def& abil, int xpcost);
+static void _pay_ability_costs(const ability_def& abil, int zpcost);
 static std::string _describe_talent(const talent& tal);
 static int _scale_piety_cost(ability_type abil, int original_cost);
 static std::string _zd_mons_description_for_ability (const ability_def &abil);
@@ -281,8 +281,8 @@ static const ability_def Ability_List[] =
     { ABIL_MUMMY_RESTORATION, "Self-Restoration",
       1, 0, 0, 0, ABFLAG_PERMANENT_MP },
 
-    // EVOKE abilities use Evocations and come from items:
-    // Mapping, Teleportation, and Blink can also come from mutations
+    // EVOKE abilities use Evocations and come from items.
+    // Teleportation and Blink can also come from mutations
     // so we have to distinguish them (see above).  The off items
     // below are labeled EVOKE because they only work now if the
     // player has an item with the evocable power (not just because
@@ -308,7 +308,7 @@ static const ability_def Ability_List[] =
     // Zin
     { ABIL_ZIN_SUSTENANCE, "Sustenance", 0, 0, 0, 0, ABFLAG_PIETY },
     { ABIL_ZIN_RECITE, "Recite", 0, 0, 0, 0, ABFLAG_BREATH | ABFLAG_DELAY },
-    { ABIL_ZIN_VITALISATION, "Vitalisation", 0, 0, 100, 2, ABFLAG_CONF_OK },
+    { ABIL_ZIN_VITALISATION, "Vitalisation", 0, 0, 100, 1, ABFLAG_CONF_OK },
     { ABIL_ZIN_IMPRISON, "Imprison", 5, 0, 125, 4, ABFLAG_NONE },
     { ABIL_ZIN_SANCTUARY, "Sanctuary", 7, 0, 150, 15, ABFLAG_NONE },
     { ABIL_ZIN_CURE_ALL_MUTATIONS, "Cure All Mutations",
@@ -370,7 +370,7 @@ static const ability_def Ability_List[] =
       1, 0, 100, generic_cost::range(0, 1), ABFLAG_CONF_OK },
     { ABIL_ELYVILON_LESSER_HEALING_OTHERS, "Lesser Healing",
       1, 0, 100, 0, ABFLAG_CONF_OK },
-    { ABIL_ELYVILON_PURIFICATION, "Purification", 2, 0, 150, 1,
+    { ABIL_ELYVILON_PURIFICATION, "Purification", 2, 0, 150, 2,
       ABFLAG_CONF_OK },
     { ABIL_ELYVILON_GREATER_HEALING_SELF, "Greater Self-Healing",
       2, 0, 250, 2, ABFLAG_CONF_OK },
@@ -427,9 +427,9 @@ static const ability_def Ability_List[] =
 
     // Ashenzari
     { ABIL_ASHENZARI_SCRYING, "Scrying",
-      4, 0, 50, generic_cost::range(5, 6), ABFLAG_INSTANT },
+      4, 0, 50, generic_cost::range(2, 3), ABFLAG_INSTANT },
     { ABIL_ASHENZARI_TRANSFER_KNOWLEDGE, "Transfer Knowledge",
-      0, 0, 0, 25, ABFLAG_NONE },
+      0, 0, 0, 20, ABFLAG_NONE },
     { ABIL_ASHENZARI_END_TRANSFER, "End Transfer Knowledge",
       0, 0, 0, 0, ABFLAG_NONE },
 
@@ -458,7 +458,7 @@ static const ability_def Ability_List[] =
     { ABIL_MAKE_ACQUIRE_GOLD, "Acquire gold", 0, 0, 0, 0, ABFLAG_LEVEL_DRAIN, 0 },
     { ABIL_MAKE_ACQUIREMENT, "Acquirement", 0, 0, 0, 0, ABFLAG_LEVEL_DRAIN, 0 },
     { ABIL_MAKE_WATER, "Make water", 0, 0, 0, 0, ABFLAG_NONE, 10 },
-    { ABIL_MAKE_ELECTRIC_EEL, "Make electric eel", 0, 0, 0, 0, ABFLAG_NONE, 100},
+    { ABIL_MAKE_LIGHTNING_SPIRE, "Make lightning spire", 0, 0, 0, 0, ABFLAG_NONE, 100},
     { ABIL_MAKE_BAZAAR, "Make bazaar", 0, 30, 0, 0, ABFLAG_PERMANENT_HP, 100 },
     { ABIL_MAKE_ALTAR, "Make altar", 0, 0, 0, 0, ABFLAG_NONE, 2 },
     { ABIL_MAKE_GRENADES, "Make grenades", 0, 0, 0, 0, ABFLAG_NONE, 2 },
@@ -527,7 +527,7 @@ static monster_type _monster_for_ability (const ability_def& abil)
         case ABIL_MAKE_OKLOB_CIRCLE:
         case ABIL_MAKE_OKLOB_PLANT:   mtyp = MONS_OKLOB_PLANT;   break;
         case ABIL_MAKE_BURNING_BUSH:  mtyp = MONS_BURNING_BUSH;  break;
-        case ABIL_MAKE_ELECTRIC_EEL:  mtyp = MONS_ELECTRIC_EEL;  break;
+        case ABIL_MAKE_LIGHTNING_SPIRE:  mtyp = MONS_LIGHTNING_SPIRE;  break;
         case ABIL_MAKE_ICE_STATUE:    mtyp = MONS_ICE_STATUE;    break;
         case ABIL_MAKE_OCS:           mtyp = MONS_ORANGE_STATUE; break;
         case ABIL_MAKE_SILVER_STATUE: mtyp = MONS_SILVER_STATUE; break;
@@ -559,8 +559,8 @@ static std::string _zd_mons_description_for_ability (const ability_def &abil)
         return ("Droplets of mercury fall from the ceiling and turn to silver, congealing into a humanoid shape.");
     case ABIL_MAKE_CURSE_SKULL:
         return ("You sculpt a terrible being from the primitive principle of evil.");
-    case ABIL_MAKE_ELECTRIC_EEL:
-        return ("You fashion an electric eel.");
+    case ABIL_MAKE_LIGHTNING_SPIRE:
+        return ("You mount a charged rod inside a coil.");
     default:
         return ("");
     }
@@ -592,19 +592,19 @@ trap_type trap_for_ability(const ability_def& abil)
     }
 }
 
-// Scale the xp cost by the number of friendly monsters
+// Scale the zp cost by the number of friendly monsters
 // of that type. Each successive critter costs 20% more
 // than the last one, after the first two.
-int xp_cost(const ability_def& abil)
+int zp_cost(const ability_def& abil)
 {
-    int cost = abil.xp_cost;
+    int cost = abil.zp_cost;
     int scale10 = 0;        // number of times to scale up by 10%
     int scale20 = 0;        // number of times to scale up by 20%
     int num;
     switch(abil.ability)
     {
         default:
-            return abil.xp_cost;
+            return abil.zp_cost;
 
         // Monster type 1: reasonably generous
         case ABIL_MAKE_PLANT:
@@ -613,7 +613,7 @@ int xp_cost(const ability_def& abil)
         case ABIL_MAKE_OKLOB_PLANT:
         case ABIL_MAKE_OKLOB_CIRCLE:
         case ABIL_MAKE_BURNING_BUSH:
-        case ABIL_MAKE_ELECTRIC_EEL:
+        case ABIL_MAKE_LIGHTNING_SPIRE:
             num = count_relevant_monsters(abil);
             // special case for oklob circles
             if (abil.ability == ABIL_MAKE_OKLOB_CIRCLE)
@@ -699,13 +699,13 @@ const std::string make_cost_description(ability_type ability)
         ret << " HP";
     }
 
-    if (abil.xp_cost)
+    if (abil.zp_cost)
     {
         if (!ret.str().empty())
             ret << ", ";
 
-        ret << xp_cost(abil);
-        ret << " XP";
+        ret << zp_cost(abil);
+        ret << " ZP";
     }
 
     if (abil.food_cost && you.is_undead != US_UNDEAD
@@ -812,14 +812,6 @@ const std::string make_cost_description(ability_type ability)
     return (ret.str());
 }
 
-static std::string _get_food_amount_str(int value)
-{
-    return (value > 300 ? "extremely large" :
-            value > 200 ? "large" :
-            value > 100 ? "moderate" :
-                          "small");
-}
-
 static std::string _get_piety_amount_str(int value)
 {
     return (value > 15 ? "extremely large" :
@@ -862,7 +854,7 @@ const std::string make_detailed_cost_description(ability_type ability)
     {
         have_cost = true;
         ret << "\nHunger : ";
-        ret << _get_food_amount_str(abil.food_cost + abil.food_cost / 2);
+        ret << hunger_cost_string(abil.food_cost + abil.food_cost / 2);
     }
 
     if (abil.piety_cost)
@@ -986,7 +978,7 @@ static talent _get_talent(ability_type ability, bool check_confused)
     case ABIL_MAKE_ACQUIRE_GOLD:
     case ABIL_MAKE_ACQUIREMENT:
     case ABIL_MAKE_WATER:
-    case ABIL_MAKE_ELECTRIC_EEL:
+    case ABIL_MAKE_LIGHTNING_SPIRE:
     case ABIL_MAKE_BAZAAR:
     case ABIL_MAKE_ALTAR:
     case ABIL_MAKE_GRENADES:
@@ -1195,7 +1187,7 @@ static talent _get_talent(ability_type ability, bool check_confused)
     case ABIL_YRED_RECALL_UNDEAD_SLAVES:
     case ABIL_CHEIBRIADOS_TIME_BEND:
         invoc = true;
-        failure = 50 - (you.piety / 20) - (you.skill(SK_INVOCATIONS) * 4);
+        failure = 50 - (you.piety / 20) - (4 * you.skill(SK_INVOCATIONS));
         break;
 
     case ABIL_ZIN_IMPRISON:
@@ -1215,7 +1207,7 @@ static talent _get_talent(ability_type ability, bool check_confused)
     case ABIL_CHEIBRIADOS_SLOUCH:
     case ABIL_OKAWARU_FINESSE:
         invoc = true;
-        failure = 60 - (you.piety / 25) - (you.skill(SK_INVOCATIONS) * 4);
+        failure = 60 - (you.piety / 25) - (4 * you.skill(SK_INVOCATIONS));
         break;
 
     case ABIL_TSO_CLEANSING_FLAME:
@@ -1224,7 +1216,7 @@ static talent _get_talent(ability_type ability, bool check_confused)
     case ABIL_LUGONU_CORRUPT:
     case ABIL_FEDHAS_RAIN:
         invoc = true;
-        failure = 70 - (you.piety / 25) - (you.skill(SK_INVOCATIONS) * 4);
+        failure = 70 - (you.piety / 25) - (4 * you.skill(SK_INVOCATIONS));
         break;
 
     case ABIL_ZIN_SANCTUARY:
@@ -1235,7 +1227,7 @@ static talent _get_talent(ability_type ability, bool check_confused)
     case ABIL_JIYVA_CURE_BAD_MUTATION:
     case ABIL_CHEIBRIADOS_TIME_STEP:
         invoc = true;
-        failure = 80 - (you.piety / 25) - (you.skill(SK_INVOCATIONS) * 4);
+        failure = 80 - (you.piety / 25) - (4 * you.skill(SK_INVOCATIONS));
         break;
 
     case ABIL_NEMELEX_STACK_FIVE:
@@ -1245,8 +1237,7 @@ static talent _get_talent(ability_type ability, bool check_confused)
 
     case ABIL_NEMELEX_MARK_FOUR:
         invoc = true;
-        failure = 70 - (you.piety * 2 / 45)
-            - (9 * you.skill(SK_EVOCATIONS) / 2);
+        failure = 70 - (you.piety * 2 / 45) - (9 * you.skill(SK_EVOCATIONS) / 2);
         break;
 
     case ABIL_NEMELEX_TRIPLE_DRAW:
@@ -1674,10 +1665,10 @@ static bool _activate_talent(const talent& tal)
         return (false);
     }
 
-    int xpcost=xp_cost(abil);
-    if (xpcost)
+    int zpcost = zp_cost(abil);
+    if (zpcost)
     {
-        if (!enough_xp(xpcost, false))
+        if (!enough_zp(zpcost, false))
         {
             crawl_state.zero_turns_taken();
             return (false);
@@ -1702,7 +1693,7 @@ static bool _activate_talent(const talent& tal)
     if (success)
     {
         practise(EX_USED_ABIL, abil.ability);
-        _pay_ability_costs(abil, xpcost);
+        _pay_ability_costs(abil, zpcost);
     }
 
     return (success);
@@ -1777,7 +1768,7 @@ static bool _do_ability(const ability_def& abil)
     case ABIL_MAKE_OCS:
     case ABIL_MAKE_SILVER_STATUE:
     case ABIL_MAKE_CURSE_SKULL:
-    case ABIL_MAKE_ELECTRIC_EEL:
+    case ABIL_MAKE_LIGHTNING_SPIRE:
         if (!create_zotdef_ally(_monster_for_ability(abil), _zd_mons_description_for_ability(abil).c_str()))
             return (false);
         break;
@@ -1861,22 +1852,7 @@ static bool _do_ability(const ability_def& abil)
     }
 
     case ABIL_MAKE_ALTAR:
-        // Generate an altar.
-        if (grd(you.pos()) == DNGN_FLOOR)
-        {
-            god_type rgod=GOD_NO_GOD;
-            // Don't allow Fedhas, as his abilities don't fit
-            while (rgod==GOD_NO_GOD || rgod==GOD_FEDHAS)
-                rgod = static_cast<god_type>(random2(NUM_GODS));
-            grd(you.pos()) = altar_for_god(rgod);
-
-            if (grd(you.pos()) != DNGN_FLOOR)
-            {
-                mprf("An altar to %s grows from the floor before you!",
-                     god_name(rgod).c_str());
-            }
-        }
-        else
+        if (!create_altar(true))
         {
             mpr("The dungeon dims for a moment.");
             return (false);
@@ -2273,7 +2249,7 @@ static bool _do_ability(const ability_def& abil)
             return false;
         }
         simple_god_message(" torments the living!");
-        torment(TORMENT_KIKUBAAQUDGHA, you.pos());
+        torment(&you, TORMENT_KIKUBAAQUDGHA, you.pos());
         break;
 
     case ABIL_YRED_INJURY_MIRROR:
@@ -2287,9 +2263,9 @@ static bool _do_ability(const ability_def& abil)
         else
         {
             mprf("You %s in prayer and are bathed in unholy energy.",
-                 you.species == SP_NAGA ? "coil" :
-                 you.species == SP_CAT  ? "sit"
-                                        : "kneel");
+                 you.species == SP_NAGA  ? "coil" :
+                 you.species == SP_FELID ? "sit"
+                                         : "kneel");
         }
         you.duration[DUR_MIRROR_DAMAGE] = 9 * BASELINE_DELAY
                      + random2avg(you.piety * BASELINE_DELAY, 2) / 10;
@@ -2325,7 +2301,7 @@ static bool _do_ability(const ability_def& abil)
     case ABIL_SIF_MUNA_CHANNEL_ENERGY:
         mpr("You channel some magical energy.");
 
-        inc_mp(1 + random2(you.skill(SK_INVOCATIONS) / 4 + 2), false);
+        inc_mp(1 + random2(you.skill(SK_INVOCATIONS) / 4 + 2));
         break;
 
     case ABIL_OKAWARU_HEROISM:
@@ -2547,14 +2523,14 @@ static bool _do_ability(const ability_def& abil)
             you.hp_max = 1;
 
         // Deflate HP.
-        set_hp(1 + random2(you.hp), false);
+        set_hp(1 + random2(you.hp));
 
         // Lose 1d2 permanent MP.
         rot_mp(coinflip() ? 2 : 1);
 
         // Deflate MP.
         if (you.magic_points)
-            set_mp(random2(you.magic_points), false);
+            set_mp(random2(you.magic_points));
 
         bool note_status = notes_are_active();
         activate_notes(false);  // This banishment shouldn't be noted.
@@ -2766,7 +2742,7 @@ static int _scale_piety_cost(ability_type abil, int original_cost)
 
 // We pass in ability XP cost as it may have changed during the exercise
 // of the ability (if the cost is scaled, for example)
-static void _pay_ability_costs(const ability_def& abil, int xpcost)
+static void _pay_ability_costs(const ability_def& abil, int zpcost)
 {
     if (abil.flags & ABFLAG_INSTANT)
     {
@@ -2799,9 +2775,9 @@ static void _pay_ability_costs(const ability_def& abil, int xpcost)
             rot_hp(hp_cost);
     }
 
-    if (xpcost)
+    if (zpcost)
     {
-        you.exp_available -= xpcost;
+        you.zot_points -= zpcost;
         you.redraw_experience = true;
     }
 
@@ -2986,14 +2962,14 @@ std::vector<talent> your_talents(bool check_confused)
             _add_talent(talents, ABIL_MAKE_OCS, check_confused);
         if (you.experience_level >= 15)
             _add_talent(talents, ABIL_MAKE_NEEDLE_TRAP, check_confused);
-        if (you.experience_level >= 16)
+        if (you.experience_level >= 16 && you.char_direction != GDT_ASCENDING)
             _add_talent(talents, ABIL_MAKE_TELEPORT, check_confused);
         if (you.experience_level >= 17)
             _add_talent(talents, ABIL_MAKE_WATER, check_confused);
         if (you.experience_level >= 18)
             _add_talent(talents, ABIL_MAKE_AXE_TRAP, check_confused);
         if (you.experience_level >= 19)
-            _add_talent(talents, ABIL_MAKE_ELECTRIC_EEL, check_confused);
+            _add_talent(talents, ABIL_MAKE_LIGHTNING_SPIRE, check_confused);
         if (you.experience_level >= 20)
             _add_talent(talents, ABIL_MAKE_SILVER_STATUE, check_confused);
         // gain bazaar and gold together
@@ -3011,8 +2987,18 @@ std::vector<talent> your_talents(bool check_confused)
             _add_talent(talents, ABIL_MAKE_BLADE_TRAP, check_confused);
         if (you.experience_level >= 26)
             _add_talent(talents, ABIL_MAKE_CURSE_SKULL, check_confused);
+#if 0
+        // Disabled, and hard to fix.  Easiest to just replace it.
+        // Before enabling, please check the following:
+        // * monsters don't pathfind through it, sometimes even after I tried
+        //   hard-wiring teleport traps to be always unknown...
+        // * infinite ammo allows permanent blocks.  When changing that, please
+        //   keep in mind that teleporting into a shaft invalidates the whole
+        //   level, instantly.
+        // * placement is buggy (looks at your position)
         if (you.experience_level >= 27)
             _add_talent(talents, ABIL_MAKE_TELEPORT_TRAP, check_confused);
+#endif
     }
 
     // Species-based abilities.

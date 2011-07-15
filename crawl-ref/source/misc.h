@@ -123,10 +123,14 @@ void swap_with_monster(monster* mon_to_swap);
 
 void maybe_id_ring_TC();
 
+int apply_chunked_AC(int dam, int ac);
+
 void entered_malign_portal(actor* act);
 
 void handle_real_time(time_t t = time(0));
 std::string part_stack_string(const int num, const int total);
+unsigned int breakpoint_rank(int val, const int breakpoints[],
+                             unsigned int num_breakpoints);
 #define DISCONNECT_DIST (INT_MAX - 1000)
 
 struct position_node

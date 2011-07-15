@@ -33,7 +33,6 @@
 #include "religion.h"
 #include "skills.h"
 #include "state.h"
-#include "stuff.h"
 #include "terrain.h"
 #include "areas.h"
 #include "hints.h"
@@ -146,7 +145,7 @@ void handle_monster_shouts(monster* mons, bool force)
     std::string key = mons_type_name(mons->type, DESC_PLAIN);
 
     // Pandemonium demons have random names, so use "pandemonium lord"
-    if (mons->type == MONS_PANDEMONIUM_DEMON)
+    if (mons->type == MONS_PANDEMONIUM_LORD)
         key = "pandemonium lord";
     // Search for player ghost shout by the ghost's job.
     else if (mons->type == MONS_PLAYER_GHOST)
@@ -391,75 +390,53 @@ bool check_awaken(monster* mons)
     return (false);
 }
 
-// TODO: Let artefacts besides weapons generate noise.
-void noisy_equipment()
+void item_noise(const item_def &item, std::string msg, int loudness)
 {
-    if (silenced(you.pos()) || !one_chance_in(20))
-        return;
-
-    std::string msg;
-
-    const item_def* weapon = you.weapon();
-
-    if (weapon && is_unrandom_artefact(*weapon))
+    if (is_unrandom_artefact(item))
     {
-        std::string name = weapon->name(DESC_PLAIN, false, true, false, false,
-                                        ISFLAG_IDENT_MASK);
-        msg = getSpeakString(name.c_str());
-        if (!msg.empty())
-        {
-            // "Your Singing Sword" sounds disrespectful
-            // (as if there could be more than one!)
-            msg = replace_all(msg, "@Your_weapon@", "@The_weapon@");
-            msg = replace_all(msg, "@your_weapon@", "@the_weapon@");
-        }
+        // "Your Singing Sword" sounds disrespectful
+        // (as if there could be more than one!)
+        msg = replace_all(msg, "@Your_weapon@", "@The_weapon@");
+        msg = replace_all(msg, "@your_weapon@", "@the_weapon@");
     }
-
-    if (msg.empty())
+    else
     {
-        msg = getSpeakString("noisy weapon");
-        if (!msg.empty())
-        {
-            msg = replace_all(msg, "@Your_weapon@", "Your @weapon@");
-            msg = replace_all(msg, "@your_weapon@", "your @weapon@");
-        }
+        msg = replace_all(msg, "@Your_weapon@", "Your @weapon@");
+        msg = replace_all(msg, "@your_weapon@", "your @weapon@");
     }
 
     // Set appropriate channel (will usually be TALK).
     msg_channel_type channel = MSGCH_TALK;
 
-    // Disallow anything with VISUAL in it.
-    if (!msg.empty() && msg.find("VISUAL") != std::string::npos)
-        msg.clear();
+    std::string param;
+    const std::string::size_type pos = msg.find(":");
 
-    if (!msg.empty())
+    if (pos != std::string::npos)
+        param = msg.substr(0, pos);
+
+    if (!param.empty())
     {
-        std::string param;
-        const std::string::size_type pos = msg.find(":");
+        bool match = true;
 
-        if (pos != std::string::npos)
-            param = msg.substr(0, pos);
+        if (param == "DANGER")
+            channel = MSGCH_DANGER;
+        else if (param == "WARN")
+            channel = MSGCH_WARN;
+        else if (param == "SOUND")
+            channel = MSGCH_SOUND;
+        else if (param == "PLAIN")
+            channel = MSGCH_PLAIN;
+        else if (param == "SPELL")
+            channel = MSGCH_FRIEND_SPELL;
+        else if (param == "ENCHANT")
+            channel = MSGCH_FRIEND_ENCHANT;
+        else if (param == "VISUAL")
+            channel = MSGCH_TALK_VISUAL;
+        else if (param != "TALK")
+            match = false;
 
-        if (!param.empty())
-        {
-            bool match = true;
-
-            if (param == "DANGER")
-                channel = MSGCH_DANGER;
-            else if (param == "WARN")
-                channel = MSGCH_WARN;
-            else if (param == "SOUND")
-                channel = MSGCH_SOUND;
-            else if (param == "PLAIN")
-                channel = MSGCH_PLAIN;
-            else if (param == "SPELL" || param == "ENCHANT")
-                msg.clear(); // disallow these as well, channel stays TALK
-            else if (param != "TALK")
-                match = false;
-
-            if (match && !msg.empty())
-                msg = msg.substr(pos + 1);
-        }
+        if (match)
+            msg = msg.substr(pos + 1);
     }
 
     if (msg.empty()) // give default noises
@@ -469,12 +446,10 @@ void noisy_equipment()
     }
 
     // replace weapon references
-    if (weapon)
-    {
-        msg = replace_all(msg, "@The_weapon@", "The @weapon@");
-        msg = replace_all(msg, "@the_weapon@", "the @weapon@");
-        msg = replace_all(msg, "@weapon@", weapon->name(DESC_BASENAME));
-    }
+    msg = replace_all(msg, "@The_weapon@", "The @weapon@");
+    msg = replace_all(msg, "@the_weapon@", "the @weapon@");
+    msg = replace_all(msg, "@weapon@", item.name(DESC_BASENAME));
+
     // replace references to player name and god
     msg = replace_all(msg, "@player_name@", you.your_name);
     msg = replace_all(msg, "@player_god@",
@@ -483,7 +458,35 @@ void noisy_equipment()
 
     mpr(msg.c_str(), channel);
 
-    noisy(25, you.pos());
+    if (channel != MSGCH_TALK_VISUAL)
+        noisy(loudness, you.pos());
+}
+
+// TODO: Let artefacts besides weapons generate noise.
+void noisy_equipment()
+{
+    if (silenced(you.pos()) || !one_chance_in(20))
+        return;
+
+    std::string msg;
+
+    const item_def* weapon = you.weapon();
+    if (!weapon)
+        return;
+
+    if (is_unrandom_artefact(*weapon))
+    {
+        std::string name = weapon->name(DESC_PLAIN, false, true, false, false,
+                                        ISFLAG_IDENT_MASK);
+        msg = getSpeakString(name);
+        if (msg == "NONE")
+            return;
+    }
+
+    if (msg.empty())
+        msg = getSpeakString("noisy weapon");
+
+    item_noise(*weapon, msg);
 }
 
 void apply_noises()
@@ -780,7 +783,7 @@ void noise_grid::propagate_noise()
     if (noises.empty())
         return;
 
-    dprf("noise_grid: %d noises to apply", noises.size());
+    dprf("noise_grid: %u noises to apply", (unsigned int)noises.size());
     std::vector<coord_def> noise_perimeter[2];
     int circ_index = 0;
 

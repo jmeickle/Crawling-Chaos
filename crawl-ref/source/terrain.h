@@ -69,8 +69,10 @@ std::string stair_climb_verb(dungeon_feature_type feat);
 
 bool feat_is_water(dungeon_feature_type feat);
 bool feat_is_watery(dungeon_feature_type feat);
+bool feat_is_lava(dungeon_feature_type feat);
 god_type feat_altar_god(dungeon_feature_type feat);
 dungeon_feature_type altar_for_god(god_type god);
+
 bool feat_is_altar(dungeon_feature_type feat);
 bool feat_is_player_altar(dungeon_feature_type grid);
 
@@ -79,6 +81,7 @@ bool feat_is_bidirectional_portal(dungeon_feature_type feat);
 void find_connected_identical(const coord_def& d, dungeon_feature_type ft,
                               std::set<coord_def>& out);
 std::set<coord_def> connected_doors(const coord_def& d);
+coord_def get_random_stair();
 
 bool slime_wall_neighbour(const coord_def& c);
 
@@ -121,6 +124,7 @@ bool is_valid_border_feat(dungeon_feature_type feat);
 
 void                 init_feat_desc_cache();
 dungeon_feature_type feat_by_desc(std::string desc);
+const char* feat_type_name(dungeon_feature_type feat);
 
 dungeon_feature_type dungeon_feature_by_name(const std::string &name);
 std::vector<std::string> dungeon_feature_matches(const std::string &name);

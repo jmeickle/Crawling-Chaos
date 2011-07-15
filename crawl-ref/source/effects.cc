@@ -18,6 +18,7 @@
 #include "externs.h"
 #include "options.h"
 
+#include "abyss.h"
 #include "areas.h"
 #include "artefact.h"
 #include "beam.h"
@@ -66,13 +67,13 @@
 #include "religion.h"
 #include "shout.h"
 #include "skills.h"
+#include "skills2.h"
 #include "spl-clouds.h"
 #include "spl-miscast.h"
 #include "spl-summoning.h"
 #include "spl-util.h"
 #include "stairs.h"
 #include "state.h"
-#include "stuff.h"
 #include "terrain.h"
 #include "traps.h"
 #include "travel.h"
@@ -208,11 +209,9 @@ int holy_word(int pow, int caster, const coord_def& where, bool silent,
     return (r);
 }
 
-int torment_player(int pow, int caster)
+int torment_player(actor *attacker, int taux)
 {
     ASSERT(!crawl_state.game_is_arena());
-
-    UNUSED(pow);
 
     // [dshaligram] Switched to using ouch() instead of dec_hp() so that
     // notes can also track torment and activities can be interrupted
@@ -223,6 +222,9 @@ int torment_player(int pow, int caster)
     {
         // Negative energy resistance can alleviate torment.
         hploss = std::max(0, you.hp * (50 - player_prot_life() * 5) / 100 - 1);
+        // Statue form is only partial petrification.
+        if (you.form == TRAN_STATUE)
+            hploss /= 2;
     }
 
     // Kiku protects you from torment to a degree.
@@ -261,13 +263,13 @@ int torment_player(int pow, int caster)
     const char *aux = "torment";
 
     kill_method_type type = KILLED_BY_MONSTER;
-    if (invalid_monster_index(caster))
+    if (invalid_monster_index(taux))
     {
         type = KILLED_BY_SOMETHING;
         if (crawl_state.is_god_acting())
             type = KILLED_BY_DIVINE_WRATH;
 
-        switch (caster)
+        switch (taux)
         {
         case TORMENT_CARDS:
         case TORMENT_SPELL:
@@ -295,7 +297,7 @@ int torment_player(int pow, int caster)
         }
     }
 
-    ouch(hploss, caster, type, aux);
+    ouch(hploss, attacker? attacker->mindex() : MHITNOT, type, aux);
 
     return (1);
 }
@@ -305,15 +307,13 @@ int torment_player(int pow, int caster)
 // maximum power of 1000, high level monsters and characters would save
 // too often.  (GDL)
 
-int torment_monsters(coord_def where, int pow, int caster, actor *attacker)
+int torment_monsters(coord_def where, actor *attacker, int taux)
 {
-    UNUSED(pow);
-
     int retval = 0;
 
     // Is the player in this cell?
     if (where == you.pos())
-        retval = torment_player(0, caster);
+        retval = torment_player(attacker, taux);
 
     // Is a monster in this cell?
     monster* mons = monster_at(where);
@@ -345,26 +345,13 @@ int torment_monsters(coord_def where, int pow, int caster, actor *attacker)
     return (retval);
 }
 
-int torment(int caster, const coord_def& where)
+int torment(actor *attacker, int taux, const coord_def& where)
 {
-    actor* attacker = NULL;
-
-    if (!invalid_monster_index(caster))
-        attacker = &menv[caster];
-    else if (caster < 0 && you.turn_is_over && where == you.pos()
-             && !(crawl_state.is_god_acting()
-                  && crawl_state.is_god_retribution()))
-    {
-        // Maybe monsters should still consider it your fault if it's
-        // caused by divine retribution?
-        attacker = &you;
-    }
-
     los_def los(where);
     los.update();
     int r = 0;
     for (radius_iterator ri(&los); ri; ++ri)
-        r += torment_monsters(*ri, 0, caster, attacker);
+        r += torment_monsters(*ri, attacker, taux);
     return (r);
 }
 
@@ -675,6 +662,9 @@ void banished(dungeon_feature_type gate_type, const std::string &who)
         take_note(Note(NOTE_MESSAGE, 0, 0, what.c_str()), true);
     }
 
+#ifdef NEW_ABYSS
+    push_features_to_abyss();
+#endif
     down_stairs(gate_type, you.entry_cause);  // heh heh
 }
 
@@ -923,10 +913,9 @@ int recharge_wand(int item_slot, bool known, std::string *pre_msg)
         if (wand.base_type != OBJ_WANDS && !item_is_rod(wand))
             return (0);
 
-        int charge_gain = 0;
         if (wand.base_type == OBJ_WANDS)
         {
-            charge_gain = wand_charge_value(wand.sub_type);
+            int charge_gain = wand_charge_value(wand.sub_type);
 
             const int new_charges =
                 std::max<int>(
@@ -1645,10 +1634,7 @@ void change_labyrinth(bool msg)
     {
         mprf(MSGCH_DIAGNOSTICS, "Changing labyrinth from (%d, %d) to (%d, %d)",
              c1.x, c1.y, c2.x, c2.y);
-    }
 
-    if (msg)
-    {
         std::string path_str = "";
         mpr("Here's the list of targets: ", MSGCH_DIAGNOSTICS);
         for (unsigned int i = 0; i < targets.size(); i++)
@@ -1657,7 +1643,7 @@ void change_labyrinth(bool msg)
             path_str += info;
         }
         mpr(path_str.c_str(), MSGCH_DIAGNOSTICS);
-        mprf(MSGCH_DIAGNOSTICS, "-> #targets = %d", targets.size());
+        mprf(MSGCH_DIAGNOSTICS, "-> #targets = %u", (unsigned int)targets.size());
     }
 
 #ifdef WIZARD
@@ -2352,6 +2338,11 @@ void handle_time()
             change_labyrinth();
     }
 
+#ifdef NEW_ABYSS
+    if (you.level_type == LEVEL_ABYSS)
+        forget_map(you.religion == GOD_LUGONU ? 25 : 45);
+#endif
+
     if (you.religion == GOD_JIYVA && one_chance_in(10))
     {
         int total_jellies = 1 + random2(5);
@@ -2439,9 +2430,6 @@ static void _catchup_monster_moves(monster* mon, int turns)
     const int range = (turns * mon->speed) / 10;
     const int moves = (range > 50) ? 50 : range;
 
-    const bool ranged_attack = (mons_has_ranged_spell(mon, true)
-                                || mons_has_ranged_attack(mon));
-
     // probably too annoying even for DEBUG_DIAGNOSTICS
     dprf("mon #%d: range %d; "
          "pos (%d,%d); targ %d(%d,%d); flags %"PRIx64,
@@ -2493,7 +2481,7 @@ static void _catchup_monster_moves(monster* mon, int turns)
         }
     }
 
-    if (ranged_attack && !changed)
+    if (mons_has_ranged_attack(mon) && !changed)
     {
         // If we're doing short time movement and the monster has a
         // ranged attack (missile or spell), then the monster will
@@ -2799,7 +2787,6 @@ int place_ring(std::vector<coord_def> &ring_points,
 void collect_radius_points(std::vector<std::vector<coord_def> > &radius_points,
                            const coord_def &origin, const los_base* los)
 {
-
     radius_points.clear();
     radius_points.resize(LOS_RADIUS);
 
@@ -3075,7 +3062,6 @@ int spawn_corpse_mushrooms(item_def &corpse,
                 && in_bounds(temp)
                 && mons_class_can_pass(MONS_TOADSTOOL, grd(temp)))
             {
-
                 visited_indices.insert(index);
                 fringe.push(temp);
             }
@@ -3138,6 +3124,9 @@ bool mushroom_spawn_message(int seen_targets, int seen_corpses)
 // skeleton/destroyed on this update.
 static void _maybe_spawn_mushroom(item_def & corpse, int rot_time)
 {
+    if (crawl_state.disables[DIS_SPAWNS])
+        return;
+
     // We won't spawn a mushroom within 10 turns of the corpse's being created
     // or rotting away.
     int low_threshold  = 5;

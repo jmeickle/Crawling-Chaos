@@ -17,7 +17,7 @@ This spell works by converting a small portion of brain matter into alcohol, con
 %%%%
 Animate Dead
 
-This spell causes the dead to rise up and serve the caster; every corpse within a certain distance of the caster is affected. By means of this spell, powerful casters could press into service an army of the mindless undead. Note that zombies are incapable of leaving the level they were created on.
+This spell causes the dead to rise up and serve the caster; every corpse within sight of the caster is affected. By means of this spell, powerful casters could press into service an army of the mindless undead. Note that zombies are incapable of leaving the level they were created on.
 %%%%
 Animate Skeleton
 
@@ -28,10 +28,6 @@ Apportation
 This spell allows the caster to pull the top item or group of similar items from a distant pile to the floor near the caster. The mass of the target item(s) will make the task more difficult, with some items too massive to ever be moved by this spell. Using this spell on a group of items can be risky; insufficient power will cause some of the items to be lost in the infinite void.
 
 Extremely powerful magical items, such as the Orb of Zot, may actively resist the pull of this spell.
-%%%%
-Berserker Rage
-
-This spell sends the caster into a temporary psychotic rage.
 %%%%
 Blade Hands
 
@@ -286,6 +282,10 @@ Ignite Poison
 
 This spell attempts to convert all poison within the caster's view into liquid flame. It is very effective against poisonous creatures or those carrying poison potions. The caster and his gear are not affected.
 %%%%
+Inner Flame
+
+This spell fills an enemy with an intense fire, to be explosively released upon death. The size of the explosion caused is dependent on the size of the target.
+%%%%
 Insulation
 
 This spell protects the caster from electric shocks.
@@ -402,7 +402,7 @@ This spell hurls a magical arrow coated with the most vile and noxious toxin. No
 %%%%
 Poison Weapon
 
-This spell temporarily coats any weapon or launcher with poison. It will only work on weapons without an existing enchantment; it also doesn't work on blunt weapons.
+This spell temporarily coats any weapon or launcher with poison. It will only work on weapons without an existing enchantment.
 %%%%
 Poisonous Cloud
 
@@ -459,6 +459,10 @@ This spell causes a burst of concussive force around the caster, which will dama
 Shock
 
 This spell throws a bouncing bolt of electricity.
+%%%%
+Shroud of Golubria
+
+This spell bends space along a shroud covering your body, protecting you from some blows by redirecting their force to the air around you. Ranged attacks move too quickly to be diverted in this way. The shroud is highly unstable and may fall apart unexpectedly under stress.
 %%%%
 Silence
 
@@ -593,7 +597,7 @@ Tornado
 
 This spell turns the air around the caster in a mighty vortex, doing tremendous damage to everyone caught in it. Only the eye of the storm is a safe place, and it follows the caster. Everything not firmly nailed down will be lifted and tossed around.
 
-The spell's effectiveness is greatly diminished in closed areas. Maintaining the winds makes casting of other spells more difficult.
+The spell's effectiveness is greatly diminished in closed areas.
 
 As a side effect, this spell may be used to cross lava, but beware of its short duration.
 %%%%

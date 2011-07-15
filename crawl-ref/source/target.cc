@@ -6,8 +6,18 @@
 #include "coord.h"
 #include "coordit.h"
 #include "env.h"
+#include "libutil.h"
 #include "player.h"
 #include "terrain.h"
+
+#define notify_fail(x) (why_not = (x), false)
+
+static std::string _wallmsg(coord_def c)
+{
+    ASSERT(map_bounds(c)); // there'd be an information leak
+    const char *wall = feat_type_name(grd(c));
+    return "There is " + article_a(wall) + " there.";
+}
 
 bool targetter::set_aim(coord_def a)
 {
@@ -53,13 +63,13 @@ targetter_smite::targetter_smite(const actor* act, int ran,
 
 bool targetter_smite::valid_aim(coord_def a)
 {
-    if (!affects_walls && feat_is_solid(grd(a)))
-        return false;
-    if (a == origin)
-        return true;
+    if (a != origin && !cell_see_cell(origin, a))
+        return notify_fail("You cannot see that place.");
     if ((origin - a).abs() > range2)
-        return false;
-    return cell_see_cell(origin, a);
+        return notify_fail("Out of range.");
+    if (!affects_walls && feat_is_solid(grd(a)))
+        return notify_fail(_wallmsg(a));
+    return true;
 }
 
 bool targetter_smite::set_aim(coord_def a)
@@ -116,22 +126,19 @@ targetter_reach::targetter_reach(const actor* act, reach_type ran) :
 
 bool targetter_reach::valid_aim(coord_def a)
 {
+    if (origin == a)
+        return notify_fail("That would be overly suicidal.");
     if (!cell_see_cell(origin, a))
-        return false;
+        return notify_fail("You cannot see that place.");
     if (!agent->see_cell_no_trans(a))
-        return false;
+        return notify_fail("You can't get through.");
 
     int dist = (origin - a).abs();
 
-    switch(range)
-    {
-    default:
-        return dist <= 2;
-    case REACH_KNIGHT:
-        return dist <= 5;
-    case REACH_TWO:
-        return dist <= 8;
-    }
+    if (dist > (range == REACH_TWO ? 8 : range == REACH_KNIGHT ? 5 : 2))
+        return notify_fail("You can't reach that far!");
+
+    return true;
 }
 
 aff_type targetter_reach::is_affected(coord_def loc)
@@ -142,10 +149,11 @@ aff_type targetter_reach::is_affected(coord_def loc)
     if (loc == aim)
         return AFF_YES;
 
-    // Knight move reach "slips through" and can't be blocked by either
-    // square in the middle.
-    if ((loc - origin) * 2 == (aim - origin))
+    if (((loc - origin) * 2 - (aim - origin)).abs() <= 1
+        && grd(loc) > DNGN_MAX_NONREACH)
+    {
         return AFF_TRACER;
+    }
 
     return AFF_NO;
 }
@@ -172,14 +180,19 @@ static bool _cloudable(coord_def loc)
 
 bool targetter_cloud::valid_aim(coord_def a)
 {
-    if (!agent)
-        return _cloudable(a);
-
-    if ((origin - a).abs() > range2)
-        return false;
-    if (!_cloudable(a))
-        return false;
-    return cell_see_cell(origin, a);
+    if (agent && (origin - a).abs() > range2)
+        return notify_fail("Out of range.");
+    if (!map_bounds(a) || agent && origin != a && !cell_see_cell(origin, a))
+        return notify_fail("You cannot see that place.");
+    if (feat_is_solid(grd(a)))
+        return notify_fail(_wallmsg(a));
+    if (agent)
+    {
+        if (env.cgrid(a) != EMPTY_CLOUD)
+            return notify_fail("There's already a cloud there.");
+        ASSERT(_cloudable(a));
+    }
+    return true;
 }
 
 bool targetter_cloud::set_aim(coord_def a)
@@ -193,7 +206,6 @@ bool targetter_cloud::set_aim(coord_def a)
 
     int placed = 0;
     queue[0].push_back(a);
-    ASSERT(_cloudable(a));
 
     for (unsigned int d1 = 0; d1 < queue.size() && placed < cnt_max; d1++)
     {

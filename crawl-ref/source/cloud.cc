@@ -31,7 +31,6 @@
 #include "player.h"
 #include "random.h"
 #include "state.h"
-#include "stuff.h"
 #include "terrain.h"
 #ifdef USE_TILE
 #include "tiledef-gui.h"
@@ -471,9 +470,28 @@ int steam_cloud_damage(int decay)
     return ((decay * 13 + 20) / 50);
 }
 
-bool cloud_is_inferior(cloud_type inf, cloud_type superior)
+static bool _is_weak_cloud(int cl)
 {
-    return (inf == CLOUD_STINK && superior == CLOUD_POISON);
+    if (cl == EMPTY_CLOUD)
+        return true;
+
+    cloud_struct& cloud = env.cloud[cl];
+    return (cloud.type >= CLOUD_GREY_SMOKE && cloud.type <= CLOUD_STEAM
+            || cloud.type == CLOUD_BLACK_SMOKE
+            || cloud.type == CLOUD_MIST
+            || cloud.decay <= 20); // soon gone
+}
+
+static bool cloud_is_stronger(cloud_type ct, int cl)
+{
+    if (_is_weak_cloud(cl))
+        return true;
+    cloud_struct& cloud = env.cloud[cl];
+    if (ct == CLOUD_POISON && cloud.type == CLOUD_STINK)
+        return true; // allow upgrading meph
+    if (ct == CLOUD_TORNADO)
+        return true; // visual/AI only
+    return false;
 }
 
 //   Places a cloud with the given stats. May delete old clouds to
@@ -510,13 +528,7 @@ void place_cloud(cloud_type cl_type, const coord_def& ctarget, int cl_range,
     if (target_cgrid != EMPTY_CLOUD)
     {
         // There's already a cloud here. See if we can overwrite it.
-        cloud_struct& old_cloud = env.cloud[target_cgrid];
-        if (old_cloud.type >= CLOUD_GREY_SMOKE && old_cloud.type <= CLOUD_STEAM
-            || cloud_is_inferior(old_cloud.type, cl_type)
-            || old_cloud.type == CLOUD_BLACK_SMOKE
-            || old_cloud.type == CLOUD_MIST
-            || old_cloud.type == CLOUD_TORNADO
-            || old_cloud.decay <= 20) // soon gone
+        if (cloud_is_stronger(cl_type, target_cgrid))
         {
             // Delete this cloud and replace it.
             cl_new = target_cgrid;
@@ -535,17 +547,11 @@ void place_cloud(cloud_type cl_type, const coord_def& ctarget, int cl_range,
         int cl_del = random2(MAX_CLOUDS);
 
         for (int ci = 0; ci < MAX_CLOUDS; ci++)
-        {
-            cloud_struct& cloud = env.cloud[ci];
-            if (cloud.type >= CLOUD_GREY_SMOKE && cloud.type <= CLOUD_STEAM
-                || cloud.type == CLOUD_BLACK_SMOKE
-                || cloud.type == CLOUD_MIST
-                || cloud.decay <= 20) // soon gone
+            if (_is_weak_cloud(ci))
             {
                 cl_del = ci;
                 break;
             }
-        }
 
         delete_cloud(cl_del);
         cl_new = cl_del;
@@ -574,6 +580,10 @@ void place_cloud(cloud_type cl_type, const coord_def& ctarget, int cl_range,
 
 static bool _is_opaque_cloud(cloud_type ctype)
 {
+#if TAG_MAJOR_VERSION == 32
+    if (ctype == CLOUD_PETRIFY)
+        return true;
+#endif
     return (ctype >= CLOUD_OPAQUE_FIRST && ctype <= CLOUD_OPAQUE_LAST);
 }
 
@@ -582,8 +592,7 @@ bool is_opaque_cloud(int cloud_idx)
     if (cloud_idx == EMPTY_CLOUD)
         return (false);
 
-    const int ctype = env.cloud[cloud_idx].type;
-    return (ctype >= CLOUD_OPAQUE_FIRST && ctype <= CLOUD_OPAQUE_LAST);
+    return _is_opaque_cloud(env.cloud[cloud_idx].type);
 }
 
 cloud_type cloud_type_at(const coord_def &c)
@@ -652,6 +661,8 @@ cloud_type beam2cloud(beam_type flavour)
         return CLOUD_INK;
     case BEAM_HOLY_FLAME:
         return CLOUD_HOLY_FLAMES;
+    case BEAM_PETRIFYING_CLOUD:
+        return CLOUD_PETRIFY;
     }
 }
 
@@ -678,6 +689,7 @@ beam_type cloud2beam(cloud_type flavour)
     case CLOUD_GLOOM:        return BEAM_GLOOM;
     case CLOUD_INK:          return BEAM_INK;
     case CLOUD_HOLY_FLAMES:  return BEAM_HOLY_FLAME;
+    case CLOUD_PETRIFY:      return BEAM_PETRIFYING_CLOUD;
     case CLOUD_RANDOM:       return BEAM_RANDOM;
     }
 }
@@ -711,6 +723,7 @@ bool cloud_has_negative_side_effects(cloud_type cloud)
     case CLOUD_MIASMA:
     case CLOUD_MUTAGENIC:
     case CLOUD_CHAOS:
+    case CLOUD_PETRIFY:
         return true;
     default:
         return false;
@@ -798,6 +811,8 @@ static bool _actor_cloud_immune(const actor *act, const cloud_struct &cloud)
         return player && act->res_steam() > 0;
     case CLOUD_MIASMA:
         return act->res_rotting() > 0;
+    case CLOUD_PETRIFY:
+        return act->res_petrify() > 0;
     default:
         return (false);
     }
@@ -823,6 +838,9 @@ int actor_cloud_resist(const actor *act, const cloud_struct &cloud)
         return act->res_holy_fire();
     case CLOUD_COLD:
         return act->res_cold();
+    case CLOUD_PETRIFY:
+        return act->res_petrify();
+
     default:
         return 0;
     }
@@ -904,6 +922,31 @@ bool _actor_apply_cloud_side_effects(actor *act,
                 beam.apply_enchantment_to_monster(mons);
                 return true;
             }
+        }
+        break;
+    }
+
+    case CLOUD_PETRIFY:
+    {
+        if (player)
+        {
+            if (1 + random2(27) >= you.experience_level)
+            {
+                you.petrify(act);
+                return true;
+            }
+        }
+        else
+        {
+            bolt beam;
+            beam.flavour = BEAM_PETRIFY;
+            beam.thrower = cloud.killer;
+
+            if (cloud.whose == KC_FRIENDLY)
+                beam.beam_source = ANON_FRIENDLY_MONSTER;
+
+            beam.apply_enchantment_to_monster(mons);
+            return true;
         }
         break;
     }
@@ -1215,7 +1258,7 @@ static const char *_terse_cloud_names[] =
     "purple smoke", "translocational energy", "fire",
     "steam", "gloom", "ink", "blessed fire", "foul pestilence", "thin mist",
     "seething chaos", "rain", "mutagenic fog", "magical condensation",
-    "raging winds",
+    "raging winds", "calcifying dust",
 };
 
 static const char *_verbose_cloud_names[] =
@@ -1226,15 +1269,13 @@ static const char *_verbose_cloud_names[] =
     "purple smoke", "translocational energy", "roaring flames",
     "a cloud of scalding steam", "thick gloom", "ink", "blessed fire",
     "dark miasma", "thin mist", "seething chaos", "the rain",
-    "mutagenic fog", "magical condensation", "raging winds",
+    "mutagenic fog", "magical condensation", "raging winds", "calcifying dust",
 };
 
 std::string cloud_type_name(cloud_type type, bool terse)
 {
-    COMPILE_CHECK(ARRAYSZ(_terse_cloud_names) == NUM_CLOUD_TYPES,
-                  check_terse_cloud_names);
-    COMPILE_CHECK(ARRAYSZ(_verbose_cloud_names) == NUM_CLOUD_TYPES,
-                  check_verbose_cloud_names);
+    COMPILE_CHECK(ARRAYSZ(_terse_cloud_names) == NUM_CLOUD_TYPES);
+    COMPILE_CHECK(ARRAYSZ(_verbose_cloud_names) == NUM_CLOUD_TYPES);
 
     return (type <= CLOUD_NONE || type >= NUM_CLOUD_TYPES
             ? "buggy goodness"
@@ -1424,6 +1465,10 @@ int get_cloud_colour(int cloudno)
 
     case CLOUD_TORNADO:
         which_colour = ETC_TORNADO;
+        break;
+
+    case CLOUD_PETRIFY:
+        which_colour = WHITE;
         break;
 
     default:

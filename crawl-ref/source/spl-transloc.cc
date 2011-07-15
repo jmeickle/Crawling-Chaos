@@ -35,7 +35,6 @@
 #include "spl-util.h"
 #include "stash.h"
 #include "state.h"
-#include "stuff.h"
 #include "teleport.h"
 #include "terrain.h"
 #include "transform.h"
@@ -47,12 +46,8 @@
 
 static bool _abyss_blocks_teleport(bool cblink)
 {
-    // Lugonu worshippers get their perks.
-    if (you.religion == GOD_LUGONU)
-        return (false);
-
-    // Controlled Blink (the spell) works quite reliably in the Abyss.
-    return (cblink ? one_chance_in(3) : !one_chance_in(3));
+    // Controlled Blink (the spell) works more reliably in the Abyss.
+    return (cblink ? coinflip() : !one_chance_in(3));
 }
 
 // If wizard_blink is set, all restriction are ignored (except for
@@ -92,6 +87,16 @@ int blink(int pow, bool high_level_controlled_blink, bool wizard_blink,
     {
         if (pre_msg)
             mpr(pre_msg->c_str());
+        random_blink(false);
+    }
+    // The orb sometimes degrades controlled blinks to completely uncontrolled.
+    else if (you.char_direction == GDT_ASCENDING && !wizard_blink)
+    {
+        if (pre_msg)
+            mpr(pre_msg->c_str());
+        mpr("The orb interferes with your control of the blink!", MSGCH_ORB);
+        if (high_level_controlled_blink && coinflip())
+            return (cast_semi_controlled_blink(pow));
         random_blink(false);
     }
     else if (!allow_control_teleport(true) && !wizard_blink)
@@ -225,7 +230,8 @@ void random_blink(bool allow_partial_control, bool override_abyss)
     if (item_blocks_teleport(true, true))
         canned_msg(MSG_STRANGE_STASIS);
     else if (you.level_type == LEVEL_ABYSS
-             && !override_abyss && !one_chance_in(3))
+             && !override_abyss
+             && _abyss_blocks_teleport(false))
     {
         mpr("The power of the Abyss keeps you in your place!");
     }
@@ -238,8 +244,8 @@ void random_blink(bool allow_partial_control, bool override_abyss)
     }
 
     //jmf: Add back control, but effect is cast_semi_controlled_blink(pow).
-    else if (player_control_teleport() && !you.confused()
-             && allow_partial_control && allow_control_teleport())
+    else if (player_control_teleport() && !you.confused() && allow_partial_control
+             && allow_control_teleport())
     {
         mpr("You may select the general direction of your translocation.");
         cast_semi_controlled_blink(100);
@@ -253,13 +259,6 @@ void random_blink(bool allow_partial_control, bool override_abyss)
 
         // Leave a purple cloud.
         place_cloud(CLOUD_TLOC_ENERGY, origin, 1 + random2(3), &you);
-
-        if (you.level_type == LEVEL_ABYSS)
-        {
-            abyss_teleport(false);
-            if (you.pet_target != MHITYOU)
-                you.pet_target = MHITNOT;
-        }
     }
 }
 
@@ -268,11 +267,17 @@ void random_blink(bool allow_partial_control, bool override_abyss)
 bool allow_control_teleport(bool quiet)
 {
     bool retval = !(testbits(env.level_flags, LFLAG_NO_TELE_CONTROL)
-                    || testbits(get_branch_flags(), BFLAG_NO_TELE_CONTROL));
+                    || testbits(get_branch_flags(), BFLAG_NO_TELE_CONTROL)
+                    || you.char_direction == GDT_ASCENDING);
 
     // Tell the player why if they have teleport control.
     if (!quiet && !retval && player_control_teleport())
-        mpr("A powerful magic prevents control of your teleportation.");
+    {
+        if (you.char_direction == GDT_ASCENDING)
+            mpr("The orb prevents control of your teleportation!", MSGCH_ORB);
+        else
+            mpr("A powerful magic prevents control of your teleportation.");
+    }
 
     return (retval);
 }
@@ -298,6 +303,11 @@ void you_teleport(void)
         {
             mpr("You have a feeling this translocation may take a while to kick in...");
             teleport_delay += 5 + random2(10);
+        }
+        else if (you.char_direction == GDT_ASCENDING && coinflip())
+        {
+            mpr("You feel the orb delaying this translocation!", MSGCH_ORB);
+            teleport_delay += 5 + random2(5);
         }
 
         you.set_duration(DUR_TELEPORT, teleport_delay);
@@ -752,9 +762,11 @@ bool cast_apportation(int pow, bolt& beam)
     }
 
     // Protect the player from destroying the item.
-    if (feat_destroys_item(grd(you.pos()), item))
+    if (feat_virtually_destroys_item(grd(you.pos()), item)
+        && !yesno("Really apport while over this terrain?",
+                  false, 'n'))
     {
-        mpr("That would be silly while over this terrain!");
+        canned_msg(MSG_OK);
         return (false);
     }
 
@@ -771,6 +783,7 @@ bool cast_apportation(int pow, bolt& beam)
         if (item_is_orb(item))
         {
             orb_pickup_noise(where, 30);
+            mpr("The mass is resisting your pull.");
             return (true);
         }
         else
@@ -783,9 +796,6 @@ bool cast_apportation(int pow, bolt& beam)
     // We need to modify the item *before* we move it, because
     // move_top_item() might change the location, or merge
     // with something at our position.
-    mprf("Yoink! You pull the item%s towards yourself.",
-         (item.quantity > 1) ? "s" : "");
-
     if (item_is_orb(item))
     {
         fake_noisy(30, where);
@@ -814,50 +824,54 @@ bool cast_apportation(int pow, bolt& beam)
             mons->del_ench(ENCH_HELD, true);
     }
 
-    if (item_is_orb(item))
+    // Heavy items require more power to apport directly to your feet.
+    // They might end up just moving a few squares, depending on spell
+    // power and item mass.
+    beam.is_tracer = true;
+    beam.aimed_at_spot = true;
+    beam.affects_nothing = true;
+    beam.fire();
+
+    // Pop the item's location off the end
+    beam.path_taken.pop_back();
+
+    // The actual number of squares it needs to traverse to get to you.
+    int dist = beam.path_taken.size();
+
+    // The maximum number of squares the item will actually move, always
+    // at least one square.
+    int quantity = item.quantity;
+    int apported_mass = unit_mass * std::min(quantity, max_units);
+
+    int max_dist = std::max(60 * pow / (apported_mass + 150), 1);
+
+    dprf("Apport dist=%d, max_dist=%d", dist, max_dist);
+
+    coord_def new_spot = beam.path_taken[beam.path_taken.size() - max_dist];
+
+    if (max_dist <= dist)
     {
-        // The orb drags its heels.
-        beam.is_tracer = true;
-        beam.aimed_at_spot = true;
-        beam.fire();
+        dprf("Apport: new spot is %d/%d", new_spot.x, new_spot.y);
 
-        // Pop the orb's location off the end
-        beam.path_taken.pop_back();
-
-        // The actual number of squares it needs to traverse to get to you.
-        unsigned int dist = beam.path_taken.size();
-
-        // The maximum number of squares the orb will actually move, always
-        // at least one square.
-        unsigned int max_dist = std::max((pow / 10) - 1, 1);
-
-        dprf("Orb apport dist=%d, max_dist=%d", dist, max_dist);
-
-        if (max_dist <= dist)
+        if (feat_virtually_destroys_item(grd(new_spot), item))
         {
-            coord_def new_spot = beam.path_taken[beam.path_taken.size()-max_dist];
-
-            dprf("Orb apport: new spot is %d/%d", new_spot.x, new_spot.y);
-
-            if (feat_virtually_destroys_item(grd(new_spot), item))
-                return (true);
-
-            else
-            {
-                move_top_item(where, new_spot);
-                origin_set(new_spot);
-                return (true);
-            }
+            mpr("Not with that terrain in the way!");
+            return (true);
         }
-        // if power is high enough it'll just come straight to you
     }
+    // If power is high enough it'll just come straight to you.
+    else
+        new_spot = you.pos();
 
     // Actually move the item.
+    mprf("Yoink! You pull the item%s towards yourself.",
+         (item.quantity > 1) ? "s" : "");
+
     if (max_units < item.quantity)
     {
-        if (!copy_item_to_grid(item, you.pos(), max_units))
+        if (!copy_item_to_grid(item, new_spot, max_units))
         {
-            // always >1 item
+            // Always >1 item.
             mpr("They abruptly stop in place!");
             // Too late to abort.
             return (true);
@@ -865,10 +879,10 @@ bool cast_apportation(int pow, bolt& beam)
         item.quantity -= max_units;
     }
     else
-        move_top_item(where, you.pos());
+        move_top_item(where, new_spot);
 
     // Mark the item as found now.
-    origin_set(you.pos());
+    origin_set(new_spot);
 
     return (true);
 }
@@ -877,14 +891,6 @@ static int _quadrant_blink(coord_def where, int pow, int, actor *)
 {
     if (where == you.pos())
         return (1);
-
-    if (you.level_type == LEVEL_ABYSS)
-    {
-        abyss_teleport(false);
-        if (you.pet_target != MHITYOU)
-            you.pet_target = MHITNOT;
-        return (1);
-    }
 
     if (pow > 100)
         pow = 100;
@@ -922,7 +928,8 @@ static int _quadrant_blink(coord_def where, int pow, int, actor *)
 
     if (!found)
     {
-        random_blink(false);
+        // We've already succeeded at blinking, so the Abyss shouldn't block it.
+        random_blink(false, true);
         return (1);
     }
 

@@ -1350,8 +1350,7 @@ static void _armour_wear_effects(const int item_slot)
 static command_type _get_running_command()
 {
     if (Options.travel_key_stop && kbhit()
-        || !in_bounds(you.pos() + you.running.pos)
-        || check_for_interesting_features())
+        || !in_bounds(you.pos() + you.running.pos))
     {
         stop_running();
         return CMD_NO_CMD;
@@ -1634,6 +1633,9 @@ inline static bool _monster_warning(activity_interrupt_type ai,
     const monster* mon = static_cast<const monster* >(at.data);
     if (!you.can_see(mon))
         return false;
+
+    // Disable message for summons. It also disable message for monsters
+    // created with &M, so you might want to comment it when debugging.
     if (testbits(mon->flags, MF_JUST_SUMMONED) && atype == DELAY_NOT_DELAYED)
         return false;
 

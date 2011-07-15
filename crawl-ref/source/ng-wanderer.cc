@@ -264,7 +264,6 @@ static void _wanderer_role_skill(stat_type role, int levels)
                                                      spell2);
         you.skills[selected_skill]++;
     }
-
 }
 
 // Select a random skill from all skills we have at least 1 level in.
@@ -298,18 +297,15 @@ static void _give_wanderer_book(skill_type skill, int & slot)
         break;
 
     case SK_CONJURATIONS:
-        switch (random2(4))
+        switch (random2(3))
         {
         case 0:
             book_type = BOOK_MINOR_MAGIC;
             break;
         case 1:
-            book_type = BOOK_CONJURATIONS_I;
-            break;
-        case 2:
             book_type = BOOK_CONJURATIONS_II;
             break;
-        case 3:
+        case 2:
             book_type = BOOK_YOUNG_POISONERS;
             break;
         }
@@ -351,13 +347,14 @@ static void _give_wanderer_book(skill_type skill, int & slot)
         break;
 
     case SK_FIRE_MAGIC:
-        switch (random2(2))
+        switch (random2(3))
         {
         case 0:
+        case 1:
             book_type = BOOK_FLAMES;
             break;
-        case 1:
-            book_type = BOOK_CONJURATIONS_I;
+        case 2:
+            book_type = BOOK_MINOR_MAGIC;
             break;
         }
         break;
@@ -375,7 +372,15 @@ static void _give_wanderer_book(skill_type skill, int & slot)
         break;
 
     case SK_AIR_MAGIC:
-        book_type = BOOK_AIR;
+        switch (random2(2))
+        {
+        case 0:
+            book_type = BOOK_AIR;
+            break;
+        case 1:
+            book_type = BOOK_CONJURATIONS_II;
+            break;
+        }
         break;
 
     case SK_EARTH_MAGIC:
@@ -898,7 +903,7 @@ void create_wanderer(void)
         mp_adjust++;
     if (secondary_role == STAT_INT)
         mp_adjust++;
-    set_mp(you.magic_points + mp_adjust, true);
+    you.mp_max_perm += mp_adjust;
 
     // Keep track of what skills we got items from, mostly to prevent
     // giving a good and then a normal version of the same weapon.

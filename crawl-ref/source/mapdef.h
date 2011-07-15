@@ -309,7 +309,8 @@ struct keyed_mapspec;
 class map_lines
 {
 public:
-    class iterator {
+    class iterator
+    {
     public:
         iterator(map_lines &ml, const std::string &key);
         operator bool () const;
@@ -702,6 +703,7 @@ public:
     std::string add_mons(const std::string &s, bool fix_slot = false);
     std::string set_mons(int slot, const std::string &s);
 
+    bool empty()               const { return mons.empty(); }
     size_t size()              const { return mons.size(); }
     size_t slot_size(int slot) const { return mons[slot].mlist.size(); }
 

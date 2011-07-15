@@ -257,6 +257,12 @@ static item_make_species_type _give_weapon(monster* mon, int level,
                                            WPN_SHORT_SWORD, WPN_SHORT_SWORD,
                                            WPN_CLUB,        WPN_WHIP,       -1);
         }
+        else if (one_chance_in(30) && level > 2)
+        {
+            item.base_type = OBJ_WEAPONS;
+            item.sub_type  = WPN_CROSSBOW;
+            break;
+        }
         else
             return (item_race);
         break;
@@ -587,6 +593,7 @@ static item_make_species_type _give_weapon(monster* mon, int level,
     case MONS_YELLOW_DRACONIAN:
     case MONS_PURPLE_DRACONIAN:
     case MONS_GREY_DRACONIAN:
+    case MONS_KENKU:
         if (mons_genus(mon->type) == MONS_NAGA)
             item_race = MAKE_ITEM_NO_RACE;
 
@@ -875,8 +882,11 @@ static item_make_species_type _give_weapon(monster* mon, int level,
         item.base_type = OBJ_WEAPONS;
         item.colour    = YELLOW;       // forced by force_item above {dlb}
 
-        item.sub_type  = (one_chance_in(4) ? WPN_EUDEMON_BLADE
-                                           : WPN_LONG_SWORD);
+        item.sub_type  = random_choose(WPN_EUDEMON_BLADE,
+                                       WPN_BLESSED_LONG_SWORD,
+                                       WPN_BLESSED_SCIMITAR,
+                                       WPN_BLESSED_FALCHION,
+                                       -1);
 
         set_equip_desc(item, ISFLAG_GLOWING);
         set_item_ego_type(item, OBJ_WEAPONS, SPWPN_HOLY_WRATH);
@@ -1539,6 +1549,14 @@ void give_shield(monster* mon, int level)
         {
             make_item_for_monster(mon, OBJ_ARMOUR,
                                   coinflip()? ARM_LARGE_SHIELD : ARM_SHIELD,
+                                  level, MAKE_ITEM_NO_RACE);
+        }
+        break;
+    case MONS_KENKU:
+        if (one_chance_in(3))
+        {
+            make_item_for_monster(mon, OBJ_ARMOUR,
+                                  coinflip()? ARM_BUCKLER : ARM_SHIELD,
                                   level, MAKE_ITEM_NO_RACE);
         }
         break;

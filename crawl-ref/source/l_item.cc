@@ -38,7 +38,6 @@ struct item_wrapper
 
 void clua_push_item(lua_State *ls, item_def *item)
 {
-
     item_wrapper *iw = clua_new_userdata<item_wrapper>(ls, ITEM_METATABLE);
     iw->item = item;
     iw->turn = you.num_turns;
@@ -173,7 +172,7 @@ static int l_item_do_remove(lua_State *ls)
     bool result = false;
     if (eq == EQ_WEAPON)
         result = wield_weapon(true, SLOT_BARE_HANDS);
-    else if (eq == EQ_LEFT_RING || eq == EQ_RIGHT_RING || eq == EQ_AMULET)
+    else if (eq >= EQ_LEFT_RING && eq < NUM_EQUIP)
         result = remove_ring(item->link);
     else
         result = takeoff_armour(item->link);
@@ -519,10 +518,12 @@ IDEF(artefact)
 
 IDEF(branded)
 {
-    if (!item || !item->defined() || !item_type_known(*item))
+    if (!item || !item->defined())
         return (0);
 
-    lua_pushboolean(ls, item_is_branded(*item));
+    lua_pushboolean(ls, item_is_branded(*item)
+                        || item->flags & ISFLAG_COSMETIC_MASK
+                           && !item_type_known(*item));
     return (1);
 }
 

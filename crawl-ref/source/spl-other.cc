@@ -57,7 +57,7 @@ bool cast_sublimation_of_blood(int pow)
 
             mpr("A flood of magical energy pours into your mind!");
 
-            inc_mp(7 + random2(7), false);
+            inc_mp(5 + random2(2 + pow / 15));
 
             dec_inv_item_quantity(wielded, 1);
 
@@ -76,7 +76,7 @@ bool cast_sublimation_of_blood(int pow)
 
             mpr("A flood of magical energy pours into your mind!");
 
-            inc_mp(7 + random2(7), false);
+            inc_mp(5 + random2(2 + pow / 15));
 
             remove_oldest_blood_potion(you.inv[wielded]);
             dec_inv_item_quantity(wielded, 1);
@@ -110,7 +110,7 @@ bool cast_sublimation_of_blood(int pow)
             {
                 success = true;
 
-                inc_mp(1, false);
+                inc_mp(1);
                 dec_hp(1, false);
 
                 if (you.species == SP_VAMPIRE)
@@ -288,7 +288,7 @@ bool cast_passwall(const coord_def& delta, int pow)
         else if (grd(dest) == DNGN_LAVA)
             mpr("You sense an intense heat on the other side of the rock.");
         else
-            mprf(MSGCH_ERROR, "Unhandled dangerous feature: ",
+            mprf(MSGCH_ERROR, "Unhandled dangerous feature: %s",
                  feature_description(dest, false, DESC_PLAIN).c_str());
     }
     else if (walls > maxrange)
@@ -498,49 +498,40 @@ void remove_condensation_shield()
     you.redraw_armour_class = true;
 }
 
-void cast_condensation_shield(int pow)
+bool cast_condensation_shield(int pow)
 {
     if (you.shield() || you.duration[DUR_FIRE_SHIELD])
+    {
         canned_msg(MSG_SPELL_FIZZLES);
+        return (false);
+    }
     else
     {
         if (you.duration[DUR_CONDENSATION_SHIELD] > 0)
-        {
             mpr("The disc of vapour around you crackles some more.");
-            you.increase_duration(DUR_CONDENSATION_SHIELD,
-                                  5 + roll_dice(2,3), 30);
-        }
         else
-        {
             mpr("A crackling disc of dense vapour forms in the air!");
-            you.increase_duration(DUR_CONDENSATION_SHIELD,
-                                  10 + roll_dice(2, pow / 5), 30);
-            you.redraw_armour_class = true;
-        }
+        you.increase_duration(DUR_CONDENSATION_SHIELD, 15 + random2(pow), 40);
+        you.redraw_armour_class = true;
+
+        return (true);
     }
 }
 
-void cast_stoneskin(int pow)
+bool cast_stoneskin(int pow)
 {
-    if (you.is_undead
-        && (you.species != SP_VAMPIRE || you.hunger_state < HS_SATIATED))
-    {
-        mpr("This spell does not affect your undead flesh.");
-        return;
-    }
-
     if (you.form != TRAN_NONE
         && you.form != TRAN_STATUE
         && you.form != TRAN_BLADE_HANDS)
     {
         mpr("This spell does not affect your current form.");
-        return;
+        return (false);
     }
 
     if (you.duration[DUR_ICY_ARMOUR])
     {
         mpr("This spell conflicts with another spell still in effect.");
-        return;
+        return (false);
     }
 
     if (you.duration[DUR_STONESKIN])
@@ -556,6 +547,8 @@ void cast_stoneskin(int pow)
     }
 
     you.increase_duration(DUR_STONESKIN, 10 + random2(pow) + random2(pow), 50);
+
+    return (true);
 }
 
 bool cast_darkness(int pow)

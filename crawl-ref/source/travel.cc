@@ -21,7 +21,7 @@
 #include "clua.h"
 #include "delay.h"
 #include "describe.h"
-#include "dgn-actions.h"
+#include "dactions.h"
 #include "dgn-overview.h"
 #include "dgnevent.h"
 #include "directn.h"
@@ -191,34 +191,6 @@ static inline bool is_trap(const coord_def& c)
     return feat_is_trap(env.map_knowledge(c).feat());
 }
 
-static inline bool _is_safe_trap (const coord_def& c)
-{
-#ifdef CLUA_BINDINGS
-    if (clua.callbooleanfn(false, "ch_cross_trap", "s", trap_name_at(c)))
-    {
-        return  (true);
-    }
-#endif
-
-    const trap_type trap = get_trap_type(c);
-
-    // Teleport traps are safe to travel through with -TELE
-    if (trap == TRAP_TELEPORT && (player_equip(EQ_AMULET, AMU_STASIS, true)
-        || scan_artefacts(ARTP_PREVENT_TELEPORTATION, false)))
-    {
-        return (true);
-    }
-
-    // Known shafts can be side-stepped and thus are safe for auto-travel.
-    if (trap == TRAP_SHAFT)
-    {
-        trap_def* shaft = find_trap(c);
-        return (shaft->is_known());
-    }
-
-    return (false);
-}
-
 static inline bool _is_safe_cloud(const coord_def& c)
 {
     const int cloud = env.cgrid(c);
@@ -327,6 +299,10 @@ static bool _is_reseedable(const coord_def& c, bool ignore_danger = false)
 
     map_cell &cell(env.map_knowledge(c));
     const dungeon_feature_type grid = cell.feat();
+
+    if (feat_is_wall(grid))
+        return false;
+
     return (feat_is_water(grid)
             || grid == DNGN_LAVA
             || is_trap(c)
@@ -436,13 +412,23 @@ bool is_travelsafe_square(const coord_def& c, bool ignore_hostile,
     if (!ignore_danger && is_excluded(c) && !is_stair_exclusion(c))
         return (false);
 
-    if (is_trap(c) && _is_safe_trap(c))
-        return (true);
-
     if (g_Slime_Wall_Check && slime_wall_neighbour(c))
         return (false);
 
-    return (feat_is_traversable(grid) && _is_safe_cloud(c));
+    if (!_is_safe_cloud(c))
+        return (false);
+
+    if (is_trap(c))
+    {
+        trap_def trap;
+        trap.pos = c;
+        trap.type = env.map_knowledge(c).trap();
+        trap.ammo_qty = 1;
+        if (trap.is_safe())
+            return true;
+    }
+
+    return (feat_is_traversable(grid));
 }
 
 // Returns true if the location at (x,y) is monster-free and contains
@@ -469,8 +455,8 @@ static bool _is_safe_move(const coord_def& c)
         //    should have been aborted already by the checks in view.cc.
     }
 
-    if (is_trap(c))
-        return (_is_safe_trap(c));
+    if (is_trap(c) && !find_trap(c)->is_safe())
+        return false;
 
     return _is_safe_cloud(c);
 }
@@ -680,9 +666,11 @@ void stop_running()
 
 static bool _is_valid_explore_target(const coord_def& where)
 {
-    // If an adjacent square is unmapped, it's valid.
-    for (adjacent_iterator ai(where); ai; ++ai)
-        if (!env.map_knowledge(*ai).seen())
+    // If a square in LOS is unmapped, it's valid.
+    los_def los(where);
+    los.update();
+    for (radius_iterator ri(&los, true); ri; ++ri)
+        if (!env.map_knowledge(*ri).seen())
             return (true);
 
     if (you.running == RMODE_EXPLORE_GREEDY)
@@ -716,7 +704,7 @@ static int _find_explore_status(const travel_pathfind &tp)
         explore_status |= EST_GREED_UNFULFILLED;
 
     const coord_def unexplored = tp.unexplored_square();
-    if (unexplored.x || unexplored.y)
+    if (unexplored.x || unexplored.y || !tp.get_unreachables().empty())
         explore_status |= EST_PARTLY_EXPLORED;
 
     return (explore_status);
@@ -944,9 +932,6 @@ command_type travel()
         return CMD_NO_CMD;
     }
 
-    if (you.running.is_explore() && check_for_interesting_features())
-            stop_running();
-
     if (you.running.is_explore())
     {
         // Exploring.
@@ -1169,7 +1154,7 @@ travel_pathfind::travel_pathfind()
       ignore_danger(false), annotate_map(false), ls(NULL),
       need_for_greed(false), unexplored_place(), greedy_place(),
       unexplored_dist(0), greedy_dist(0), refdist(NULL), reseed_points(),
-      features(NULL), point_distance(travel_point_distance),
+      features(NULL), unreachables(), point_distance(travel_point_distance),
       points(0), next_iter_points(0), traveled_distance(0),
       circ_index(0)
 {
@@ -1479,6 +1464,11 @@ void travel_pathfind::get_features()
     }
 }
 
+const std::set<coord_def> travel_pathfind::get_unreachables() const
+{
+    return unreachables;
+}
+
 bool travel_pathfind::square_slows_movement(const coord_def &c)
 {
     // c is a known (explored) location - we never put unknown points in the
@@ -1516,7 +1506,7 @@ void travel_pathfind::check_square_greed(const coord_def &c)
 
 bool travel_pathfind::path_flood(const coord_def &c, const coord_def &dc)
 {
-    if (!in_bounds(dc))
+    if (!in_bounds(dc) || unreachables.count(dc))
         return (false);
 
     if (floodout
@@ -1524,19 +1514,50 @@ bool travel_pathfind::path_flood(const coord_def &c, const coord_def &dc)
     {
         if (!env.map_knowledge(dc).seen())
         {
-            if (!need_for_greed)
+            if (ignore_hostile)
+            {
+                // This point is unexplored but unreachable. Let's find a
+                // place from where we can see it.
+                los_def los(dc);
+                los.update();
+                for (radius_iterator ri(&los, true); ri; ++ri)
+                {
+                    const int dist = point_distance[ri->x][ri->y];
+                    if (dist > 0
+                        && (dist < unexplored_dist || unexplored_dist < 0))
+                    {
+                        unexplored_dist = dist;
+                        unexplored_place = *ri;
+                    }
+
+                    // We can't do better than that.
+                    if (unexplored_dist == 1)
+                    {
+                        _set_target_square(unexplored_place);
+                        return true;
+                    }
+                }
+
+                // We can't even see the place.
+                // Let's store it and look for another.
+                if (unexplored_dist < 0)
+                    unreachables.insert(dc);
+                else
+                    _set_target_square(unexplored_place);
+
+            }
+            else if (!need_for_greed)
             {
                 // Found explore target!
                 unexplored_place = c;
                 unexplored_dist  = traveled_distance;
                 return (true);
             }
-
-            if (unexplored_dist == UNFOUND_DIST)
+            else if (unexplored_dist == UNFOUND_DIST)
             {
                 unexplored_place = c;
-                unexplored_dist  =
-                    traveled_distance + Options.explore_item_greed;
+                unexplored_dist  = traveled_distance
+                                   + Options.explore_item_greed;
             }
         }
 
@@ -4022,7 +4043,7 @@ void runrest::stop()
     // run/rest/travel on top of other delays.
     stop_delay();
 
-#ifdef USE_TILE
+#ifdef USE_TILE_LOCAL
     if (Options.tile_runrest_rate > 0)
         tiles.set_need_redraw();
 #endif
@@ -4453,7 +4474,6 @@ bool check_for_interesting_features()
     for (radius_iterator ri(you.get_los()); ri; ++ri)
     {
         const coord_def p(*ri);
-        ash_id_item(p);
 
         if (!env.map_shadow(p).seen() && env.map_knowledge(p).seen())
             _check_interesting_square(p, discoveries);

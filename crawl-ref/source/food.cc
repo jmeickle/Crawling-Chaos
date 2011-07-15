@@ -69,6 +69,9 @@ static void _heal_from_food(int hp_amt, int mp_amt = 0, bool unrot = false,
 void make_hungry(int hunger_amount, bool suppress_msg,
                  bool allow_reducing)
 {
+    if (crawl_state.disables[DIS_HUNGER])
+        return;
+
     if (crawl_state.game_is_zotdef() && you.species == SP_SPRIGGAN)
     {
         you.hunger = 6000;
@@ -245,6 +248,14 @@ static bool _butcher_corpse(int corpse_id, int butcher_tool,
     {
         return false;
     }
+    else if (!bottle_blood && you.species == SP_VAMPIRE
+             && !you.has_spell(SPELL_SUBLIMATION_OF_BLOOD)
+             && !you.has_spell(SPELL_SIMULACRUM)
+             && !yesno("You'd want to drain or bottle this corpse instead. "
+                       "Continue anyway?", true, 'n'))
+    {
+        return false;
+    }
 
     // Start work on the first corpse we butcher.
     if (first_corpse)
@@ -354,12 +365,8 @@ bool butchery(int which_corpse, bool bottle_blood)
         return (false);
     }
 
-    if (you.flight_mode() == FL_LEVITATE)
-    {
-        mpr("You can't reach the floor from up here.");
-        learned_something_new(HINT_LEVITATING);
+    if (!player_can_reach_floor())
         return (false);
-    }
 
     // Vampires' fangs are optimised for biting, not for tearing flesh.
     // (Not that they really need to.) Other species with this mutation
@@ -377,9 +384,10 @@ bool butchery(int which_corpse, bool bottle_blood)
     bool gloved_butcher   = (you.has_claws() && player_wearing_slot(EQ_GLOVES)
                              && !you.inv[you.equip[EQ_GLOVES]].cursed());
 
-    bool knife_butcher    = !barehand_butcher && !gloved_butcher && !you.weapon();
+    bool knife_butcher    = !barehand_butcher && !you.weapon() && form_can_wield();
 
-    bool can_butcher      = (teeth_butcher || barehand_butcher || birdie_butcher
+    bool can_butcher      = (teeth_butcher || barehand_butcher
+                             || birdie_butcher || knife_butcher
                              || you.weapon() && can_cut_meat(*you.weapon()));
 
     if (!Options.easy_butcher && !can_butcher)
@@ -438,15 +446,15 @@ bool butchery(int which_corpse, bool bottle_blood)
 
     if (!can_butcher)
     {
-        if (gloved_butcher)
+        if (you.weapon() && you.weapon()->cursed() && gloved_butcher)
             removed_gloves = true;
-        else if (you.equip[EQ_WEAPON] != SLOT_BARE_HANDS)
+        else
             wpn_switch = true;
     }
 
     int butcher_tool;
 
-    if (barehand_butcher || gloved_butcher)
+    if (barehand_butcher || removed_gloves)
         butcher_tool = SLOT_CLAWS;
     else if (teeth_butcher)
         butcher_tool = SLOT_TEETH;
@@ -674,11 +682,10 @@ bool eat_food(int slot)
     if (!_eat_check())
         return (false);
 
-    int result;
     // Skip the prompts if we already know what we're eating.
     if (slot == -1)
     {
-        result = prompt_eat_chunks();
+        int result = prompt_eat_chunks();
         if (result == 1 || result == -1)
             return (result > 0);
 
@@ -2517,7 +2524,7 @@ bool can_ingest(int what_isit, int kindof_thing, bool suppress_msg,
             }
             else if (kindof_thing == FOOD_CHUNK)
             {
-                if (rotten && !_player_can_eat_rotten_meat(true))
+                if (rotten && !_player_can_eat_rotten_meat(!suppress_msg))
                     return (false);
 
                 if (ur_chunkslover)
@@ -2767,10 +2774,10 @@ static void _heal_from_food(int hp_amt, int mp_amt, bool unrot,
                             bool restore_str)
 {
     if (hp_amt > 0)
-        inc_hp(hp_amt, false);
+        inc_hp(hp_amt);
 
     if (mp_amt > 0)
-        inc_mp(mp_amt, false);
+        inc_mp(mp_amt);
 
     if (unrot && player_rotted())
     {
@@ -2831,4 +2838,21 @@ void handle_starvation()
             ouch(INSTANT_DEATH, NON_MONSTER, KILLED_BY_STARVATION);
         }
     }
+}
+
+const char* hunger_cost_string(const int hunger)
+{
+    if (you.is_undead == US_UNDEAD)
+        return ("N/A");
+
+    // Spell hunger is "Fruit" if casting the spell five times costs at
+    // most one "Fruit".
+    const char* hunger_descriptions[] = {
+        "None", "Sultana", "Strawberry", "Choko", "Honeycomb", "Ration"
+    };
+
+    const int breakpoints[] = { 1, 15, 41, 121, 401 };
+
+    return (hunger_descriptions[breakpoint_rank(hunger, breakpoints,
+                                                ARRAYSZ(breakpoints))]);
 }

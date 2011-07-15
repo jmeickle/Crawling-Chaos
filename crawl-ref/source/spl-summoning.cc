@@ -7,6 +7,7 @@
 
 #include "spl-summoning.h"
 
+#include "areas.h"
 #include "artefact.h"
 #include "cloud.h"
 #include "coord.h"
@@ -31,13 +32,13 @@
 #include "mon-behv.h"
 #include "mon-iter.h"
 #include "mon-place.h"
+#include "mon-speak.h"
 #include "mon-stuff.h"
 #include "mon-util.h"
 #include "player-equip.h"
 #include "player-stats.h"
 #include "religion.h"
 #include "shout.h"
-#include "stuff.h"
 #include "teleport.h"
 #include "terrain.h"
 #include "xom.h"
@@ -52,7 +53,7 @@ bool summon_animals(int pow)
         MONS_BUMBLEBEE, MONS_WAR_DOG, MONS_SHEEP, MONS_YAK,
         MONS_HOG, MONS_SOLDIER_ANT, MONS_WOLF,
         MONS_GRIZZLY_BEAR, MONS_POLAR_BEAR, MONS_BLACK_BEAR,
-        MONS_AGATE_SNAIL, MONS_BORING_BEETLE, MONS_GILA_MONSTER,
+        MONS_AGATE_SNAIL, MONS_BORING_BEETLE, MONS_BASILISK,
         MONS_KOMODO_DRAGON, MONS_SPINY_FROG, MONS_HOUND,
         MONS_ELEPHANT, MONS_HIPPOGRIFF, MONS_GRIFFON
     };
@@ -131,7 +132,7 @@ bool cast_summon_small_mammals(int pow, god_type god)
     for (int i = 0; i < count; ++i)
     {
         if (x_chance_in_y(10, pow + 1))
-            mon = coinflip() ? MONS_MEGABAT : MONS_RAT;
+            mon = coinflip() ? MONS_BAT : MONS_RAT;
         else
             mon = coinflip() ? MONS_QUOKKA : MONS_GREY_RAT;
 
@@ -718,9 +719,11 @@ bool cast_summon_hydra(actor *caster, int pow, god_type god)
 
 bool cast_summon_dragon(actor *caster, int pow, god_type god)
 {
-    // Dragons are always friendly now. Dragon type depends on power &
-    // random chance.  Duration fixed at 4 (longer than hydra, less than
-    // many other summons).
+    // Dragons are always friendly. Dragon type depends on power and
+    // random chance, with two low-tier dragons possible at high power.
+    // Duration fixed at 6.
+
+    bool success = false;
 
     if (god == GOD_NO_GOD)
         god = caster->deity();
@@ -728,6 +731,7 @@ bool cast_summon_dragon(actor *caster, int pow, god_type god)
     monster_type mon = MONS_PROGRAM_BUG;
 
     const int chance = random2(pow);
+    int how_many = 1;
 
     if (chance >= 80 || one_chance_in(6))
         mon = (coinflip()) ? MONS_GOLDEN_DRAGON : MONS_QUICKSILVER_DRAGON;
@@ -745,42 +749,41 @@ bool cast_summon_dragon(actor *caster, int pow, god_type god)
             break;
         }
     else
+    {
         mon = (coinflip()) ? MONS_DRAGON : MONS_ICE_DRAGON;
-    // Now check to see if you are worshipping a good god
-    // and adjust dragons accordingly. No pearl dragons (word of due).
-    if (god == GOD_ELYVILON || god == GOD_ZIN)
+        if (pow >= 100)
+            how_many = 2;
+    }
+    // For good gods, switch away from shadow dragons (and, for TSO,
+    // golden dragons, since they poison) to storm/iron dragons.
+    if (player_will_anger_monster(mon)
+        || (god == GOD_SHINING_ONE && mon == MONS_GOLDEN_DRAGON))
     {
-        // Switch away from shadow dragon to storm/iron.
-        if (mon == MONS_SHADOW_DRAGON)
-            mon = (coinflip()) ? MONS_STORM_DRAGON : MONS_IRON_DRAGON;
+        mon = (coinflip()) ? MONS_STORM_DRAGON : MONS_IRON_DRAGON;
     }
 
-    if (god == GOD_SHINING_ONE)
+    for (int i = 0; i < how_many; ++i)
     {
-        // TSO doesn't like golden dragons either (poison).
-        if (mon == MONS_SHADOW_DRAGON || mon == MONS_GOLDEN_DRAGON)
-            mon = (coinflip()) ? MONS_STORM_DRAGON : MONS_IRON_DRAGON;
+        int midx;
+        if ((midx = create_monster(
+                mgen_data(mon, BEH_COPY, caster,
+                          6, SPELL_SUMMON_DRAGON,
+                          caster->pos(),
+                          (caster->atype() == ACT_PLAYER) ? MHITYOU
+                            : caster->as_monster()->foe,
+                          0, god))) != -1)
+        {
+            if (you.see_cell(menv[midx].pos()))
+                mpr("A dragon appears.");
+            // Xom summoning evil dragons if you worship a good god?  Sure!
+            player_angers_monster(&menv[midx]);
+            success = true;
+        }
     }
 
-    int midx;
-    if ((midx = create_monster(
-            mgen_data(mon, BEH_COPY, caster,
-                      4, SPELL_SUMMON_DRAGON,
-                      caster->pos(),
-                      (caster->atype() == ACT_PLAYER) ? MHITYOU
-                        : caster->as_monster()->foe,
-                      0, god))) != -1)
-    {
-        if (you.see_cell(menv[midx].pos()))
-            mpr("A dragon appears.");
-        // Xom summoning evil dragons if you worship a good god?  Sure!
-        player_angers_monster(&menv[midx]);
-        return (true);
-    }
-
-    if (caster == &you)
+    if (!success && caster == &you)
         canned_msg(MSG_NOTHING_HAPPENS);
-    return (false);
+    return (success);
 }
 
 // This assumes that the specified monster can go berserk.
@@ -1175,6 +1178,15 @@ static bool _summon_demon_wrapper(int pow, god_type god, int spell,
             mpr(charmed ? "You don't feel so good about this..."
                         : "It doesn't look very happy.");
         }
+        else if (friendly && mons_genus(mon) == MONS_IMP)
+        {
+            std::string msg = getSpeakString("_friendly_imp_greeting");
+            execute_embedded_lua(msg);
+            if (msg == "__NONE")
+                msg.clear();
+            mons_speaks_msg(&menv[mons], msg, MSGCH_TALK,
+                            silenced(menv[mons].pos()));
+        }
     }
 
     return (success);
@@ -1362,13 +1374,12 @@ bool cast_malign_gateway(actor * caster, int pow, god_type god)
         noisy(10, point);
         mpr("The dungeon shakes, a horrible noise fills the air, and a portal to some otherworldly place is opened!", MSGCH_WARN);
 
-        if (one_chance_in(3) && caster->atype() == ACT_PLAYER)
+        if (one_chance_in(5) && caster->atype() == ACT_PLAYER)
         {
             // if someone deletes the db, no message is ok
             mpr(getMiscString("SHT_int_loss").c_str());
             // Messages the same as for SHT, as they are currently (10/10) generic.
-            lose_stat(STAT_INT, 1, true, "opening a malign portal");
-            // Since sustAbil no longer helps here, this can't fail anymore -- 1KB
+            lose_stat(STAT_INT, 1 + random2(3), false, "opening a malign portal");
         }
     }
     else if (caster->atype() == ACT_PLAYER)
@@ -1383,12 +1394,11 @@ bool cast_malign_gateway(actor * caster, int pow, god_type god)
 
 bool cast_summon_horrible_things(int pow, god_type god)
 {
-    if (one_chance_in(3))
+    if (one_chance_in(5))
     {
         // if someone deletes the db, no message is ok
         mpr(getMiscString("SHT_int_loss").c_str());
-        lose_stat(STAT_INT, 1, true, "summoning horrible things");
-        // Since sustAbil no longer helps here, this can't fail anymore -- 1KB
+        lose_stat(STAT_INT, 1 + random2(3), false, "summoning horrible things");
     }
 
     int how_many_small =
@@ -1680,6 +1690,10 @@ static bool _raise_remains(const coord_def &pos, int corps, beh_type beha,
     mgen_data mg(mon, beha, as, 0, 0, pos, hitting, MG_FORCE_BEH, god,
                  static_cast<monster_type>(monnum), number);
 
+    // No experience for monsters animated by god wrath or the Sword of Zongulrok
+    if (nas != "")
+        mg.extra_flags |= MF_NO_REWARD;
+
     mg.non_actor_summoner = nas;
 
     const int mons = create_monster(mg);
@@ -1829,7 +1843,7 @@ int animate_dead(actor *caster, int pow, beh_type beha, unsigned short hitting,
     int number_seen   = 0;
     int motions       = 0;
 
-    radius_iterator ri(caster->pos(), 7, C_ROUND,
+    radius_iterator ri(caster->pos(), LOS_RADIUS, C_ROUND,
                        caster->get_los_no_trans());
 
     for (; ri; ++ri)

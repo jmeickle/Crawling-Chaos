@@ -74,7 +74,8 @@ bool ends_with(const std::string &s, const std::string &suffix);
 #ifdef UNIX
 extern "C" int stricmp(const char *str1, const char *str2);
 #endif
-int numcmp(const char *a, const char *b, int limit);
+int numcmp(const char *a, const char *b, int limit = 0);
+bool numcmpstr(std::string a, std::string b);
 size_t strlcpy(char *dst, const char *src, size_t n);
 
 int strwidth(const char *s);
@@ -193,9 +194,15 @@ std::string comma_separated_line(Z start, Z end,
     return (text);
 }
 
-#ifdef NEED_USLEEP
-void usleep(unsigned long time);
-#endif
+inline int sqr(int x)
+{
+    return x * x;
+}
+
+inline bool testbits(uint64_t flags, uint64_t test)
+{
+    return ((flags & test) == test);
+}
 
 #ifndef USE_TILE
 coord_def cgettopleft(GotoRegion region = GOTO_CRT);

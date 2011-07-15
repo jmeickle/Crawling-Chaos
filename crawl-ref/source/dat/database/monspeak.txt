@@ -355,6 +355,111 @@ _friendly_imp_rare_
 
 ## END _friendly_imp_ ##
 %%%%
+_friendly_imp_greeting
+
+@The_monster@ says, "I'm here!"
+
+@The_monster@ says, "Let's @_cause_or_spread@ @_mayhem@!"
+
+@The_monster@ says, "I @_truckle@ to your @_vassalage@, @_suck_up_address@ @_suck_up_adj1@ and @_suck_up_adj2@ @_suck_up_noun@!"
+
+w:970
+__NONE
+%%%%
+_cause_or_spread
+
+cause
+
+spread
+
+sow
+
+raise
+%%%%
+_mayhem
+
+mayhem
+
+destruction
+
+havoc
+
+disruption
+%%%%
+_truckle
+
+truckle
+
+commit
+
+give in
+
+bow
+
+yield
+%%%%
+_vassalage
+
+vassalage
+
+service
+
+servitude
+
+fealty
+%%%%
+_suck_up_address
+
+O
+
+my
+%%%%
+_suck_up_adj1
+
+grandiloquent
+
+illustrious
+
+magnificent
+%%%%
+_suck_up_adj2
+
+{{
+if you.race() == "Mummy" then
+    return "velvet-covered"
+elseif you.mutation('beak') > 0 then
+    return "pearl-beaked"
+elseif you.transform() == "lich" then
+    return "ivory-boned"
+elseif you.transform() == "statue" then
+    return "marble-toed"
+elseif you.transform() == "dragon" then
+    return "opal-scaled"
+elseif you.race() == "Felid" then
+    return "pillow-pawed"
+else
+    return "rosy-lipped"
+end
+}}
+
+awesome
+
+greatest
+
+god-like
+%%%%
+_suck_up_noun
+
+voivode
+
+master
+
+ruler
+
+ban
+
+magnate
+%%%%
 _hostile_imp_
 
 @_hostile_imp_common_@
@@ -386,6 +491,13 @@ VISUAL:@The_monster@ disappears for a moment.
 
 VISUAL:@The_monster@ summons a swarm of flies.
 ## END _hostile_imp_ ##
+%%%%
+_hell_lord_taunt_
+
+@The_monster@ @says@ @to_foe@, "@demon_taunt@"
+
+w:1
+@The_monster@ proclaims, "For the glory of @God@!"
 %%%%
 _demon_taunt_
 
@@ -969,12 +1081,12 @@ Short Blades player ghost
 
 @The_monster@ says @to_foe@, "You sneer at my short blade, I will sneer at your cold corpse."
 
-VISUAL:@The_monster@ flicks its blade from hand to hand, faster than the eye can follow.
+VISUAL:@The_monster@ flicks @possessive@ blade from hand to hand, faster than the eye can follow.
 
 %%%%
 Long Blades player ghost
 
-VISUAL:@The_monster@ holds its blade at the ready.
+VISUAL:@The_monster@ holds @possessive@ blade at the ready.
 
 @The_monster@ says, "Live by the sword, die by the sword."
 
@@ -1012,7 +1124,7 @@ Staves player ghost
 
 @The_monster@ says, "I excel at staving off weak adventurers."
 
-VISUAL:@The_monster@ twirls its staff.
+VISUAL:@The_monster@ twirls @possessive@ staff.
 
 @The_monster@ threatens to break your skull. @player_only@
 
@@ -1021,7 +1133,7 @@ Slings player ghost
 
 @The_monster@ says, "The bigger they are, the harder they fall!"
 
-VISUAL:@The_monster@ whirls a spectral sling over its head.
+VISUAL:@The_monster@ whirls a spectral sling over @possessive@ head.
 
 @_generic_ranged_@
 %%%%
@@ -1036,7 +1148,7 @@ Crossbows player ghost
 
 @_generic_ranged_@
 
-@The_monster@ @_reloads_adj_@ its weapon.
+@The_monster@ @_reloads_adj_@ @possessive@ weapon.
 
 %%%%
 Throwing player ghost
@@ -1069,9 +1181,9 @@ Stealth player ghost
 
 VISUAL:@The_monster@ tries to sneak away.
 
-VISUAL:@The_monster@ tries to blend into its surroundings.
+VISUAL:@The_monster@ tries to blend into @possessive@ surroundings.
 
-VISUAL:@The_monster@ whispers something so quietly that you cannot hear it.
+VISUAL:@The_monster@ whispers something so quietly that you cannot hear @pronoun@.
 
 VISUAL:For a moment, you lose track of @the_monster@.
 
@@ -1123,9 +1235,9 @@ VISUAL:@The_monster@ assumes a wrestling stance.
 
 @The_monster@ says, "I break bones and crack skulls... with my bare hands."
 
-VISUAL:@The_monster@ swings its fists at you. @player_only@
+VISUAL:@The_monster@ swings @possessive@ fists at you. @player_only@
 
-VISUAL:@The_monster@ flexes its fingers.
+VISUAL:@The_monster@ flexes @possessive@ fingers.
 
 %%%%
 Spellcasting player ghost
@@ -1177,7 +1289,7 @@ Summonings player ghost
 
 @The_monster@ says, "It's dangerous to adventure alone."
 
-VISUAL SPELL:@The_monster@ pulls a quokka out of its cap.
+VISUAL SPELL:@The_monster@ pulls a quokka out of @possessive@ cap.
 
 @The_monster@ points @at_foe@ and yells, "Attack!"
 
@@ -1522,6 +1634,12 @@ _Agnes_rare_
 
 ## END Agnes ##
 %%%%
+############ ANTAEUS ### A titan demonically corrupted into a hell lord.
+Antaeus
+
+@_hell_lord_taunt_@
+## END Antaeus
+%%%%
 ############ AZRAEL ### efreet
 Azrael
 
@@ -1559,6 +1677,28 @@ _Azrael_rare_
 @The_monster@ screams @at_foe@, "No! No! YES! No!"
 
 VISUAL:@The_monster@ whirls about in circles.
+
+@The_monster@ says @to_foe@, "May the fleas of a thousand camels infest your armpits."
+
+@The_monster@ wonders @at_foe@, "Do you still suffer from delusions of adequacy?"
+
+@The_monster@ says @to_foe@, "May your bottom itch incessantly and may your @_player_arms_@ be too short to scratch it."
+
+@The_monster@ says @to_foe@, "You child of a motherless goat."
+
+@The_monster@ says @to_foe@, "You child of a rabid dog! Grandchild of a stinking jackal! Great-grandchild of a plucked vulture!"
+
+@The_monster@ says @to_foe@, "May a porcupine live in your trousers for a thousand days and die there for a thousand and one."
+%%%%
+_player_arms_
+
+{{
+if you.race() == "Felid" then
+    return "paws"
+else
+    return "arms"
+end
+}}
 ## END Azrael ##
 %%%%
 ############ BLORK ### In case Blork ends up polymorphed.
@@ -1801,7 +1941,7 @@ VISUAL:@The_monster@ considers dialectic materialism.
 
 VISUAL:@The_monster@ ponders an existential dilemma.
 
-VISUAL:@The_monster@ shuffles his notes under his cloak.
+VISUAL:@The_monster@ shuffles @possessive@ notes under @possessive@ cloak.
 
 VISUAL:@The_monster@ heaves a sigh in contemplation.
 %%%%
@@ -1812,7 +1952,7 @@ confused Crazy Yiuf
 
 @The_monster@ says, "I wonder if I left the window open."
 
-VISUAL:@The_monster@ scratches his head thoughtfully.
+VISUAL:@The_monster@ scratches @possessive@ head thoughtfully.
 
 @The_monster@ says, "Have you seen my glasses?"
 
@@ -1824,7 +1964,7 @@ VISUAL:@The_monster@ scratches his head thoughtfully.
 
 @The_monster@ laughs.
 
-VISUAL:@The_monster@ counts something out on his fingers.
+VISUAL:@The_monster@ counts something out on @possessive@ fingers.
 
 @The_monster@ says, "My, my head's in a spin!"
 
@@ -1835,7 +1975,7 @@ _crazy_yiuf_speech_
 w:300
 @The_monster@ @_crazy_yiuf_speech_verbs_@, "@_crazy_yiuf_sentence_@"
 
-VISUAL:@The_monster@ waves his quarterstaff at you. @player_only@
+VISUAL:@The_monster@ waves @possessive@ quarterstaff at you. @player_only@
 
 @The_monster@ cries, "You leg down broken song, no?"
 
@@ -1843,7 +1983,7 @@ VISUAL:@The_monster@ glowers.
 
 VISUAL:@The_monster@ twirls on the spot.
 
-VISUAL:@The_monster@ flaps his cloak.
+VISUAL:@The_monster@ flaps @possessive@ cloak.
 
 @The_monster@ says, "Crazy? Crazy!? PORCUPINE!"
 
@@ -2203,7 +2343,7 @@ w:1
 @The_monster@ presages, "An acid flood will etch off all the scum!"
 
 w:2
-@The_monster@ says, "There is a problem solver and its name is Dissolver!"
+@The_monster@ says, "There is a problem solver and @possessive@ name is Dissolver!"
 ## END Dissolution ##
 %%%%
 ############ DONALD ### An adventurer hating competition
@@ -2239,9 +2379,7 @@ VISUAL:@The_monster@ kicks a rock and scowls.
 
 @The_monster@ says, "I asked for directions to the rune, but they belched at me."
 
-@The_monster@ says, "Maybe, with this gold, I'll be able to afford that Trove..."
-
-@The_monster@ says, "I prefer the Lair of the Beasts, to be honest. At least animals don't complain."
+@The_monster@ says, "I prefer the Lair of Beasts, to be honest. At least animals don't complain."
 
 @The_monster@ says, "I hate complainers so much."
 %%%%
@@ -2250,11 +2388,9 @@ Elven Halls Donald
 w:50
 @_generic_Donald_@
 
-@The_monster@ says, "They're so pretty, I think it must be a glamour."
-
 @The_monster@ says, "This place goes on forever. I hate that."
 
-@The_monster@ says, "This place goes down forever. Maybe there's turtles at the bottom."
+@The_monster@ says, "This place goes down forever. Maybe there are turtles at the bottom."
 
 @The_monster@ says, "Why would you have your front door in a mine? Stupid."
 
@@ -2272,7 +2408,9 @@ w:50
 
 @The_monster@ says, "What sort of sludge, anyway?"
 
-@The_monster@ says, "Some of those elves look a bit grey in the face."
+@The_monster@ says, "What a garish colour scheme."
+
+@The_monster@ says, "None of these elves know how to fight. I hate that."
 %%%%
 Swamp Donald
 
@@ -2299,16 +2437,18 @@ w:50
 
 @The_monster@ says, "I hate mosquitoes. Almost as much as I hate swamp water."
 
-@The_monster@ says, "At least there's some dry land and pathways, now."
+@The_monster@ says, "At least there's some dry land. I hate getting wet."
 
 @The_monster@ says, "Is there a plague of frogs happening, or something? At least it's not locusts."
+
+@The_monster@ says, "The more heads they grow, the more I hate hydras."
 %%%%
 Shoals Donald
 
 w:50
 @_generic_Donald_@
 
-@The_monster@ says, "Tides? What were they thinking? I hate tides!"
+@The_monster@ says, "Tides? I hate tides!"
 
 @The_monster@ says, "I like turtle soup. I hate turtles."
 
@@ -2353,7 +2493,7 @@ Slime Pits Donald
 w:50
 @_generic_Donald_@
 
-@The_monster@ says, "I forgot my corrosion kit. Damn, I hate that!"
+@The_monster@ says, "I forgot to wear corrosion-proof armour. Damn, I hate that!"
 
 @The_monster@ says, "Those eyeballs are creepy."
 
@@ -2392,6 +2532,12 @@ w:50
 @The_monster@ says, "Someone said I could use acid to solve all my problems. It just made them worse."
 
 @The_monster@ says, "I hope the rune isn't sticky."
+
+@The_monster@ says, "I bet a jelly ate the rune."
+
+@The_monster@ says, "I hate that slurping noise."
+
+@The_monster@ says, "I hate that squelching noise."
 %%%%
 Snake Pit Donald
 
@@ -2415,10 +2561,6 @@ w:50
 @The_monster@ says, "Nagas are pretty ugly. I hate nagas."
 
 @The_monster@ says, "I really didn't expect a pair of shoes to bite me."
-
-@The_monster@ says, "There's a difference between guardian serpents and nagas? I never noticed."
-
-@The_monster@ says, "Brown snakes? Black snakes? Grey snakes? This guide is useless!"
 
 @The_monster@ says, "Did all the warriors here go to shield school or something?"
 
@@ -2487,6 +2629,10 @@ w:50
 @The_monster@ says, "I'm hungry."
 
 @The_monster@ says, "I've been waiting here for ages. Nothing new."
+
+@The_monster@ says, "What's so great about these maces?"
+
+@The_monster@ says, "Nobody here wants to dance with me. I hate that."
 %%%%
 Crypt Donald
 
@@ -2535,7 +2681,7 @@ w:50
 
 @The_monster@ says, "Have you seen a sarcophagus full of treasure around? Me neither."
 
-@The_monster@ says, "I just hope they don't have the liches behind glass, I hate that."
+@The_monster@ says, "I just hope the loot isn't guarded by liches. I hate liches."
 
 @The_monster@ says, "The mummy wasn't that great."
 
@@ -2568,7 +2714,7 @@ w:50
 
 @The_monster@ says, "Zin? Why would you even bother?"
 
-@The_monster@ says, "So much for spreading the word, you get punched in the face instead."
+@The_monster@ says, "So much for spreading the word; you get punched in the face instead."
 
 @The_monster@ says, "This pamphlet doesn't say what the point to Recitation is."
 
@@ -2586,11 +2732,9 @@ w:50
 
 @The_monster@ says, "I hate stupid dietary laws! If I wanna eat a cow, I'll eat a cow!"
 
-@The_monster@ says, "I've got two hundred gold pieces, is that enough to cure these mutations?"
+@The_monster@ says, "I've got two hundred gold pieces. Is that enough to cure these mutations?"
 
 @The_monster@ says, "Didn't you like your horns?"
-
-@The_monster@ says, "Don't you hate it when everyone gets mad at you?"
 
 @The_monster@ says, "Damn, I left my potions of berserk rage outside."
 
@@ -2603,7 +2747,7 @@ w:50
 
 @The_monster@ says, "What's the point of being chivalric if nobody's going to be chivalric back?"
 
-@The_monster@ says, "I opened the door for a goblin, he punched me in the face. I hate chivalry."
+@The_monster@ says, "I opened the door for a goblin; he punched me in the face. I hate chivalry."
 
 @The_monster@ says, "I think I'll have a nap."
 
@@ -2636,11 +2780,11 @@ w:50
 
 @The_monster@ says, "I hate zombies."
 
-@The_monster@ says, "Butchering is such a pain, isn't it?"
-
 @The_monster@ says, "You strike me as a masochist."
 
 @The_monster@ says, "I'm hungry. Can you summon some snacks?"
+
+@The_monster@ says, "Yuck, you smell of miasma."
 %%%%
 Yredelemnul Donald
 
@@ -2663,7 +2807,7 @@ w:50
 
 @The_monster@ says, "A flaming corpse just burned my scrolls. I hate that."
 
-@The_monster@ says, "Zombies? Skeletons? Don't you get bored for real company?"
+@The_monster@ says, "Zombies? Skeletons? Don't you get bored without any real company?"
 
 @The_monster@ says, "Maybe you can tell me! What exactly is a 'death cob'?"
 %%%%
@@ -2679,8 +2823,6 @@ w:50
 @The_monster@ says, "Oh, hey! I could use a new animal skin. Have you got any spares?"
 
 @The_monster@ says, "Nice kit."
-
-@The_monster@ says, "Can I have your spare potions?"
 
 VISUAL:@The_monster@ yawns.
 
@@ -2701,8 +2843,6 @@ w:50
 
 @The_monster@ says, "Are you sure that summoning demons is a good idea?"
 
-@The_monster@ says, "Don't you ever wonder where those demons come from?"
-
 @The_monster@ says, "What's so minor about destruction?"
 
 @The_monster@ says, "Hey, watch where you throw those lightning balls!"
@@ -2710,6 +2850,12 @@ w:50
 @The_monster@ says, "Don't blow yourself up now."
 
 @The_monster@ says, "I hate demons."
+
+@The_monster@ says, "I hate blood."
+
+@The_monster@ says, "I hate suffering."
+
+@The_monster@ says, "I just stubbed my toe. Does that mean I'm cleansed?"
 %%%%
 Sif Muna Donald
 
@@ -2735,12 +2881,6 @@ w:50
 @The_monster@ says, "I hate books."
 
 @The_monster@ says, "Surely there's a limit to the number of books you can carry. Right?"
-
-@The_monster@ says, "That skill training requirement sounds like a real pain."
-
-@The_monster@ says, "Did I just see you do a victory dance?"
-
-@The_monster@ says, "What did that wall do to you?"
 
 @The_monster@ says, "I hate spells."
 
@@ -2803,6 +2943,8 @@ w:50
 @The_monster@ says, "I've seen this trick before. You've got the ace up your sleeve, right?"
 
 @The_monster@ says, "You need to come to terms with your gambling problem, mate."
+
+@The_monster@ says, "How about a game of 52 card pickup?"
 %%%%
 Elyvilon Donald
 
@@ -2820,6 +2962,8 @@ w:50
 @The_monster@ says, "If I give you my weapon, will you leave me alone?"
 
 @The_monster@ says, "Come on. Make me an offer of peace that I can't refuse!"
+
+@The_monster@ says, "For every monster you don't kill, I'll kill three."
 %%%%
 Lugonu Donald
 
@@ -2943,8 +3087,6 @@ w:50
 @The_monster@ says, "How do you spell that?"
 
 @The_monster@ says, "How do you pronounce that?"
-
-@The_monster@ says, "Tummy is such a puerile word."
 %%%%
 Xom Donald
 
@@ -2993,6 +3135,27 @@ w:50
 @The_monster@ says, "What's the point of summoning, anyway?"
 
 @The_monster@ says, "Do you find it easier to cast spells, now?"
+
+@The_monster@ says, "I hate explosions."
+%%%%
+Ashenzari Donald
+
+w:50
+@_generic_Donald_@
+
+@The_monster@ says, "You seem like a real know-it-all. I hate that."
+
+@The_monster@ says, "What's the point of being all-knowing if you can't do anything?"
+
+@The_monster@ makes a face at you and exclaims, "Curses!"
+
+@The_monster@ says, "I got nailed to the sky once. No big deal, really."
+
+@The_monster@ says, "You must love that deathly cold feeling. I hate it."
+
+@The_monster@ says, "I hate voyeurs."
+
+@The_monster@ says, "What does a god have to do to get cursed, anyway?"
 %%%%
 No God Donald
 
@@ -3073,7 +3236,7 @@ VISUAL:@The_monster@ winces.
 
 VISUAL:@The_monster@ makes a rude gesture at you.
 
-VISUAL:@The_monster@ shakes his head.
+VISUAL:@The_monster@ shakes @possessive@ head.
 
 @The_monster@ says, "What lunatic would build a room out of doors?"
 
@@ -3111,9 +3274,9 @@ default hostile confused Donald
 
 VISUAL:@The_monster@ does a happy little dance.
 
-VISUAL:@The_monster@ sticks a finger up his nose.
+VISUAL:@The_monster@ sticks a finger up @possessive@ nose.
 
-VISUAL:@The_monster@ tugs at his hair.
+VISUAL:@The_monster@ tugs at @possessive@ hair.
 
 VISUAL:@The_monster@ twirls gently on the spot.
 %%%%
@@ -3209,7 +3372,7 @@ twin_died Duvessa
 
 VISUAL:@The_monster@ shakes in a combination of rage and grief.
 
-VISUAL:@The_monster@ grits her teeth and focuses.
+VISUAL:@The_monster@ grits @possessive@ teeth and focuses.
 
 @The_monster@ says, "The sword shall overcome grief!"
 
@@ -3235,7 +3398,7 @@ twin_banished Duvessa
 
 VISUAL:@The_monster@ shakes in a combination of rage and grief.
 
-VISUAL:@The_monster@ grits her teeth and focuses.
+VISUAL:@The_monster@ grits @possessive@ teeth and focuses.
 
 @The_monster@ says, "I will journey into the Abyss to retrieve him!"
 
@@ -3247,7 +3410,7 @@ VISUAL:@The_monster@ is wide-eyed with horror.
 
 @The_monster@ screams.
 
-@The_monster@ shakes his head, saying, "No, no, no!"
+@The_monster@ shakes @possessive@ head, saying, "No, no, no!"
 
 @The_monster@ screams, "No! What have I done?"
 %%%%
@@ -3260,7 +3423,7 @@ w:2
 %%%%
 _Duvessa_common_
 
-VISUAL:@The_monster@ gestures with her weapon @at_foe@.
+VISUAL:@The_monster@ gestures with @possessive@ weapon @at_foe@.
 
 @The_monster@ says @to_foe@, "My weaknesses are his strengths!"
 
@@ -3287,7 +3450,7 @@ _Duvessa_Dowan_dies_
 
 @The_monster@ screams, "No! How DARE you!"
 
-@The_monster@ weeps, then rights herself and shakes her weapon.
+@The_monster@ weeps, then rights @reflexive@ and shakes @possessive@ weapon.
 %%%%
 _Duvessa_Dowan_dies_invisible_
 
@@ -3326,13 +3489,13 @@ w:5
 %%%%
 _Edmund_common_
 
-VISUAL:@The_monster@ gestures @at_foe@ with his flail.
+VISUAL:@The_monster@ gestures @at_foe@ with @possessive@ flail.
 
-@The_monster@ clears his throat.
+@The_monster@ clears @possessive@ throat.
 
 @The_monster@ says, "You wouldn't believe how much I paid for this flail."
 
-@The_monster@ asks @foe@, "Have you met my brother?"
+@The_monster@ asks @foe,@ "Have you met my brother?"
 
 @The_monster@ says @to_foe@, "I might not be good at magic, but I can still kill you!"
 
@@ -3344,7 +3507,7 @@ VISUAL:@The_monster@ gestures @at_foe@ with his flail.
 %%%%
 _Edmund_rare_
 
-VISUAL:@The_monster@ grinds his teeth, and then sighs.
+VISUAL:@The_monster@ grinds @possessive@ teeth, and then sighs.
 
 w:1
 VISUAL:@The_monster@ looks rather jealous.
@@ -3471,9 +3634,9 @@ _Eustachio_rare_
 VISUAL:@The_monster@ twirls @possessive@ moustache.
 
 # doesn't really work if there are no summons nearby
-#VISUAL:@The_monster@ strokes his familiar.
+#VISUAL:@The_monster@ strokes @possessive@ familiar.
 
-SPELL:@The_monster@ calls on the powers of Hell!
+SPELL:@The_monster@ calls on the powers of darkness!
 
 @The_monster@ brags, "I can call spirits from the vasty deep."
 ## END Eustachio ##
@@ -3490,7 +3653,7 @@ _Frances_common_
 
 VISUAL:@The_monster@ sneers @at_foe@.
 
-VISUAL:@The_monster@ runs a finger over her scar.
+VISUAL:@The_monster@ runs a finger over @possessive@ scar.
 
 ENCHANT:@The_monster@ speaks in an indecipherable language.
 
@@ -3716,7 +3879,9 @@ _Grinder_rare_
 
 @The_monster@ says, "My boss said I was rubbish. His entrails said otherwise."
 
-VISUAL:@The_monster@ rolls his eyes.
+@The_monster@ says, "At least @God@ appreciates what I do."
+
+VISUAL:@The_monster@ rolls @possessive@ eyes.
 %%%%
 ############ GRUM ### A war dog-breeding gnoll
 Grum
@@ -3796,7 +3961,7 @@ w:3
 %%%%
 _Ignacio_common_
 
-VISUAL:@The_monster@ looks at his axe, then at @foe@, then at his axe, then at @foe@...
+VISUAL:@The_monster@ looks at @possessive@ axe, then at @foe@, then at @possessive@ axe, then at @foe@...
 
 VISUAL:@The_monster@ grins in joy.
 
@@ -3987,7 +4152,7 @@ VISUAL:@The_monster@ mockingly mimes being beheaded.
 
 VISUAL:@The_monster@ stares carefully at you. @player_only@
 
-VISUAL:@The_monster@ swishes his cloak stereotypically.
+VISUAL:@The_monster@ swishes @possessive@ cloak stereotypically.
 
 VISUAL:@The_monster@ frowns.
 
@@ -4000,7 +4165,7 @@ VISUAL:@The_monster@ gestures rudely at you. @player_only@
 
 VISUAL:@The_monster@ smirks, showing shining fangs.
 
-VISUAL:@The_monster@ demonstrates baring his neck.
+VISUAL:@The_monster@ demonstrates baring @possessive@ neck.
 
 VISUAL:@The_monster@ hisses silently.
 
@@ -4416,7 +4581,7 @@ VISUAL:@The_monster@ gestures at you. @player_only@
 
 VISUAL:@The_monster@ looks to the heavens.
 
-VISUAL:@The_monster@ shakes his head sadly.
+VISUAL:@The_monster@ shakes @possessive@ head sadly.
 
 VISUAL:@The_monster@ is caught in a moment of prayer.
 %%%%
@@ -4556,7 +4721,7 @@ _Nergalle_common_
 
 VISUAL:@The_monster@ grimaces horribly.
 
-@The_monster@ mutters something to herself.
+@The_monster@ mutters something to @reflexive@.
 
 @The_monster@ asks @foe,@ "There's a tasty morsel, hm?"
 %%%%
@@ -4726,7 +4891,7 @@ w:5
 %%%%
 _Pikel_common_
 
-@The_monster@ cracks his whip.
+@The_monster@ cracks @possessive@ whip.
 
 @The_monster@ says, "You'll fetch a fair price!" @player_only@
 
@@ -4734,7 +4899,7 @@ _Pikel_common_
 
 @The_monster@ says @to_foe@, "You'll feel the lick of my whip!"
 
-VISUAL:@The_monster@ waves his whip at you.
+VISUAL:@The_monster@ waves @possessive@ whip at you.
 %%%%
 _Pikel_rare_
 
@@ -4748,7 +4913,7 @@ VISUAL:@The_monster@ waves a pair of manacles at you. @player_only@
 @The_monster@ says @to_foe@, "You strike me more as a bedroom slave. Hm."
 
 # Greedy Pikel
-VISUAL:@The_monster@ checks his coin pouch and frowns.
+VISUAL:@The_monster@ checks @possessive@ coin pouch and frowns.
 
 # Original FR speech
 @The_monster@ says, "It's all about the gold, really."
@@ -4765,7 +4930,7 @@ VISUAL:@The_monster@ checks his coin pouch and frowns.
 # Stalker Pikel!
 @The_monster@ shouts, "If I can't have you, no one shall!"
 
-VISUAL:@The_monster@ scowls and wipes his hands on his robe.
+VISUAL:@The_monster@ scowls and wipes @possessive@ hands on @possessive@ robe.
 
 # Kinky Pikel
 @The_monster@ says @to_foe@, "I'm sure you'll love being tied up!"
@@ -5259,12 +5424,12 @@ _Terpsichore_self_buff_
 
 @The_monster@ cartwheels!
 
-@The_monster@ extends her arms.
+@The_monster@ extends @possessive@ arms.
 
 %%%%
 _Terpsichore_other_buff_
 
-@The_monster@ beats her extended leg.
+@The_monster@ beats @possessive@ extended leg.
 
 A look of regret passes over @the_monster@'s face.
 
@@ -5495,6 +5660,10 @@ default ice statue
 
 VISUAL:@The_monster@ glitters in the dim dungeon light.
 %%%%
+hell lord
+
+@_hell_lord_taunt_@
+%%%%
 imp
 
 w:1
@@ -5563,7 +5732,7 @@ VISUAL:@The_monster@ smiles at @foe@.
 
 VISUAL:@The_monster@ grins with merry abandon.
 
-VISUAL:@The_monster@ pulls ten torches out off its hat and starts juggling.
+VISUAL:@The_monster@ pulls ten torches out of @possessive@ hat and starts juggling.
 
 VISUAL:@The_monster@ sprays water @at_foe@.
 
@@ -5618,7 +5787,7 @@ VISUAL:@The_monster@ gestures at you to be quiet.
 
 VISUAL:@The_monster@ flutters as if in a wind.
 
-VISUAL:@The_monster@ stares at you with its ghostly eyes.
+VISUAL:@The_monster@ stares at you with @possessive@ ghostly eyes.
 
 VISUAL:@The_monster@ fades in and out of visibility.
 
@@ -6219,7 +6388,7 @@ beogh_converted_orc_reaction_battle
 %%%%
 beogh_converted_orc_speech_battle
 
-@Pronoun@ shouts, "I'll follow you, let me live!"
+@Pronoun@ shouts, "I'll follow you; let me live!"
 
 @Pronoun@ says, "You must be the Messiah, I see it now!"
 
@@ -6331,9 +6500,9 @@ VISUAL:@The_monster@'s flesh secretes a thick mucus.
 
 VISUAL:Hollow, blind eyes appear on the @monster@'s head.
 
-@The_monster@ begs you to kill it.
+@The_monster@ begs you to kill @pronoun@.
 
-VISUAL:@The_monster@ looks at itself and cries without tears.
+VISUAL:@The_monster@ looks at @reflexive@ and cries without tears.
 
 # Pungent Stench
 @The_monster@ screams, "I am only a sick, bizarre, defaced creation."

@@ -15,11 +15,10 @@ void cast_chain_lightning(int pow, const actor *caster);
 void cast_toxic_radiance(bool non_player = false);
 void cast_refrigeration(int pow, bool non_player = false,
                         bool freeze_potions = true);
+void sonic_damage(bool scream);
 bool vampiric_drain(int pow, monster* mons);
 bool cast_freeze(int pow, monster* mons);
-
-int airstrike(int pow, const dist &beam);
-
+bool cast_airstrike(int pow, const dist &beam);
 void cast_shatter(int pow);
 void cast_ignite_poison(int pow);
 void cast_discharge(int pow);
@@ -32,4 +31,8 @@ bool cast_tornado(int powc);
 void tornado_damage(actor *caster, int dur);
 void cancel_tornado();
 
+actor* forest_near_enemy(const actor *mon);
+void forest_message(const coord_def pos, const std::string &msg,
+                    msg_channel_type ch = MSGCH_PLAIN);
+                    void forest_damage(const actor *mon);
 #endif

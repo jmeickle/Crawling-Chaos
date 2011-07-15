@@ -146,7 +146,7 @@ struct spell_desc
      SPFLAG_DIR_OR_TARGET,
      6,
      200,
-     6, 6,
+     7, 7,
      0,
      NULL,
      true,
@@ -159,7 +159,7 @@ struct spell_desc
      SPFLAG_DIR_OR_TARGET,
      6,
      200,
-     7, 7,
+     6, 6,
      0,
      NULL,
      true,
@@ -278,7 +278,7 @@ struct spell_desc
      SPFLAG_DIR_OR_TARGET,
      2,
      50,
-     7, 7,
+     8, 8,
      0,
      NULL,
      true,
@@ -291,7 +291,7 @@ struct spell_desc
      SPFLAG_DIR_OR_TARGET,
      2,
      50,
-     8, 8,
+     7, 7,
      0,
      NULL,
      true,
@@ -878,7 +878,7 @@ struct spell_desc
     SPELL_SUMMON_ICE_BEAST, "Summon Ice Beast",
      SPTYP_ICE | SPTYP_SUMMONING,
      SPFLAG_BATTLE,
-     5,
+     4,
      200,
      -1, -1,
      0,
@@ -929,7 +929,7 @@ struct spell_desc
 {
     SPELL_BERSERKER_RAGE, "Berserker Rage",
      SPTYP_CHARMS,
-     SPFLAG_HASTY,
+     SPFLAG_HASTY | SPFLAG_MONSTER,
      3,
      0,
      -1, -1,
@@ -1782,7 +1782,7 @@ struct spell_desc
 
 {
     SPELL_SILENCE, "Silence",
-     SPTYP_CHARMS | SPTYP_AIR,
+     SPTYP_HEXES | SPTYP_AIR,
      SPFLAG_AREA,
      5,
      200,
@@ -2909,7 +2909,7 @@ struct spell_desc
      7,
      200,
      -1, -1,
-     0,
+     -4,
      NULL,
      false,
      false
@@ -2951,6 +2951,45 @@ struct spell_desc
      0,
      NULL,
      false,
+     false
+},
+
+{
+    SPELL_PETRIFYING_CLOUD, "Petrifying Cloud",
+    SPTYP_CONJURATION | SPTYP_EARTH | SPTYP_AIR,
+    SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER,
+    5,
+    0,
+    LOS_RADIUS, LOS_RADIUS,
+    0,
+    NULL,
+    true,
+    false
+},
+
+{
+    SPELL_SHROUD_OF_GOLUBRIA, "Shroud of Golubria",
+     SPTYP_CHARMS | SPTYP_TRANSLOCATION,
+     SPFLAG_NONE,
+     2,
+     200,
+     -1, -1,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
+    SPELL_INNER_FLAME, "Inner Flame",
+     SPTYP_HEXES | SPTYP_FIRE,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF,
+     3,
+     200,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
      false
 },
 

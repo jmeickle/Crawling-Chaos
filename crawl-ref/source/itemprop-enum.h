@@ -24,7 +24,7 @@ enum armour_type
 
     ARM_BOOTS,
 
-    ARM_BUCKLER,
+    ARM_BUCKLER, // order of shields matters
     ARM_SHIELD,
     ARM_LARGE_SHIELD,
     ARM_MAX_RACIAL = ARM_LARGE_SHIELD,
@@ -247,7 +247,9 @@ enum misc_item_type
 
     MISC_QUAD_DAMAGE, // Sprint only
 
-    NUM_MISCELLANY // mv: used for random generation
+    NUM_MISCELLANY, // mv: used for random generation
+    MISC_FIRST_DECK = MISC_DECK_OF_ESCAPE,
+    MISC_LAST_DECK  = MISC_DECK_OF_DEFENCE,
 };
 
 enum missile_type

@@ -102,15 +102,14 @@ static const spell_type _xom_tension_spells[] =
 {
     SPELL_BLINK, SPELL_CONFUSING_TOUCH, SPELL_CAUSE_FEAR, SPELL_ENGLACIATION,
     SPELL_DISPERSAL, SPELL_STONESKIN, SPELL_RING_OF_FLAMES,
-    SPELL_OLGREBS_TOXIC_RADIANCE, SPELL_MAXWELLS_SILVER_HAMMER,
-    SPELL_FIRE_BRAND, SPELL_FREEZING_AURA, SPELL_POISON_WEAPON,
-    SPELL_LETHAL_INFUSION, SPELL_EXCRUCIATING_WOUNDS, SPELL_WARP_BRAND,
-    SPELL_TUKIMAS_DANCE, SPELL_RECALL, SPELL_SUMMON_BUTTERFLIES,
-    SPELL_SUMMON_SMALL_MAMMALS, SPELL_SUMMON_SCORPIONS, SPELL_SUMMON_SWARM,
-    SPELL_FLY, SPELL_SPIDER_FORM, SPELL_STATUE_FORM, SPELL_ICE_FORM,
-    SPELL_DRAGON_FORM, SPELL_ANIMATE_DEAD, SPELL_SHADOW_CREATURES,
-    SPELL_SUMMON_HORRIBLE_THINGS, SPELL_CALL_CANINE_FAMILIAR,
-    SPELL_SUMMON_ICE_BEAST, SPELL_SUMMON_UGLY_THING,
+    SPELL_OLGREBS_TOXIC_RADIANCE, SPELL_FIRE_BRAND, SPELL_FREEZING_AURA,
+    SPELL_POISON_WEAPON, SPELL_LETHAL_INFUSION, SPELL_EXCRUCIATING_WOUNDS,
+    SPELL_WARP_BRAND, SPELL_TUKIMAS_DANCE, SPELL_RECALL,
+    SPELL_SUMMON_BUTTERFLIES, SPELL_SUMMON_SMALL_MAMMALS,
+    SPELL_SUMMON_SCORPIONS, SPELL_SUMMON_SWARM, SPELL_FLY, SPELL_SPIDER_FORM,
+    SPELL_STATUE_FORM, SPELL_ICE_FORM, SPELL_DRAGON_FORM, SPELL_ANIMATE_DEAD,
+    SPELL_SHADOW_CREATURES, SPELL_SUMMON_HORRIBLE_THINGS,
+    SPELL_CALL_CANINE_FAMILIAR, SPELL_SUMMON_ICE_BEAST, SPELL_SUMMON_UGLY_THING,
     SPELL_CONJURE_BALL_LIGHTNING, SPELL_SUMMON_HYDRA, SPELL_SUMMON_DRAGON,
     SPELL_DEATH_CHANNEL, SPELL_NECROMUTATION
 };
@@ -459,7 +458,6 @@ static bool _spell_weapon_check(const spell_type spell)
     case SPELL_TUKIMAS_DANCE:
         // Requires a wielded weapon.
         return (player_weapon_wielded());
-    case SPELL_MAXWELLS_SILVER_HAMMER:
     case SPELL_FIRE_BRAND:
     case SPELL_FREEZING_AURA:
     case SPELL_POISON_WEAPON:
@@ -811,7 +809,7 @@ static bool _xom_annoyance_gift(int power, bool debug = false)
 
         const item_def *left_ring = you.slot_item(EQ_LEFT_RING, true);
         const item_def *right_ring = you.slot_item(EQ_RIGHT_RING, true);
-        if (coinflip() && ((left_ring && left_ring->cursed())
+        if (you.species != SP_OCTOPODE && coinflip() && ((left_ring && left_ring->cursed())
                            || (right_ring && right_ring->cursed())))
         {
             if (debug)
@@ -1127,18 +1125,10 @@ static monster_type _xom_random_demon(int sever, bool use_greater_demons = true)
     return (demon);
 }
 
-static bool _feat_is_deadly(dungeon_feature_type feat)
-{
-    if (you.airborne())
-        return (false);
-
-    return (feat == DNGN_LAVA || feat == DNGN_DEEP_WATER && !you.can_swim());
-}
-
 static bool _player_is_dead()
 {
     return (you.hp <= 0 || you.strength() <= 0 || you.dex() <= 0 || you.intel() <= 0
-            || _feat_is_deadly(grd(you.pos()))
+            || is_feat_dangerous(grd(you.pos()))
             || you.did_escape_death());
 }
 
@@ -1880,7 +1870,7 @@ static int _xom_animate_monster_weapon(int sever, bool debug = false)
             && weapon.quantity == 1
             && !is_range_weapon(weapon)
             && !is_special_unrandom_artefact(weapon)
-            && !get_weapon_brand(weapon) != SPWPN_DISTORTION)
+            && get_weapon_brand(weapon) != SPWPN_DISTORTION)
         {
             mons_wpn.push_back(*mi);
         }
@@ -1957,7 +1947,7 @@ static int _xom_give_mutations(bool good, bool debug = false)
 
         mpr("Your body is suffused with distortional energy.");
 
-        set_hp(1 + random2(you.hp), false);
+        set_hp(1 + random2(you.hp));
         deflate_hp(you.hp_max / 2, true);
 
         bool failMsg = true;
@@ -2628,7 +2618,7 @@ static void _xom_zero_miscast()
     }
 
     if (feat_has_solid_floor(feat)
-        && inv_items.size() > 0)
+        && !inv_items.empty())
     {
         int idx = inv_items[random2(inv_items.size())];
 
@@ -2776,7 +2766,7 @@ static void _xom_zero_miscast()
 
     ////////
     // Misc.
-    if (inv_items.size() > 0)
+    if (!inv_items.empty())
     {
         int idx = inv_items[random2(inv_items.size())];
 
@@ -2848,7 +2838,7 @@ static void _get_hand_type(std::string &hand, bool &can_plural)
     }
 
     ASSERT(hand_vec.size() == plural_vec.size());
-    ASSERT(hand_vec.size() > 0);
+    ASSERT(!hand_vec.empty());
 
     const unsigned int choice = random2(hand_vec.size());
 
@@ -3725,7 +3715,7 @@ static void _handle_accidental_death(const int orig_hp,
 
         case KILLED_BY_LAVA:
         case KILLED_BY_WATER:
-            if (!_feat_is_deadly(feat))
+            if (!is_feat_dangerous(feat))
                 speech_type = "weird death";
             break;
 
@@ -3745,7 +3735,7 @@ static void _handle_accidental_death(const int orig_hp,
             break;
 
         default:
-            if (_feat_is_deadly(feat))
+            if (is_feat_dangerous(feat))
                 speech_type = "weird death";
             if (you.strength() <= 0 || you.intel() <= 0 || you.dex() <= 0)
                 speech_type = "weird death";
@@ -3809,7 +3799,7 @@ static void _handle_accidental_death(const int orig_hp,
         }
     }
 
-    if (_feat_is_deadly(feat))
+    if (is_feat_dangerous(feat))
         you_teleport_now(false);
 }
 
@@ -3834,7 +3824,7 @@ int xom_acts(bool niceness, int sever, int tension, bool debug)
         // escape from death via stat loss, or if the player used wizard
         // mode to escape death from deep water or lava.
         ASSERT(you.wizard && !you.did_escape_death());
-        if (_feat_is_deadly(grd(you.pos())))
+        if (is_feat_dangerous(grd(you.pos())))
         {
             mpr("Player is standing in deadly terrain, skipping Xom act.",
                 MSGCH_DIAGNOSTICS);
@@ -3994,28 +3984,6 @@ int xom_acts(bool niceness, int sever, int tension, bool debug)
     return (result);
 }
 
-static void _xom_check_less_runes(int runes_gone)
-{
-    if (you.opened_zot
-        || player_in_branch(BRANCH_HALL_OF_ZOT)
-        || !(branches[BRANCH_HALL_OF_ZOT].branch_flags & BFLAG_HAS_ORB))
-    {
-        return;
-    }
-
-    int runes_avail = you.attribute[ATTR_UNIQUE_RUNES]
-                      + you.attribute[ATTR_DEMONIC_RUNES]
-                      + you.attribute[ATTR_ABYSSAL_RUNES];
-    int was_avail = runes_avail + runes_gone;
-
-    // No longer enough available runes to get into Zot.
-    if (was_avail >= NUMBER_OF_RUNES_NEEDED
-        && runes_avail < NUMBER_OF_RUNES_NEEDED)
-    {
-        xom_is_stimulated(128, "Xom snickers.", true);
-    }
-}
-
 void xom_check_lost_item(const item_def& item)
 {
     if (item.base_type == OBJ_ORBS)
@@ -4024,11 +3992,6 @@ void xom_check_lost_item(const item_def& item)
         xom_is_stimulated(128, "Xom snickers.", true);
     else if (item_is_rune(item))
     {
-        // If you'd dropped it, check if that means you'd dropped your
-        // third rune, and now you don't have enough to get into Zot.
-        if (item.flags & ISFLAG_BEEN_IN_INV)
-            _xom_check_less_runes(item.quantity);
-
         if (item_is_unique_rune(item))
             xom_is_stimulated(255, "Xom snickers loudly.", true);
         else if (you.entry_cause == EC_SELF_EXPLICIT
@@ -4036,9 +3999,9 @@ void xom_check_lost_item(const item_def& item)
         {
             // Player voluntarily entered Pan or the Abyss looking for
             // runes, yet never found them.
-            if (item.plus == RUNE_ABYSSAL
-                && you.attribute[ATTR_ABYSSAL_RUNES] == 0)
+            if (item.plus == RUNE_ABYSSAL)
             {
+                ASSERT(!you.runes[RUNE_ABYSSAL]);
                 // Ignore Abyss area shifts.
                 if (you.level_type != LEVEL_ABYSS)
                 {
@@ -4047,8 +4010,7 @@ void xom_check_lost_item(const item_def& item)
                     xom_is_stimulated(128, "Xom snickers.", true);
                 }
             }
-            else if (item.plus == RUNE_DEMONIC
-                     && you.attribute[ATTR_DEMONIC_RUNES] == 0)
+            else if (item.plus == RUNE_DEMONIC && !you.runes[RUNE_DEMONIC])
             {
                 xom_is_stimulated(64, "Xom snickers softly.", true);
             }
@@ -4069,12 +4031,10 @@ void xom_check_destroyed_item(const item_def& item, int cause)
         xom_is_stimulated(128, "Xom snickers.", true);
     else if (item_is_rune(item))
     {
-        _xom_check_less_runes(item.quantity);
-
         if (item_is_unique_rune(item) || item.plus == RUNE_ABYSSAL)
             amusement = 255;
         else
-            amusement = 64 * item.quantity;
+            amusement = 64;
     }
 
     xom_is_stimulated(amusement,

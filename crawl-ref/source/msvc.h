@@ -8,6 +8,8 @@
 
 #if defined(TARGET_COMPILER_VC)
 
+#include "MSVC/inttypes.h"
+
 #include <io.h>
 #include <math.h>
 
@@ -21,12 +23,16 @@
 #define strnicmp _strnicmp
 #define ftruncate _chsize
 #define putenv _putenv
+#define strtoll _strtoi64
 
 // No va_copy in MSVC
 #if !defined(va_copy)
 #define va_copy(dst, src) \
    ((void) memcpy(&(dst), &(src), sizeof(va_list)))
 #endif
+// These are not defined in MSVC version of stat.h
+#define        S_IWUSR        S_IWRITE
+#define        S_IRUSR        S_IREAD
 
 #pragma warning(disable : 4290)
 #pragma warning(disable : 4351)
@@ -47,6 +53,8 @@ inline double round(double x)
     else
         return ceil(x - 0.5);
 }
+
+typedef ptrdiff_t ssize_t;
 
 #endif /* defined(TARGET_COMPILER_VC) */
 

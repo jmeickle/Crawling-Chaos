@@ -181,7 +181,6 @@ void pick_hints(newgame_def* choice)
             Hints.hints_type = keyn - 'a';
             choice->species  = _get_hints_species(Hints.hints_type);
             choice->job = _get_hints_job(Hints.hints_type);
-            choice->book = SBT_RANDOM;
             choice->weapon = WPN_HAND_AXE; // easiest choice for fighters
 
             return;
@@ -1559,7 +1558,7 @@ void learned_something_new(hints_event_type seen_what, coord_def gc)
                 "can be thrown by hand, but other missiles like arrows and "
                 "needles require a launcher and training in using it to be "
                 "really effective. "
-#ifdef USE_TILE
+#ifdef USE_TILE_LOCAL
                 "<w>Right-clicking</w> on "
 #else
                 "Selecting "
@@ -3583,7 +3582,6 @@ void hints_describe_item(const item_def &item)
                 else if (gives_resistance(item)
                          && wherey() <= get_number_of_lines() - 3)
                 {
-
                     // It grants a resistance.
                     ostr << "\nThis weapon offers its wearer protection from "
                             "certain sources. For an overview of your "
@@ -3871,12 +3869,16 @@ void hints_describe_item(const item_def &item)
             ostr << " Alternatively, you can 1) <w>left mouse click</w> on "
                     "the monster you wish to target (or your player character "
                     "to target yourself) while pressing the <w>";
-#ifdef UNIX
-                    if (!tiles.is_fullscreen())
-                        ostr << "Ctrl + Shift keys";
-                    else
+#ifdef USE_TILE_WEB
+            ostr << "Ctrl + Shift keys";
+#else
+#if defined(UNIX) && defined(USE_TILE_LOCAL)
+            if (!tiles.is_fullscreen())
+              ostr << "Ctrl + Shift keys";
+            else
 #endif
-                        ostr << "Alt key";
+              ostr << "Alt key";
+#endif
             ostr << "</w> and pick the wand from the menu, or 2) "
                     "<w>left mouse click</w> on the wand tile and then "
                     "<w>left mouse click</w> on your target.";
@@ -3993,10 +3995,9 @@ void hints_describe_item(const item_def &item)
             if (item.sub_type == BOOK_MANUAL)
             {
                 ostr << "A manual can greatly help you in training a skill. "
-                        "To use it, <w>%</w>ead it while your experience "
-                        "pool (the number in brackets) is large. Note that "
-                        "this will drain said pool, so only use this manual "
-                        "if you think you need the skill in question.";
+                        "To use it, just <w>%</w>ead it. As long as you are "
+                        "carrying it, the skill in question will be trained "
+                        "more efficiently and will level up faster.";
                 cmd.push_back(CMD_READ);
             }
             else // It's a spellbook!
@@ -4327,7 +4328,7 @@ bool hints_pos_interesting(int x, int y)
 static bool _hints_feat_interesting(dungeon_feature_type feat)
 {
     // Altars and branch entrances are always interesting.
-    if (feat >= DNGN_ALTAR_FIRST_GOD && feat <= DNGN_ALTAR_LAST_GOD)
+    if (feat_is_altar(feat))
         return (true);
     if (feat >= DNGN_ENTER_FIRST_BRANCH && feat <= DNGN_ENTER_LAST_BRANCH)
         return (true);
@@ -4500,7 +4501,7 @@ static void _hints_describe_feature(int x, int y)
             break;
 
        default:
-            if (feat >= DNGN_ALTAR_FIRST_GOD && feat <= DNGN_ALTAR_LAST_GOD)
+            if (feat_is_altar(feat))
             {
                 god_type altar_god = feat_altar_god(feat);
 

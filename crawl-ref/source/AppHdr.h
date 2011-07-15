@@ -162,6 +162,11 @@
     #error Missing platform #define or unsupported compiler.
 #endif
 
+#ifndef _WIN32_WINNT
+// Allow using Win2000 syscalls.
+# define _WIN32_WINNT 0x501
+#endif
+
 #if defined(__GNUC__)
 # define NORETURN __attribute__ ((noreturn))
 #elif defined(_MSC_VER)
@@ -198,11 +203,6 @@
     // starts up and notices that a db file is out-of-date, it updates
     // it in-place, instead of torching the old file.
     #define DGL_REWRITE_PROTECT_DB_FILES
-
-    // This secures the PRNG itself by hashing the values with SHA256.
-    // PRNG will be about 15 times slower when this is turned on, but
-    // even with that the cpu time used by the PRNG is relatively small.
-    #define MORE_HARDENED_PRNG
 
     // Startup preferences are saved by player name rather than uid,
     // since all players use the same uid in dgamelaunch.
@@ -313,7 +313,7 @@
 #ifdef USE_TILE
     #ifdef __cplusplus
     #include "libgui.h"
-    #include "tilesdl.h"
+    #include "tiles.h"
     #endif
 #endif
 
@@ -333,6 +333,9 @@
 // =========================================================================
 //  Game Play Defines
 // =========================================================================
+// use Abyss morphing
+// #define NEW_ABYSS
+
 // number of older messages stored during play and in save files
 #define NUM_STORED_MESSAGES   1000
 

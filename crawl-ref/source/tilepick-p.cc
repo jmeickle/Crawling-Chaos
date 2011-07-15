@@ -192,7 +192,6 @@ tileidx_t tilep_equ_armour(const item_def &item)
 
     switch (item.sub_type)
     {
-
     case ARM_ROBE:
         return _modrng(item.rnd, TILEP_BODY_ROBE_FIRST_NORM,
                        TILEP_BODY_ROBE_LAST_NORM);
@@ -392,7 +391,7 @@ tileidx_t tileidx_player()
             {
             case SP_CENTAUR: ch = TILEP_TRAN_STATUE_CENTAUR;  break;
             case SP_NAGA:    ch = TILEP_TRAN_STATUE_NAGA;     break;
-            case SP_CAT:     ch = TILEP_TRAN_STATUE_FELID;    break;
+            case SP_FELID:   ch = TILEP_TRAN_STATUE_FELID;    break;
             default:         ch = TILEP_TRAN_STATUE_HUMANOID; break;
             }
             break;
@@ -404,7 +403,7 @@ tileidx_t tileidx_player()
             {
             case SP_CENTAUR: ch = TILEP_TRAN_LICH_CENTAUR;  break;
             case SP_NAGA:    ch = TILEP_TRAN_LICH_NAGA;     break;
-            case SP_CAT:     ch = TILEP_TRAN_LICH_FELID;    break;
+            case SP_FELID:   ch = TILEP_TRAN_LICH_FELID;    break;
             default:         ch = TILEP_TRAN_LICH_HUMANOID; break;
             }
             break;
@@ -529,8 +528,10 @@ tileidx_t tilep_species_to_base_tile(int sp, int level)
         return TILEP_BASE_VAMPIRE;
     case SP_DEEP_DWARF:
         return TILEP_BASE_DEEP_DWARF;
-    case SP_CAT:
+    case SP_FELID:
         return TILEP_BASE_FELID;
+    case SP_OCTOPODE:
+        return TILEP_BASE_OCTOPODE;
     default:
         return TILEP_BASE_HUMAN;
     }
@@ -671,7 +672,7 @@ void tilep_job_default(int job, dolls_data *doll)
             parts[TILEP_PART_LEG]   = TILEP_LEG_METAL_SILVER;
             break;
 
-        case JOB_CRUSADER:
+        case JOB_SKALD:
             parts[TILEP_PART_BODY]  = TILEP_BODY_SHIRT_WHITE3;
             parts[TILEP_PART_LEG]   = TILEP_LEG_SKIRT_OFS;
             parts[TILEP_PART_HELM]  = TILEP_HELM_HELM_IRON;
@@ -935,6 +936,19 @@ void tilep_calc_flags(const dolls_data &doll, int flag[])
         flag[TILEP_PART_HAND1] = TILEP_FLAG_HIDE;
         flag[TILEP_PART_HAND2] = TILEP_FLAG_HIDE;
         flag[TILEP_PART_HELM]  = TILEP_FLAG_HIDE;
+        flag[TILEP_PART_HAIR]  = TILEP_FLAG_HIDE;
+        flag[TILEP_PART_BEARD] = TILEP_FLAG_HIDE;
+        flag[TILEP_PART_SHADOW]= TILEP_FLAG_HIDE;
+        flag[TILEP_PART_DRCWING]=TILEP_FLAG_HIDE;
+        flag[TILEP_PART_DRCHEAD]=TILEP_FLAG_HIDE;
+    }
+    else if (is_player_tile(doll.parts[TILEP_PART_BASE], TILEP_BASE_OCTOPODE))
+    {
+        flag[TILEP_PART_CLOAK] = TILEP_FLAG_HIDE;
+        flag[TILEP_PART_BOOTS] = TILEP_FLAG_HIDE;
+        flag[TILEP_PART_LEG]   = TILEP_FLAG_HIDE;
+        flag[TILEP_PART_BODY]  = TILEP_FLAG_HIDE;
+        flag[TILEP_PART_ARM]   = TILEP_FLAG_HIDE;
         flag[TILEP_PART_HAIR]  = TILEP_FLAG_HIDE;
         flag[TILEP_PART_BEARD] = TILEP_FLAG_HIDE;
         flag[TILEP_PART_SHADOW]= TILEP_FLAG_HIDE;
