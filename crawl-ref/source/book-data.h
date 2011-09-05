@@ -453,7 +453,7 @@
     SPELL_NO_SPELL,
 },
 
-{   // Book of Alchemy
+{   // Book of Chemicals
     SPELL_FULSOME_DISTILLATION,
     SPELL_LETHAL_INFUSION,
     SPELL_SUBLIMATION_OF_BLOOD,
