@@ -7,6 +7,10 @@ Air Elementalist
 
 Air Elementalists have learned the Shock spell. Later on, their book of Air provides them with flexibility to survive.
 %%%%
+Alchemist
+
+Alchemists turn substances around them into more volatile forms. They often work with explosions, acids, or poisons.
+%%%%
 Arcane Marksman
 
 Arcane Marksmen carry some missiles as well as a book from which they will learn spells to brand those missiles later on.

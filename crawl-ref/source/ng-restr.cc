@@ -579,6 +579,9 @@ char_choice_restriction job_allowed(species_type speci, job_type job)
                 return (CC_UNRESTRICTED);
         }
 
+        case JOB_ALCHEMIST:
+            return (CC_RESTRICTED);
+
 // XXX: Arcane Marksmen are temporarily disabled
         case JOB_ARCANE_MARKSMAN:
             return (CC_BANNED);

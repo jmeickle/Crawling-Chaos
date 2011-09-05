@@ -103,6 +103,10 @@ static void _give_last_paycheck(job_type which_job)
 {
     switch (which_job)
     {
+    case JOB_ALCHEMIST:
+        you.gold = 150;
+        break;
+
     case JOB_HEALER:
         you.gold = 100;
         break;
@@ -182,6 +186,7 @@ static void _jobs_stat_init(job_type which_job)
     case JOB_SUMMONER:          s =  0; i =  7; d =  5; hp = 10; mp = 3; break;
     case JOB_VENOM_MAGE:        s =  0; i =  7; d =  5; hp = 10; mp = 3; break;
     case JOB_NECROMANCER:       s =  0; i =  7; d =  5; hp = 10; mp = 3; break;
+    case JOB_ALCHEMIST:         s =  0; i =  7; d =  5; hp = 10; mp = 3; break;
 
     case JOB_WANDERER:
     {
@@ -1025,6 +1030,19 @@ static void _give_items_skills(const newgame_def& ng)
         you.skills[SK_STEALTH]     = 1;
         break;
 
+    case JOB_ALCHEMIST:
+        // stones in switch slot (b)
+        newgame_make_item(1, EQ_NONE, OBJ_MISSILES, MI_STONE, -1, 20);
+        newgame_make_item(2, EQ_BODY_ARMOUR, OBJ_ARMOUR, ARM_ROBE);
+        newgame_make_item(3, EQ_NONE, OBJ_BOOKS, BOOK_ALCHEMY);
+
+        you.skills[SK_ALCHEMY]      = 2;
+        you.skills[SK_EARTH_MAGIC]  = 1;
+        you.skills[SK_FIRE_MAGIC]   = 1;
+        you.skills[SK_SPELLCASTING] = 1;
+        you.skills[SK_DODGING]      = 1;
+        break;
+
     default:
         break;
     }
@@ -1217,7 +1235,8 @@ static void _give_basic_spells(job_type which_job)
     case JOB_EARTH_ELEMENTALIST:
         which_spell = SPELL_SANDBLAST;
         break;
-
+    case JOB_ALCHEMIST:
+        which_spell = SPELL_LAVA_BOMB;
     default:
         break;
     }
@@ -1296,6 +1315,9 @@ static void _apply_job_colour(item_def &item)
         break;
     case JOB_VENOM_MAGE:
         item.colour = MAGENTA;
+        break;
+    case JOB_ALCHEMIST:
+        item.colour = LIGHTGREEN;
         break;
     default:
         break;
