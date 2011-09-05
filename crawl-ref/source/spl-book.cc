@@ -264,6 +264,7 @@ int book_rarity(uint8_t which_book)
     case BOOK_POWER:
         return 6;
 
+    case BOOK_ALCHEMY:
     case BOOK_ENCHANTMENTS:
     case BOOK_PARTY_TRICKS:
         return 7;
@@ -287,7 +288,7 @@ int book_rarity(uint8_t which_book)
 
     case BOOK_MUTATIONS:
     case BOOK_BURGLARY:
-    case BOOK_ALCHEMY:
+    case BOOK_CHEMICALS:
     case BOOK_DREAMS:
         return 12;
 

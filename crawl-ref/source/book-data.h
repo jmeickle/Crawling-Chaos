@@ -475,6 +475,17 @@
     SPELL_NO_SPELL,
 },
 
+{   // Book of Alchemy
+    SPELL_FULSOME_DISTILLATION,
+    SPELL_LAVA_BOMB,
+    SPELL_EVAPORATE,
+    SPELL_MINERAL_ACID,
+    SPELL_IGNITE_POISON,
+    SPELL_NO_SPELL,
+    SPELL_NO_SPELL,
+    SPELL_NO_SPELL,
+},
+
 {   // Book of Annihilations - Vehumet special
     SPELL_POISON_ARROW,
     SPELL_IOOD,

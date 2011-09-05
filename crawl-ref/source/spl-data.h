@@ -2994,6 +2994,32 @@ struct spell_desc
 },
 
 {
+    SPELL_LAVA_BOMB, "Lava Bomb",
+     SPTYP_ALCHEMY | SPTYP_EARTH | SPTYP_FIRE,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_AREA | SPFLAG_ALLOW_SELF,
+     1,
+     50,
+     LOS_RADIUS, LOS_RADIUS,
+     0,
+     NULL,
+     true,
+     false
+},
+
+{
+    SPELL_MINERAL_ACID, "Mineral Acid",
+     SPTYP_ALCHEMY | SPTYP_EARTH,
+     SPFLAG_GRID,
+     5,
+     100,
+     4, 4,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
     SPELL_NO_SPELL, "nonexistent spell",
      0,
      SPFLAG_TESTING,
