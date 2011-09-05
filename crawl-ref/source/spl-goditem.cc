@@ -60,14 +60,9 @@ int identify(int power, int item_slot, std::string *pre_msg)
 
         item_def& item(you.inv[item_slot]);
 
-        if (fully_identified(item))
+        if (fully_identified(item)
+            && (!is_deck(item) || top_card_is_known(item)))
         {
-            if (is_deck(item) && !top_card_is_known(item))
-            {
-                deck_identify_first(item_slot);
-                ++identified;
-                continue;
-            }
             mpr("Choose an unidentified item, or Esc to abort.");
             if (Options.auto_list)
                 more();
@@ -354,37 +349,6 @@ int cast_healing(int pow, bool divine_ability, const coord_def& where,
                            not_self, mode));
 }
 
-bool cast_revivification(int pow)
-{
-    if (you.hp == you.hp_max)
-        canned_msg(MSG_NOTHING_HAPPENS);
-    else if (you.hp_max < 21)
-        mpr("You lack the resilience to cast this spell.");
-    else
-    {
-        mpr("Your body is healed in an amazingly painful way.");
-
-        int loss = 2;
-        for (int i = 0; i < 9; ++i)
-            if (x_chance_in_y(8, pow))
-                loss++;
-
-        dec_max_hp(loss * you.hp_max / 100);
-        set_hp(you.hp_max);
-
-        if (you.duration[DUR_DEATHS_DOOR])
-        {
-            mpr("Your life is in your own hands once again.", MSGCH_DURATION);
-            you.paralyse(NULL, 5 + random2(5));
-            confuse_player(10 + random2(10));
-            you.duration[DUR_DEATHS_DOOR] = 0;
-        }
-        return (true);
-    }
-
-    return (false);
-}
-
 // Antimagic is sort of an anti-extension... it sets a lot of magical
 // durations to 1 so it's very nasty at times (and potentially lethal,
 // that's why we reduce levitation to 2, so that the player has a chance
@@ -394,14 +358,15 @@ void antimagic()
 {
     duration_type dur_list[] = {
         DUR_INVIS, DUR_CONF, DUR_PARALYSIS, DUR_HASTE, DUR_MIGHT, DUR_AGILITY,
-        DUR_BRILLIANCE, DUR_FIRE_SHIELD, DUR_ICY_ARMOUR, DUR_REPEL_MISSILES,
-        DUR_REGENERATION, DUR_SWIFTNESS, DUR_CONTROL_TELEPORT,
+        DUR_BRILLIANCE, DUR_CONFUSING_TOUCH, DUR_SURE_BLADE, DUR_CORONA,
+        DUR_FIRE_SHIELD, DUR_ICY_ARMOUR, DUR_REPEL_MISSILES,
+        DUR_REGENERATION, DUR_SWIFTNESS, DUR_TELEPORT, DUR_CONTROL_TELEPORT,
         DUR_TRANSFORMATION, DUR_DEATH_CHANNEL, DUR_DEFLECT_MISSILES,
         DUR_PHASE_SHIFT, DUR_SEE_INVISIBLE, DUR_WEAPON_BRAND, DUR_SILENCE,
-        DUR_CONDENSATION_SHIELD, DUR_STONESKIN, DUR_BARGAIN,
-        DUR_INSULATION, DUR_RESIST_POISON, DUR_RESIST_FIRE, DUR_RESIST_COLD,
-        DUR_SLAYING, DUR_STEALTH, DUR_MAGIC_SHIELD, DUR_SAGE, DUR_PETRIFIED,
-        DUR_SHROUD_OF_GOLUBRIA
+        DUR_CONDENSATION_SHIELD, DUR_STONESKIN, DUR_INSULATION, DUR_RESIST_POISON,
+        DUR_RESIST_FIRE, DUR_RESIST_COLD, DUR_SLAYING, DUR_STEALTH,
+        DUR_MAGIC_SHIELD, DUR_PETRIFIED, DUR_LIQUEFYING, DUR_DARKNESS,
+        DUR_PETRIFYING, DUR_SHROUD_OF_GOLUBRIA
     };
 
     if (!you.permanent_levitation() && !you.permanent_flight()

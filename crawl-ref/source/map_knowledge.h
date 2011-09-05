@@ -28,6 +28,8 @@
 #define MAP_SANCTUARY_2     0x100000
 #define MAP_WITHHELD        0x200000
 #define MAP_LIQUEFIED       0x400000
+#define MAP_ORB_HALOED      0x800000
+#define MAP_ANTIHALOED     0x1000000
 
 /*
  * A map_cell stores what the player knows about a cell.
@@ -235,7 +237,12 @@ struct map_cell
 public:
     uint32_t flags;   // Flags describing the mappedness of this square.
 private:
+//TODO fix when the MSVC is standart-compliant.
+#ifdef TARGET_COMPILER_VC
+    dungeon_feature_type _feat;
+#else
     dungeon_feature_type _feat:8;
+#endif
     uint8_t _feat_colour;
     cloud_type _cloud:8;
     uint8_t _cloud_colour;

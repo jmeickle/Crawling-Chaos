@@ -238,6 +238,27 @@ std::string get_base_filename(const std::string &filename)
     return (filename);
 }
 
+std::string get_cache_name(const std::string &filename)
+{
+    std::string::size_type pos = filename.rfind(FILE_SEPARATOR);
+    while (pos != std::string::npos && filename.find("/des", pos) != pos)
+    {
+        pos = filename.rfind(FILE_SEPARATOR, pos - 1);
+    }
+    if (pos != std::string::npos)
+        return replace_all_of(filename.substr(pos + 5), " /\\:", "_");
+#ifdef ALT_FILE_SEPARATOR
+    pos = filename.rfind(ALT_FILE_SEPARATOR);
+    while (pos != std::string::npos && filename.find("/des", pos) != pos)
+    {
+        pos = filename.rfind(ALT_FILE_SEPARATOR, pos - 1);
+    }
+    if (pos != std::string::npos)
+        return replace_all_of(filename.substr(pos + 5), " /\\:", "_");
+#endif
+    return (filename);
+}
+
 bool is_absolute_path(const std::string &path)
 {
     return (!path.empty()
@@ -285,15 +306,6 @@ std::string change_file_extension(const std::string &filename,
     const std::string::size_type pos = filename.rfind('.');
     return ((pos == std::string::npos? filename : filename.substr(0, pos))
             + ext);
-}
-
-// Sets the access and modification times of the given file to the current
-// time. This is not yet implemented for every supported platform.
-void file_touch(const std::string &file)
-{
-#ifdef HAVE_UTIMES
-    utimes(file.c_str(), NULL);
-#endif
 }
 
 time_t file_modtime(const std::string &file)
@@ -372,19 +384,6 @@ void assert_read_safe_path(const std::string &path) throw (std::string)
 #endif
 
     // Path is okay.
-}
-
-bool is_read_safe_path(const std::string &path)
-{
-    try
-    {
-        assert_read_safe_path(path);
-    }
-    catch (const std::string &)
-    {
-        return (false);
-    }
-    return (true);
 }
 
 std::string canonicalise_file_separator(const std::string &path)
@@ -818,7 +817,7 @@ static void _write_tagged_chunk(const std::string &chunkname, tag_type tag)
 
 static void _place_player_on_stair(level_area_type old_level_type,
                                    branch_type old_branch,
-                                   int stair_taken, const coord_def& old_pos)
+                                   int stair_taken, const coord_def& dest_pos)
 {
     bool find_first = true;
 
@@ -920,7 +919,7 @@ static void _place_player_on_stair(level_area_type old_level_type,
 
     const coord_def where_to_go =
         dgn_find_nearby_stair(static_cast<dungeon_feature_type>(stair_taken),
-                              old_pos, find_first);
+                              dest_pos, find_first);
     you.moveto(where_to_go);
 }
 
@@ -1086,13 +1085,22 @@ static void _grab_followers()
     }
 }
 
+static void _do_lost_monsters()
+{
+    // Uniques can be considered wandering Pan just like you, so they're not
+    // gone forever.  The likes of Cerebov won't be generated elsewhere, but
+    // there's no need to special-case that, and if in the future we'll want
+    // to know whether they're alive, the data will be accurate.
+    if (you.level_type == LEVEL_PANDEMONIUM)
+        for (monster_iterator mi; mi; ++mi)
+            if (mons_is_unique(mi->type))
+                you.unique_creatures[mi->type] = false;
+}
+
 // Should be called after _grab_followers(), so that items carried by
 // followers won't be considered lost.
-static void _do_lost_items(level_area_type old_level_type)
+static void _do_lost_items()
 {
-    if (old_level_type == LEVEL_DUNGEON)
-        return;
-
     for (int i = 0; i < MAX_ITEMS; i++)
     {
         item_def& item(mitm[i]);
@@ -1108,6 +1116,16 @@ static void _do_lost_items(level_area_type old_level_type)
     }
 }
 
+static coord_def _stair_destination_pos()
+{
+    map_marker *marker = env.markers.find(you.pos(), MAT_POSITION);
+    if (!marker)
+        return INVALID_COORD;
+
+    map_position_marker *posm = dynamic_cast<map_position_marker*>(marker);
+    return posm->dest;
+}
+
 bool load(dungeon_feature_type stair_taken, load_mode_type load_mode,
           const level_id& old_level)
 {
@@ -1121,8 +1139,12 @@ bool load(dungeon_feature_type stair_taken, load_mode_type load_mode,
                             you.level_type, you.where_are_you, you.absdepth0);
 #endif
 
-    // Save player position for shaft, hatch destination.
-    const coord_def old_pos = you.pos();
+    // Destination position for hatch.
+    coord_def dest_pos = _stair_destination_pos();
+
+    // Shaft destination is random.
+    if (dest_pos == INVALID_COORD)
+        dest_pos = random_in_bounds();
 
     // Going up/down stairs, going through a portal, or being banished
     // means the previous x/y movement direction is no longer valid.
@@ -1161,8 +1183,10 @@ bool load(dungeon_feature_type stair_taken, load_mode_type load_mode,
     dungeon_events.clear();
 
     // This block is to grab followers and save the old level to disk.
-    if (load_mode == LOAD_ENTER_LEVEL && old_level.depth != -1)
+    if (load_mode == LOAD_ENTER_LEVEL)
     {
+        ASSERT(old_level.depth != -1); // what's this for?
+
         _grab_followers();
 
         if (old_level.level_type == LEVEL_DUNGEON
@@ -1170,11 +1194,11 @@ bool load(dungeon_feature_type stair_taken, load_mode_type load_mode,
         {
             _save_level(old_level);
         }
-    }
-
-    if (load_mode == LOAD_ENTER_LEVEL)
-    {
-        _do_lost_items(old_level.level_type);
+        else
+        {
+            _do_lost_monsters();
+            _do_lost_items();
+        }
 
         // The player is now between levels.
         you.position.reset();
@@ -1276,7 +1300,7 @@ bool load(dungeon_feature_type stair_taken, load_mode_type load_mode,
         if (you.level_type != LEVEL_ABYSS)
         {
             _place_player_on_stair(old_level.level_type,
-                                   old_level.branch, stair_taken, old_pos);
+                                   old_level.branch, stair_taken, dest_pos);
         }
         else
             you.moveto(ABYSS_CENTRE);
@@ -1753,10 +1777,11 @@ bool restore_game(const std::string& filename)
              you.prev_save_version.c_str());
     }
 
-    if (numcmp(you.prev_save_version.c_str(), Version::Long().c_str(), 2) == -1)
+    if (numcmp(you.prev_save_version.c_str(), Version::Long().c_str(), 2) == -1
+        && version_is_stable(you.prev_save_version.c_str()))
     {
         if (!yesno("This game comes from a previous release of Crawl.  If you "
-                   "load it now, you won't be able to go back.  Continue?",
+                   "load it now, you won't be able to go back. Continue?",
                    true, 'n'))
         {
             you.save->abort(); // don't even rewrite the header

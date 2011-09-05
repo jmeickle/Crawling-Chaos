@@ -348,6 +348,14 @@ static bool _mon_on_interesting_grid(monster* mon)
     case DNGN_ENTER_HIVE:
         return (mons_is_native_in_branch(mon, BRANCH_HIVE));
 
+    // Spiders...
+    case DNGN_ENTER_SPIDER_NEST:
+        return (mons_is_native_in_branch(mon, BRANCH_SPIDER_NEST));
+
+    // And spriggans.
+    case DNGN_ENTER_FOREST:
+        return (mons_is_native_in_branch(mon, BRANCH_FOREST));
+
     default:
         return (false);
     }
@@ -791,7 +799,9 @@ static bool _handle_reaching(monster* mons)
         // And with no dungeon furniture in the way of the reaching
         // attack; if the middle square is empty, skip the LOS check.
         && (grd(middle) > DNGN_MAX_NONREACH
-            || mons->see_cell_no_trans(foepos)))
+            || mons->see_cell_no_trans(foepos))
+        // The foe should be on the map (not stepped from time).
+        && in_bounds(foepos))
     {
         ret = true;
         monster_attack_actor(mons, foe, false);
@@ -1761,7 +1771,6 @@ static bool _handle_throw(monster* mons, bolt & beem)
 {
     // Yes, there is a logic to this ordering {dlb}:
     if (mons->incapacitated()
-        || mons->asleep()
         || mons->submerged())
     {
         return (false);

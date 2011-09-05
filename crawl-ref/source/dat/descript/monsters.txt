@@ -251,7 +251,7 @@ A withered sorceress, exceptionally ugly even by orc standards.
 %%%%
 Nessos
 
-A black centaur warrior with a malicious look in the eyes.
+A black centaur warrior with a malicious look in his eyes.
 %%%%
 Nikola
 
@@ -864,10 +864,6 @@ goliath beetle
 
 A huge black beetle with great crunching mandibles and very hard chitinous armour.
 %%%%
-giant toad
-
-A very large and vicious-looking carnivorous toad. Its knobbly brown skin blends in with the rough rock of your surroundings.
-%%%%
 giant centipede
 
 It has a lot of legs.
@@ -1478,6 +1474,10 @@ porcupine
 
 While it may look cute and harmless, its bite is painful and its spikes are sharp!
 %%%%
+profane servitor
+
+This blasphemous being used to be an angel of the Shining One. Now it stands as unliving proof that not even the holiest of beings are beyond Yredelemnul's grasp.
+%%%%
 program bug
 
 A ravenous and incredibly buggy monster. Please report its existence to the DevTeam.
@@ -1911,10 +1911,6 @@ A heavily armed and armoured guardian of the Vaults.
 very ugly thing
 
 A very ugly thing. According to legend, this hideously mutated creature is the otherworldly spawn of a wizard's breeding experiment. Double yuck.
-%%%%
-viper
-
-A snake with a painful venom. It's not as fast as some other snakes, but still fairly quick.
 %%%%
 wandering mushroom
 

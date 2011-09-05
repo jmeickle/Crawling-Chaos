@@ -136,7 +136,7 @@ public:
     void init_experience();
 
     void mark_summoned(int longevity, bool mark_items_summoned,
-                       int summon_type = 0);
+                       int summon_type = 0, bool abj = true);
     bool is_summoned(int* duration = NULL, int* summon_type = NULL) const;
     bool has_action_energy() const;
     void check_redraw(const coord_def &oldpos, bool clear_tiles = true) const;
@@ -355,11 +355,13 @@ public:
     flight_type flight_mode() const;
     bool is_levitating() const;
     bool can_cling_to_walls() const;
+    bool is_web_immune() const;
     bool invisible() const;
     bool can_see_invisible() const;
     bool visible_to(const actor *looker) const;
     bool near_foe() const;
     reach_type reach_range() const;
+    bool nightvision() const;
 
     bool is_icy() const;
     bool is_fiery() const;
@@ -372,9 +374,11 @@ public:
     bool caught() const;
     bool asleep() const;
     bool backlit(bool check_haloed = true, bool self_halo = true) const;
+    bool umbra(bool check_haloed = true, bool self_halo = true) const;
     int halo_radius2() const;
     int silence_radius2() const;
     int liquefying_radius2 () const;
+    int antihalo_radius2 () const;
     bool glows_naturally() const;
     bool petrified() const;
     bool petrifying() const;
@@ -407,8 +411,9 @@ public:
     void poison(actor *agent, int amount = 1, bool force = false);
     bool sicken(int strength, bool unused = true);
     bool bleed(const actor *agent, int amount, int degree);
-    void paralyse(actor *, int str);
+    void paralyse(actor *, int str, std::string source = "");
     void petrify(actor *);
+    bool fully_petrify(actor *foe, bool quiet = false);
     void slow_down(actor *, int str);
     void confuse(actor *, int strength);
     bool drain_exp(actor *, bool quiet = false, int pow = 3);

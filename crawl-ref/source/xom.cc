@@ -179,7 +179,7 @@ static std::string _get_xom_speech(const std::string key)
 
 static bool _xom_is_bored()
 {
-    return (you.religion == GOD_XOM && you.gift_timeout == 0);
+    return (you.religion == GOD_XOM && !you.gift_timeout);
 }
 
 static bool _xom_feels_nasty()
@@ -197,7 +197,7 @@ bool xom_is_nice(int tension)
     if (you.religion == GOD_XOM)
     {
         // If you.gift_timeout is 0, then Xom is BORED.  He HATES that.
-        if (you.gift_timeout == 0)
+        if (!you.gift_timeout)
             return (false);
 
         // At high tension Xom is more likely to be nice, at zero
@@ -238,7 +238,7 @@ static void _xom_is_stimulated(int maxinterestingness,
 
     int interestingness = random2(piety_scale(maxinterestingness));
 
-    interestingness = std::min(255, interestingness);
+    interestingness = std::min(200, interestingness);
 
 #if defined(DEBUG_RELIGION) || defined(DEBUG_GIFTS) || defined(DEBUG_XOM)
     mprf(MSGCH_DIAGNOSTICS,
@@ -247,7 +247,7 @@ static void _xom_is_stimulated(int maxinterestingness,
 #endif
 
     bool was_stimulated = false;
-    if (interestingness > you.gift_timeout && interestingness >= 12)
+    if (interestingness > you.gift_timeout && interestingness >= 10)
     {
         you.gift_timeout = interestingness;
         was_stimulated = true;
@@ -256,11 +256,11 @@ static void _xom_is_stimulated(int maxinterestingness,
     if (was_stimulated || force_message)
     {
         god_speaks(GOD_XOM,
-                   ((interestingness > 200) ? message_array[5] :
-                    (interestingness > 100) ? message_array[4] :
-                    (interestingness >  75) ? message_array[3] :
-                    (interestingness >  50) ? message_array[2] :
-                    (interestingness >  25) ? message_array[1]
+                   ((interestingness > 160) ? message_array[5] :
+                    (interestingness >  80) ? message_array[4] :
+                    (interestingness >  60) ? message_array[3] :
+                    (interestingness >  40) ? message_array[2] :
+                    (interestingness >  20) ? message_array[1]
                                             : message_array[0]));
         //updating piety status line
         redraw_skill(you.your_name, player_title());
@@ -354,16 +354,16 @@ void xom_tick()
                                           : 5);
 
         // If Xom is bored, the chances for Xom acting are reversed.
-        if (you.gift_timeout == 0 && x_chance_in_y(5-chance,5))
+        if (!you.gift_timeout && x_chance_in_y(5 - chance, 5))
         {
             xom_acts(abs(you.piety - HALF_MAX_PIETY), tension);
             return;
         }
         else if (you.gift_timeout <= 1 && chance > 0
-                 && x_chance_in_y(chance-1, 4))
+                 && x_chance_in_y(chance - 1, 4))
         {
             // During tension, Xom may briefly forget about being bored.
-            const int interest = random2(chance*15);
+            const int interest = random2(chance * 15);
             if (interest > 0)
             {
                 if (interest < 25)
@@ -908,6 +908,11 @@ static bool _is_chaos_upgradeable(const item_def &item,
     // Since Xom is a god, he is capable of changing randarts, but not
     // other artefacts.
     if (is_unrandom_artefact(item))
+       return (false);
+
+    // Staves can't be changed either, since they don't have brands in
+    // the way other weapons do.
+    if (item.base_type == OBJ_STAVES)
        return (false);
 
     // Only upgrade permanent items, since the player should get a
@@ -1613,7 +1618,7 @@ static int _xom_swap_weapons(bool debug = false)
 
     item_def &myweapon = you.inv[mywpn];
 
-    int index = get_item_slot(10);
+    int index = get_mitm_slot(10);
     if (index == NON_ITEM)
         return (XOM_DID_NOTHING);
 
@@ -3673,7 +3678,7 @@ static int _xom_is_bad(int sever, int tension, bool debug = false)
     // to the badness of the effect.
     if (done && !debug && _xom_is_bored())
     {
-        const int interest = random2avg(badness*60, 2);
+        const int interest = random2avg(badness * 60, 2);
         you.gift_timeout   = std::min(interest, 255);
         //updating piety status line
         redraw_skill(you.your_name, player_title());
@@ -3987,13 +3992,13 @@ int xom_acts(bool niceness, int sever, int tension, bool debug)
 void xom_check_lost_item(const item_def& item)
 {
     if (item.base_type == OBJ_ORBS)
-        xom_is_stimulated(255, "Xom laughs nastily.", true);
+        xom_is_stimulated(200, "Xom laughs nastily.", true);
     else if (is_special_unrandom_artefact(item))
-        xom_is_stimulated(128, "Xom snickers.", true);
+        xom_is_stimulated(100, "Xom snickers.", true);
     else if (item_is_rune(item))
     {
         if (item_is_unique_rune(item))
-            xom_is_stimulated(255, "Xom snickers loudly.", true);
+            xom_is_stimulated(200, "Xom snickers loudly.", true);
         else if (you.entry_cause == EC_SELF_EXPLICIT
                  && !(item.flags & ISFLAG_BEEN_IN_INV))
         {
@@ -4007,12 +4012,12 @@ void xom_check_lost_item(const item_def& item)
                 {
                     // Abyssal runes are a lot more trouble to find than
                     // demonic runes, so they get twice the stimulation.
-                    xom_is_stimulated(128, "Xom snickers.", true);
+                    xom_is_stimulated(100, "Xom snickers.", true);
                 }
             }
             else if (item.plus == RUNE_DEMONIC && !you.runes[RUNE_DEMONIC])
             {
-                xom_is_stimulated(64, "Xom snickers softly.", true);
+                xom_is_stimulated(50, "Xom snickers softly.", true);
             }
         }
     }
@@ -4024,22 +4029,22 @@ void xom_check_destroyed_item(const item_def& item, int cause)
 
     if (item.base_type == OBJ_ORBS)
     {
-        xom_is_stimulated(255, "Xom laughs nastily.", true);
+        xom_is_stimulated(200, "Xom laughs nastily.", true);
         return;
     }
     else if (is_special_unrandom_artefact(item))
-        xom_is_stimulated(128, "Xom snickers.", true);
+        xom_is_stimulated(100, "Xom snickers.", true);
     else if (item_is_rune(item))
     {
         if (item_is_unique_rune(item) || item.plus == RUNE_ABYSSAL)
-            amusement = 255;
+            amusement = 200;
         else
-            amusement = 64;
+            amusement = 50;
     }
 
     xom_is_stimulated(amusement,
-                      (amusement > 128) ? "Xom snickers loudly." :
-                      (amusement > 64)  ? "Xom snickers."
+                      (amusement > 100) ? "Xom snickers loudly." :
+                      (amusement > 50)  ? "Xom snickers."
                                         : "Xom snickers softly.",
                       true);
 }

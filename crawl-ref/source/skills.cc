@@ -40,7 +40,7 @@
 #define MAX_COST_LIMIT           250
 #define MAX_SPENDING_LIMIT       250
 
-static int _train(skill_type exsk, int &max_exp);
+static int _train(skill_type exsk, int &max_exp, bool simu = false);
 
 int skill_cost_needed(int level)
 {
@@ -163,10 +163,67 @@ void reassess_starting_skills()
     }
 }
 
+// When a skill is gained, we insert in the queue the exercises left in the
+// training array.
+void gain_skill(skill_type sk)
+{
+
+    if (you.religion == GOD_TROG && sk == SK_SPELLCASTING)
+        you.training[sk] = 0;
+    else
+    {
+        // We insert the rest of the exercises in the queue.
+        while (you.training[sk] > 0)
+        {
+            you.exercises.pop_front();
+            int pos = you.training[sk]
+                      + random2(you.exercises.size() - you.training[sk]);
+            std::list<skill_type>::iterator it = you.exercises.begin();
+            while (pos--)
+                ++it;
+            you.exercises.insert(it, sk);
+            --you.training[sk];
+        }
+    }
+}
+
+// When a skill is lost, we clear the queue of leftover exercises and put then
+// in the training array.
+void lose_skill(skill_type sk)
+{
+    int num_exercises = 0;
+    you.training[sk] = 0;
+    you.train[sk] = 1;
+    for (std::list<skill_type>::iterator it = you.exercises.begin();
+         it != you.exercises.end(); ++it)
+    {
+        if (sk == *it)
+            ++num_exercises;
+    }
+
+    if (!num_exercises)
+        return;
+
+    you.exercises.remove(sk);
+
+    FixedVector<unsigned int, NUM_SKILLS> training = you.training;
+    for (int i = 0; i < NUM_SKILLS; ++i)
+        if (!skill_known(i))
+            training[i] = 0;
+
+    for (int i = 0; i < num_exercises; ++i)
+    {
+        you.exercises.push_back(static_cast<skill_type>(
+                                random_choose_weighted(training)));
+    }
+    you.training[sk] = num_exercises;
+}
+
 static void _change_skill_level(skill_type exsk, int n)
 {
     ASSERT(n != 0);
     skill_type old_best_skill = best_skill(SK_FIRST_SKILL, SK_LAST_SKILL);
+    bool need_reset = false;
 
     if (-n > you.skills[exsk])
         n = -you.skills[exsk];
@@ -186,6 +243,12 @@ static void _change_skill_level(skill_type exsk, int n)
         mprf(MSGCH_INTRINSIC_GAIN, "You have gained %s skill!", skill_name(exsk));
         hints_gained_new_skill(exsk);
     }
+    else if (!you.skills[exsk])
+    {
+        mprf(MSGCH_INTRINSIC_GAIN, "You have lost %s skill!", skill_name(exsk));
+        lose_skill(exsk);
+        need_reset = true;
+    }
     else if (abs(n) == 1 && you.num_turns)
     {
         mprf(MSGCH_INTRINSIC_GAIN, "Your %s skill %s to level %d!",
@@ -199,13 +262,13 @@ static void _change_skill_level(skill_type exsk, int n)
              abs(n), you.skills[exsk]);
     }
 
-    if (n > 0)
+    if (n > 0 && you.num_turns)
         learned_something_new(HINT_SKILL_RAISE);
 
     if (you.skills[exsk] - n == 27)
     {
         you.train[exsk] = 1;
-        reset_training();
+        need_reset = true;
     }
 
     // Recalculate this skill's order for tie breaking skills
@@ -236,7 +299,7 @@ static void _change_skill_level(skill_type exsk, int n)
     }
 
     const skill_type best_spell = best_skill(SK_SPELLCASTING,
-                                             SK_ALCHEMY);
+                                             SK_LAST_MAGIC);
     if (exsk == SK_SPELLCASTING && you.skills[exsk] == 1
         && best_spell == SK_SPELLCASTING && n > 0)
     {
@@ -248,6 +311,8 @@ static void _change_skill_level(skill_type exsk, int n)
     if (best != old_best_skill || old_best_skill == exsk)
         redraw_skill(you.your_name, player_title());
 
+    if (need_reset)
+        reset_training();
     // TODO: also identify rings of wizardry.
 }
 
@@ -294,7 +359,7 @@ static void _init_exercise_queue()
 
     // We remove unknown skills, since we don't want then in the queue.
     for (int i = 0; i < NUM_SKILLS; ++i)
-        if (!you.skills[i])
+        if (!skill_known(i))
             prac[i] = 0;
 
     for (int i = 0; i < EXERCISE_QUEUE_SIZE; ++i)
@@ -303,7 +368,7 @@ static void _init_exercise_queue()
         if (is_invalid_skill(sk))
             sk = static_cast<skill_type>(random_choose_weighted(you.training));
 
-        if (!you.skills[sk])
+        if (!skill_known(sk))
             continue;
 
         you.exercises.push_back(sk);
@@ -319,11 +384,15 @@ void init_training()
 {
     int total = 0;
     for (int i = 0; i < NUM_SKILLS; ++i)
-        if (you.train[i] && you.skills[i])
+        if (you.train[i] && skill_known(i))
             total += you.skill_points[i];
 
+    // If no trainable skills, exit.
+    if (!total)
+        return;
+
     for (int i = 0; i < NUM_SKILLS; ++i)
-        if (you.skills[i])
+        if (skill_known(i))
             you.training[i] = you.skill_points[i] * 100 / total;
 
     _init_exercise_queue();
@@ -342,9 +411,9 @@ void check_selected_skills()
     for (int i = 0; i < NUM_SKILLS; ++i)
     {
         skill_type sk = static_cast<skill_type>(i);
-        if (you.train[sk] && you.skills[sk])
+        if (you.train[sk] && skill_known(sk))
             return;
-        if (!you.skills[sk] || you.skills[sk] == 27)
+        if (!skill_known(sk) || you.skills[sk] == 27)
             continue;
         if (is_invalid_skill(first_selectable))
             first_selectable = sk;
@@ -371,7 +440,7 @@ static void _scale_training(int scale, bool known, bool exact)
     int total = 0;
     // First, we calculate the sum of the values to be scaled.
     for (int i = 0; i < NUM_SKILLS; ++i)
-        if (known == (you.skills[i] != 0) && you.training[i] > 0)
+        if (known == skill_known(i) && you.training[i] > 0)
             total += you.training[i];
 
     std::vector<std::pair<skill_type,int> > rests;
@@ -383,7 +452,7 @@ static void _scale_training(int scale, bool known, bool exact)
 
     // Now we scale the values.
     for (int i = 0; i < NUM_SKILLS; ++i)
-        if (known == (you.skills[i] != 0) && you.training[i] > 0)
+        if (known == skill_known(i) && you.training[i] > 0)
         {
             int result = you.training[i] * scale;
             const int rest = result % total;
@@ -428,7 +497,7 @@ void reset_training()
     // manual mode, they are all set to 1.
     for (int i = 0; i < NUM_SKILLS; ++i)
     {
-        if (!you.skills[i])
+        if (!skill_known(i))
             total_unknown += you.training[i];
         else if (you.auto_training)
             you.training[i] = 0;
@@ -446,9 +515,8 @@ void reset_training()
             skill_type sk = *it;
             if (you.train[sk])
             {
-                // Only known skills should be in the queue, except if you have
-                // lost a skill which is currently only possible in wizmode.
-                ASSERT(you.skills[sk] || you.wizard);
+                // Only known skills should be in the queue.
+                ASSERT(skill_known(sk));
                 you.training[sk] += you.train[sk];
                 empty = false;
             }
@@ -458,7 +526,7 @@ void reset_training()
         // a default weight of 1 (or 2 for focus skills).
         if (empty)
             for (int sk = 0; sk < NUM_SKILLS; ++sk)
-                if (you.train[sk] && you.skills[sk])
+                if (you.train[sk] && skill_known(sk))
                     you.training[sk] = you.train[sk];
 
         // Focused skills get at least 20% training.
@@ -484,7 +552,7 @@ void exercise(skill_type exsk, int deg)
 
     dprf("Exercise %s by %d.", skill_name(exsk), deg);
 
-    if (!you.skills[exsk])
+    if (!skill_known(exsk))
         you.training[exsk] += deg;
     else
         while (deg > 0)
@@ -501,24 +569,11 @@ void exercise(skill_type exsk, int deg)
 static bool _level_up_check(skill_type sk)
 {
     // New skill learned.
-    const bool skill_learned  = !you.skills[sk]
+    const bool skill_learned  = !skill_known(sk)
                     && you.skill_points[sk] >= skill_exp_needed(1, sk);
 
     if (skill_learned)
-    {
-        // We start by inserting the rest of the exercises in the queue.
-        while (you.training[sk] > 0)
-        {
-            you.exercises.pop_front();
-            int pos = you.training[sk]
-                      + random2(you.exercises.size() - you.training[sk]);
-            std::list<skill_type>::iterator it = you.exercises.begin();
-            while (pos--)
-                ++it;
-            you.exercises.insert(it, sk);
-            --you.training[sk];
-        }
-    }
+        gain_skill(sk);
 
     // Don't train past level 27.
     // In manual mode, we stop training and automatically disable new skills.
@@ -534,7 +589,47 @@ static bool _level_up_check(skill_type sk)
     return false;
 }
 
-void train_skills()
+static bool _is_magic_skill(skill_type sk)
+{
+    // Learning new skills doesn't count for Trog because punishment has
+    // already been given for casting. And we don't want to punish
+    // learning spellcasting from scrolls.
+    if (you.religion == GOD_TROG && !skill_known(sk))
+        return false;
+
+    return (sk > SK_LAST_MUNDANE && sk <= SK_LAST_MAGIC);
+}
+
+void train_skills(bool simu)
+{
+    int cost, exp;
+    do
+    {
+        cost = calc_skill_cost(you.skill_cost_level);
+        exp = you.exp_available;
+        if (you.skill_cost_level == 27)
+            train_skills(exp, cost, simu);
+        else
+        {
+            // Amount of skill points needed to reach the next skill cost level
+            // divided by 10 (integer divison rounded up).
+            const int next_level = (skill_cost_needed(you.skill_cost_level + 1)
+                                    - you.total_skill_points + 9) / 10;
+            ASSERT(next_level > 0);
+            train_skills(std::min(exp, cost * next_level), cost, simu);
+        }
+    }
+    while (you.exp_available >= cost && exp != you.exp_available);
+
+    for (int i = 0; i < NUM_SKILLS; ++i)
+        check_skill_level_change(static_cast<skill_type>(i), !simu);
+
+    // We might have disabled some skills on level up.
+    reset_training();
+}
+
+//#define DEBUG_TRAINING_COST
+void train_skills(int exp, const int cost, const bool simu)
 {
     bool skip_first_phase = false;
     int magic_gain = 0;
@@ -542,9 +637,13 @@ void train_skills()
     sk_exp.init(0);
     std::vector<skill_type> training_order;
 #ifdef DEBUG_DIAGNOSTICS
-    int exp_pool = you.exp_available;
     FixedVector<int, NUM_SKILLS> total_gain;
     total_gain.init(0);
+#endif
+#ifdef DEBUG_TRAINING_COST
+    int exp_pool = you.exp_available;
+    dprf("skill cost level: %d, cost: %dxp/10skp, max XP usable: %d.",
+         you.skill_cost_level, cost, exp);
 #endif
 
 
@@ -553,8 +652,8 @@ void train_skills()
     for (int i = 0; i < NUM_SKILLS; ++i)
         if (you.training[i] > 0)
         {
-            sk_exp[i] = you.training[i] * you.exp_available / 100;
-            if (sk_exp[i] < calc_skill_cost(you.skill_cost_level))
+            sk_exp[i] = you.training[i] * exp / 100;
+            if (sk_exp[i] < cost)
             {
                 // One skill has a too low training to be trained at all.
                 // We skip the first phase and go directly to the random
@@ -576,15 +675,17 @@ void train_skills()
             skill_type sk = *it;
             int gain = 0;
 
-            while (sk_exp[sk] >= calc_skill_cost(you.skill_cost_level)
-                   && you.training[sk])
+            while (sk_exp[sk] >= cost && you.training[sk])
             {
-                gain += _train(sk, sk_exp[sk]);
+                exp -= sk_exp[sk];
+                gain += _train(sk, sk_exp[sk], simu);
+                exp += sk_exp[sk];
+                ASSERT(exp >= 0);
                 if (_level_up_check(sk))
                     sk_exp[sk] = 0;
             }
 
-            if (gain && sk > SK_LAST_MUNDANE && sk <= SK_LAST_MAGIC)
+            if (gain && _is_magic_skill(sk))
                 magic_gain += gain;
 
 #ifdef DEBUG_DIAGNOSTICS
@@ -594,7 +695,7 @@ void train_skills()
     }
     // If there's enough xp in the pool, we use it to train skills selected
     // with random_choose_weighted.
-    while (you.exp_available >= calc_skill_cost(you.skill_cost_level))
+    while (exp >= cost)
     {
         int gain;
         skill_type sk = SK_NONE;
@@ -603,17 +704,20 @@ void train_skills()
         if (is_invalid_skill(sk))
             sk = static_cast<skill_type>(random_choose_weighted(you.training));
         if (!is_invalid_skill(sk))
-            gain = _train(sk, you.exp_available);
+        {
+            gain = _train(sk, exp, simu);
+            ASSERT(exp >= 0);
+            sk_exp[sk] = 0;
+        }
         else
         {
             // No skill to train. Can happen if all skills are at 27.
             break;
         }
 
-        if (_level_up_check(sk))
-            sk_exp[sk] = 0;
+        _level_up_check(sk);
 
-        if (gain && sk > SK_LAST_MUNDANE && sk <= SK_LAST_MAGIC)
+        if (gain && _is_magic_skill(sk))
             magic_gain += gain;
 
 #ifdef DEBUG_DIAGNOSTICS
@@ -624,16 +728,22 @@ void train_skills()
 #ifdef DEBUG_DIAGNOSTICS
     if (!crawl_state.script)
     {
+#ifdef DEBUG_TRAINING_COST
         int total = 0;
+#endif
         for (int i = 0; i < NUM_SKILLS; ++i)
         {
             skill_type sk = static_cast<skill_type>(i);
-            if (total_gain[sk])
+            if (total_gain[sk] && !simu)
                 dprf("Trained %s by %d.", skill_name(sk), total_gain[sk]);
+#ifdef DEBUG_TRAINING_COST
             total += total_gain[sk];
         }
         dprf("Total skill points gained: %d, cost: %d XP.",
              total, exp_pool - you.exp_available);
+#else
+        }
+#endif
     }
 #endif
 
@@ -642,14 +752,19 @@ void train_skills()
     if (crawl_state.game_is_sprint())
         magic_gain = sprint_modify_exp_inverse(magic_gain);
 
-    if (magic_gain)
+    if (magic_gain && !simu)
         did_god_conduct(DID_SPELL_PRACTISE, magic_gain);
+}
 
-    for (int i = 0; i < NUM_SKILLS; ++i)
-        check_skill_level_change(static_cast<skill_type>(i));
+void train_skill(skill_type skill, int exp)
+{
+    const int cost = calc_skill_cost(you.skill_cost_level);
+    int gain = 0;
 
-    // We might have disabled some skills on level up.
-    reset_training();
+    while (exp >= cost)
+        gain += _train(skill, exp);
+
+    dprf("Trained %s by %d.", skill_name(skill), gain);
 }
 
 static int _stat_mult(skill_type exsk, int skill_inc)
@@ -667,7 +782,7 @@ static int _stat_mult(skill_type exsk, int skill_inc)
         // Note: Armour is handled above.
         stat = you.dex();
     }
-    else if (exsk >= SK_SPELLCASTING && exsk <= SK_ALCHEMY)
+    else if (exsk >= SK_SPELLCASTING && exsk <= SK_LAST_MAGIC)
     {
         // These skills are easier for the smart.
         stat = you.intel();
@@ -676,7 +791,7 @@ static int _stat_mult(skill_type exsk, int skill_inc)
     return (skill_inc * std::max<int>(5, stat) / 10);
 }
 
-static void _check_skill_cost_change()
+void check_skill_cost_change()
 {
     if (you.skill_cost_level < 27
         && you.total_skill_points
@@ -695,17 +810,15 @@ static void _check_skill_cost_change()
 void change_skill_points(skill_type sk, int points, bool do_level_up)
 {
     if (static_cast<int>(you.skill_points[sk]) < -points)
-        points = -you.skill_points[sk];
+        points = -(int)you.skill_points[sk];
 
     you.skill_points[sk] += points;
     you.total_skill_points += points;
 
-    _check_skill_cost_change();
-
     check_skill_level_change(sk, do_level_up);
 }
 
-static int _train(skill_type exsk, int &max_exp)
+static int _train(skill_type exsk, int &max_exp, bool simu)
 {
     // This will be added to you.skill_points[exsk];
     int skill_inc = 10;
@@ -744,11 +857,11 @@ static int _train(skill_type exsk, int &max_exp)
         const int bonus = std::min<int>(skill_inc, manual.plus2);
         skill_inc += bonus;
         manual.plus2 -= bonus;
-        if (!manual.plus2)
+        if (!manual.plus2 && !simu)
             stop_studying_manual(true);
     }
 
-    if (!you.skills[exsk] && you.training[exsk] > 0
+    if (!skill_known(exsk) && you.training[exsk] > 0
         && x_chance_in_y(skill_inc, 10))
     {
         --you.training[exsk];
@@ -761,8 +874,9 @@ static int _train(skill_type exsk, int &max_exp)
     max_exp -= cost;
     you.total_skill_points += skill_inc;
 
-    _check_skill_cost_change();
-    you.exp_available = std::max(0, you.exp_available);
+    check_skill_cost_change();
+    ASSERT(you.exp_available >= 0);
+    ASSERT(max_exp >= 0);
     you.redraw_experience = true;
 
     return (skill_inc);

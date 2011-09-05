@@ -152,7 +152,7 @@ bool feat_sealable_portal(dungeon_feature_type feat)
 bool feat_is_portal(dungeon_feature_type feat)
 {
     return (feat == DNGN_ENTER_PORTAL_VAULT || feat == DNGN_EXIT_PORTAL_VAULT
-            || feat == DNGN_TEMP_PORTAL);
+            || feat == DNGN_MALIGN_GATEWAY);
 }
 
 // Returns true if the given dungeon feature is a stair, i.e., a level
@@ -197,6 +197,8 @@ bool feat_is_travelable_stair(dungeon_feature_type feat)
     case DNGN_ENTER_TOMB:
     case DNGN_ENTER_SWAMP:
     case DNGN_ENTER_SHOALS:
+    case DNGN_ENTER_SPIDER_NEST:
+    case DNGN_ENTER_FOREST:
     case DNGN_RETURN_FROM_DWARVEN_HALL:
     case DNGN_RETURN_FROM_ORCISH_MINES:
     case DNGN_RETURN_FROM_HIVE:
@@ -212,6 +214,8 @@ bool feat_is_travelable_stair(dungeon_feature_type feat)
     case DNGN_RETURN_FROM_TOMB:
     case DNGN_RETURN_FROM_SWAMP:
     case DNGN_RETURN_FROM_SHOALS:
+    case DNGN_RETURN_FROM_SPIDER_NEST:
+    case DNGN_RETURN_FROM_FOREST:
         return (true);
     default:
         return (false);
@@ -295,6 +299,8 @@ command_type feat_stair_direction(dungeon_feature_type feat)
     case DNGN_RETURN_FROM_TOMB:
     case DNGN_RETURN_FROM_SWAMP:
     case DNGN_RETURN_FROM_SHOALS:
+    case DNGN_RETURN_FROM_SPIDER_NEST:
+    case DNGN_RETURN_FROM_FOREST:
     case DNGN_ENTER_SHOP:
     case DNGN_EXIT_HELL:
     case DNGN_EXIT_PORTAL_VAULT:
@@ -331,6 +337,8 @@ command_type feat_stair_direction(dungeon_feature_type feat)
     case DNGN_ENTER_TOMB:
     case DNGN_ENTER_SWAMP:
     case DNGN_ENTER_SHOALS:
+    case DNGN_ENTER_SPIDER_NEST:
+    case DNGN_ENTER_FOREST:
         return (CMD_GO_DOWNSTAIRS);
 
     default:
@@ -345,7 +353,7 @@ bool feat_is_opaque(dungeon_feature_type feat)
 
 bool feat_is_solid(dungeon_feature_type feat)
 {
-    return (feat <= DNGN_MAXSOLID);
+    return (feat <= DNGN_MAXSOLID || feat == DNGN_MALIGN_GATEWAY);
 }
 
 bool cell_is_solid(int x, int y)
@@ -407,7 +415,7 @@ bool feat_is_permarock(dungeon_feature_type feat)
 bool feat_is_trap(dungeon_feature_type feat, bool undiscovered_too)
 {
     return (feat == DNGN_TRAP_MECHANICAL || feat == DNGN_TRAP_MAGICAL
-            || feat == DNGN_TRAP_NATURAL
+            || feat == DNGN_TRAP_NATURAL || feat == DNGN_TRAP_WEB
             || undiscovered_too && feat == DNGN_UNDISCOVERED_TRAP);
 }
 
@@ -731,7 +739,7 @@ bool feat_virtually_destroys_item(dungeon_feature_type feat, const item_def &ite
 
     case DNGN_DEEP_WATER:
         if (noisy)
-        mprf(MSGCH_SOUND, "You hear a splash.");
+            mprf(MSGCH_SOUND, "You hear a splash.");
         return (true);
 
     case DNGN_LAVA:
@@ -816,7 +824,7 @@ bool is_critical_feature(dungeon_feature_type feat)
 {
     return (feat_stair_direction(feat) != CMD_NO_CMD
             || feat_altar_god(feat) != GOD_NO_GOD
-            || feat == DNGN_TEMP_PORTAL);
+            || feat == DNGN_MALIGN_GATEWAY);
 }
 
 bool is_valid_border_feat(dungeon_feature_type feat)
@@ -847,6 +855,7 @@ static bool _is_feature_shift_target(const coord_def &pos, void*)
 // 7. Vault (map) mask
 // 8. Vault id mask
 // 9. Map markers, dungeon listeners, shopping list
+//10. Player's knowledge
 void dgn_move_entities_at(coord_def src, coord_def dst,
                           bool move_player,
                           bool move_monster,
@@ -937,6 +946,9 @@ void dgn_move_entities_at(coord_def src, coord_def dst,
     env.markers.move(src, dst);
     dungeon_events.move_listeners(src, dst);
     shopping_list.move_things(src, dst);
+
+    // Move player's knowledge.
+    env.map_knowledge(dst) = env.map_knowledge(src);
 }
 
 static bool _dgn_shift_feature(const coord_def &pos)
@@ -1342,6 +1354,9 @@ static bool _ok_dest_cell(const actor* orig_actor,
     if (is_notable_terrain(dest_feat))
         return (false);
 
+    if (find_trap(dest_pos))
+        return (false);
+
     actor* dest_actor = actor_at(dest_pos);
 
     if (orig_actor && !orig_actor->is_habitable_feat(dest_feat))
@@ -1626,19 +1641,19 @@ const char *dngn_feature_names[] =
 "enter_slime_pits", "enter_vaults", "enter_crypt",
 "enter_hall_of_blades", "enter_zot", "enter_temple",
 "enter_snake_pit", "enter_elven_halls", "enter_tomb",
-"enter_swamp", "enter_shoals", "enter_reserved_2",
-"enter_reserved_3", "enter_reserved_4", "", "",
+"enter_swamp", "enter_shoals", "enter_spider_nest",
+"enter_forest", "enter_reserved_1", "", "",
 "return_from_dwarven_hall", "return_from_orcish_mines", "return_from_hive",
 "return_from_lair", "return_from_slime_pits",
 "return_from_vaults", "return_from_crypt",
 "return_from_hall_of_blades", "return_from_zot",
 "return_from_temple", "return_from_snake_pit",
 "return_from_elven_halls", "return_from_tomb",
-"return_from_swamp", "return_from_shoals", "return_reserved_2",
-"return_reserved_3", "return_reserved_4", "", "", "", "", "",
+"return_from_swamp", "return_from_shoals", "return_from_spider_nest",
+"return_from_forest", "return_reserved_1", "", "", "", "", "",
 "", "", "", "", "", "", "", "enter_portal_vault", "exit_portal_vault",
 "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-"", "", "altar_zin", "altar_shining_one", "altar_kikubaaqudgha",
+"", "", "altar_zin", "altar_the_shining_one", "altar_kikubaaqudgha",
 "altar_yredelemnul", "altar_xom", "altar_vehumet",
 "altar_okawaru", "altar_makhleb", "altar_sif_muna", "altar_trog",
 "altar_nemelex_xobeh", "altar_elyvilon", "altar_lugonu",

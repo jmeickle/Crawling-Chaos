@@ -787,6 +787,36 @@ TAGS: overwritable layout allow_dup unrand
 MAP
 ENDMAP
 
+NAME: layout_delve
+DEPTH: Spider, D:13
+CHANCE: 100%
+ORIENT: encompass
+TAGS: overwritable layout allow_dup unrand
+{{
+    local gxm, gym = dgn.max_bounds()
+    extend_map{width = gxm, height = gym, fill = 'X'}
+    fill_area{fill = 'X'}
+    fill_area{x1=1, y1=1, x2=gxm-2, y2=gym-2, fill = 'x'}
+
+    local ngb_min = crawl.random_range(1, 3)
+    local ngb_max = crawl.random_range(ngb_min, 8)
+    local connchance = crawl.random_element
+        { [0] = 2, [5] = 1, [20] = 1, [50] = 1, [100] = 1 }
+    local top = crawl.random_element
+        { [1] = 1, [20] = 1, [125] = 1, [500] = 1, [999999] =1 }
+    crawl.dpr("<lightmagenta>delve(" .. ngb_min .. ", " .. ngb_max .. ", " ..
+              connchance .. ", -1, " .. top .. ")</lightmagenta>")
+    delve(ngb_min, ngb_max, connchance, -1, top)
+    if crawl.coinflip() then
+      crawl.dpr("delve: adding water");
+      _G.subst('. = @')
+      delve(ngb_min, ngb_max, 100, 100, top)
+      _G.subst('. = w')
+      _G.subst('@ = .')
+    end
+    _G.subst('X = x')
+}}
+
 # Dummy layouts that just call C++ functions that do all the work.
 NAME: layout_basic
 DEPTH: 1-, !Vault

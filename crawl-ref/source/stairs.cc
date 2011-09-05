@@ -8,11 +8,13 @@
 #include "areas.h"
 #include "branch.h"
 #include "chardump.h"
+#include "coordit.h"
 #include "delay.h"
 #include "dgn-overview.h"
 #include "directn.h"
 #include "env.h"
 #include "files.h"
+#include "fprop.h"
 #include "hints.h"
 #include "hiscores.h"
 #include "itemname.h"
@@ -22,6 +24,7 @@
 #include "mapmark.h"
 #include "message.h"
 #include "misc.h"
+#include "mon-iter.h"
 #include "notes.h"
 #include "options.h"
 #include "ouch.h"
@@ -316,9 +319,7 @@ static void _clear_golubria_traps()
     {
         trap_def *trap = find_trap(*it);
         if (trap && trap->type == TRAP_GOLUBRIA)
-        {
             trap->destroy();
-        }
     }
 }
 
@@ -1161,7 +1162,7 @@ void down_stairs(dungeon_feature_type force_stair,
             if (shaft || feat_is_escape_hatch(stair_find))
                 xom_is_stimulated(shaft_depth * 50);
             else
-                xom_is_stimulated(14);
+                xom_is_stimulated(10);
             break;
 
         case LEVEL_PORTAL_VAULT:
@@ -1173,7 +1174,7 @@ void down_stairs(dungeon_feature_type force_stair,
             // Finding the way out of a labyrinth interests Xom,
             // but less so for Minotaurs. (though not now, as they cannot
             // map the labyrinth any more {due})
-            xom_is_stimulated(98);
+            xom_is_stimulated(75);
             break;
 
         case LEVEL_ABYSS:
@@ -1192,18 +1193,18 @@ void down_stairs(dungeon_feature_type force_stair,
                 || entry_cause != EC_SELF_EXPLICIT)
             {
                 if (crawl_state.is_god_acting())
-                    xom_is_stimulated(255);
+                    xom_is_stimulated(200);
                 else if (entry_cause == EC_SELF_EXPLICIT)
                 {
                     // Entering Pandemonium or the Abyss for the first
                     // time *voluntarily* stimulates Xom much more than
                     // entering a normal dungeon level for the first time.
-                    xom_is_stimulated(128, XM_INTRIGUED);
+                    xom_is_stimulated(100, XM_INTRIGUED);
                 }
                 else if (entry_cause == EC_SELF_RISKY)
-                    xom_is_stimulated(128);
+                    xom_is_stimulated(100);
                 else
-                    xom_is_stimulated(255);
+                    xom_is_stimulated(200);
             }
 
             break;
@@ -1274,12 +1275,44 @@ void down_stairs(dungeon_feature_type force_stair,
 
 }
 
+static bool _any_glowing_mold()
+{
+    for (rectangle_iterator ri(0); ri; ++ri)
+        if (glowing_mold(*ri))
+            return true;
+    for (monster_iterator mon_it; mon_it; ++mon_it)
+        if (mon_it->type == MONS_HYPERACTIVE_BALLISTOMYCETE)
+            return true;
+
+    return false;
+}
+
+static void _update_level_state()
+{
+    env.level_state = 0;
+
+    std::vector<coord_def> golub = find_golubria_on_level();
+    if (!golub.empty())
+        env.level_state += LSTATE_GOLUBRIA;
+
+    if (_any_glowing_mold())
+        env.level_state += LSTATE_GLOW_MOLD;
+
+    env.orb_pos = orb_position();
+    if (player_has_orb())
+        env.orb_pos = you.pos();
+    if (you.char_direction == GDT_ASCENDING)
+        invalidate_agrid(true);
+}
+
 void new_level(bool restore)
 {
     print_stats_level();
 #ifdef DGL_WHEREIS
     whereis_record();
 #endif
+
+    _update_level_state();
 
     if (restore)
         return;

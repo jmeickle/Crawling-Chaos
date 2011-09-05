@@ -599,7 +599,7 @@ static void _get_status_lights(std::vector<status_light>& out)
         STATUS_SICK,
         STATUS_ROT,
         STATUS_NET,
-        STATUS_GLOW,
+        STATUS_CONTAMINATION,
         DUR_SWIFTNESS,
         STATUS_SPEED,
         DUR_DEATH_CHANNEL,
@@ -622,6 +622,8 @@ static void _get_status_lights(std::vector<status_light>& out)
         STATUS_FIREBALL,
         DUR_SHROUD_OF_GOLUBRIA,
         DUR_TORNADO_COOLDOWN,
+        STATUS_BACKLIT,
+        STATUS_UMBRA,
     };
 
     status_info inf;
@@ -696,6 +698,17 @@ static bool _need_stats_printed()
 }
 #endif
 
+static std::string _get_exp_progress()
+{
+    if (you.experience_level >= 27)
+        return "";
+
+    const int current = exp_needed(you.experience_level);
+    const int next    = exp_needed(you.experience_level + 1);
+    return make_stringf("%2d%%",
+                        (you.experience - current) * 100 / (next - current));
+}
+
 void print_stats(void)
 {
     cursor_control coff(false);
@@ -737,6 +750,13 @@ void print_stats(void)
         cprintf("XL: ");
         textcolor(HUD_VALUE_COLOUR);
         cprintf("%2d ", you.experience_level);
+        if (you.experience_level < 27)
+        {
+            textcolor(Options.status_caption_colour);
+            cprintf("Next: ");
+            textcolor(HUD_VALUE_COLOUR);
+            cprintf("%s ", _get_exp_progress().c_str());
+        }
 #endif
         if (crawl_state.game_is_zotdef())
         {
@@ -916,6 +936,14 @@ void redraw_skill(const std::string &your_name, const std::string &job_name)
             nowrap_eol_cprintf("%s", piety.c_str());
         }
     }
+    else if (you.char_class == JOB_MONK && you.species != SP_DEMIGOD
+             && !had_gods())
+    {
+        std::string godpiety = "**....";
+        textcolor(DARKGREY);
+        if ((unsigned int)(strwidth(species) + strwidth(godpiety) + 1) <= WIDTH)
+            nowrap_eol_cprintf(" %s", godpiety.c_str());
+    }
 
     clear_to_end_of_line();
 
@@ -1038,7 +1066,6 @@ std::string mpr_monster_list(bool past)
         return (msg);
     }
 
-    std::sort(mons.begin(), mons.end(), monster_info::less_than_wrapper);
     std::vector<std::string> describe;
 
     int count = 0;
@@ -1131,6 +1158,10 @@ static void _print_next_monster_desc(const std::vector<monster_info>& mons,
             case MDAM_OKAY:               dam_color = GREEN;     break;
             default:                      dam_color = CYAN;      break;
             }
+
+            if (!mons_class_can_display_wounds(mi.type))
+                dam_color = BLACK;
+
             cprintf(" ");
             textbackground(dam_color);
             textcolor(dam_color);
@@ -1185,7 +1216,6 @@ int update_monster_pane()
 
     std::vector<monster_info> mons;
     get_monster_info(mons);
-    std::sort(mons.begin(), mons.end(), monster_info::less_than_wrapper);
 
     // Count how many groups of monsters there are.
     unsigned int lines_needed = mons.size();
@@ -1200,9 +1230,6 @@ int update_monster_pane()
 
         // Use type names rather than full names ("small zombie" vs
         // "rat zombie") in order to take up fewer lines.
-
-        std::sort(mons.begin(), mons.end(),
-                  monster_info::less_than_wrapper);
 
         lines_needed = mons.size();
         for (unsigned int i = 1; i < mons.size(); i++)
@@ -1341,7 +1368,7 @@ static const char* _determine_colour_string(int level, int max_level)
     }
 }
 
-static std::string _status_mut_abilities(void);
+static std::string _status_mut_abilities(int sw);
 
 // helper for print_overview_screen
 static void _print_overview_screen_equip(column_composer& cols,
@@ -1452,7 +1479,7 @@ static void _print_overview_screen_equip(column_composer& cols,
     }
 }
 
-static std::string _overview_screen_title()
+static std::string _overview_screen_title(int sw)
 {
     char title[50];
     snprintf(title, sizeof title, " the %s ", player_title().c_str());
@@ -1472,7 +1499,7 @@ static std::string _overview_screen_title()
 
     int linelength = strwidth(you.your_name) + strwidth(title)
                      + strwidth(species_job) + strwidth(time_turns);
-    for (int count = 0; linelength >= get_number_of_cols() && count < 2;
+    for (int count = 0; linelength >= sw && count < 2;
          count++)
     {
         switch (count)
@@ -1499,7 +1526,7 @@ static std::string _overview_screen_title()
     text += title;
     text += species_job;
 
-    const int num_spaces = get_number_of_cols() - linelength - 1;
+    const int num_spaces = sw - linelength - 1;
     if (num_spaces > 0)
         text += std::string(num_spaces, ' ');
 
@@ -1524,7 +1551,7 @@ static std::string _god_powers(bool simple)
     std::string godpowers = simple ? "" : god_name(you.religion) ;
     if (you.religion == GOD_XOM)
     {
-        if (you.gift_timeout == 0)
+        if (!you.gift_timeout)
             godpowers += simple ? "- BORED" : " - BORED";
         else if (you.gift_timeout == 1)
             godpowers += simple ? "- getting BORED" : " - getting BORED";
@@ -1714,15 +1741,15 @@ static std::vector<formatted_string> _get_overview_stats()
     else
         lives[0] = 0;
 
-    int xp_needed = (exp_needed(you.experience_level + 1) - you.experience) + 1;
     snprintf(buf, sizeof buf,
-             "Exp: %d/%u (%d)%s\n"
+             "XL: %d%s\n"
              "God: %s\n"
              "Spells: %2d memorised, %2d level%s left\n"
              "%s",
-             you.experience_level, you.experience, you.exp_available,
-             (you.experience_level < 27?
-              make_stringf(", need: %d", xp_needed).c_str() : ""),
+             you.experience_level,
+             (you.experience_level < 27 ? make_stringf("   Next: %s",
+                                           _get_exp_progress().c_str()).c_str()
+                                        : ""),
              godpowers.c_str(),
              you.spell_no, player_spell_levels(),
              (player_spell_levels() == 1) ? "" : "s",
@@ -1874,7 +1901,7 @@ static char _get_overview_screen_results()
 #endif
     overview.set_tag("resists");
 
-    overview.add_text(_overview_screen_title());
+    overview.add_text(_overview_screen_title(get_number_of_cols()));
 
     {
         std::vector<formatted_string> blines = _get_overview_stats();
@@ -1899,7 +1926,7 @@ static char _get_overview_screen_results()
     }
 
     overview.add_text(" ");
-    overview.add_text(_status_mut_abilities());
+    overview.add_text(_status_mut_abilities(get_number_of_cols()));
 
     std::vector<MenuEntry *> results = overview.show();
     return (!results.empty()) ? results[0]->hotkeys[0] : 0;
@@ -1907,7 +1934,7 @@ static char _get_overview_screen_results()
 
 std::string dump_overview_screen(bool full_id)
 {
-    std::string text = formatted_string::parse_string(_overview_screen_title());
+    std::string text = formatted_string::parse_string(_overview_screen_title(80));
     text += "\n";
 
     std::vector<formatted_string> blines = _get_overview_stats();
@@ -1927,7 +1954,7 @@ std::string dump_overview_screen(bool full_id)
     }
     text += "\n";
 
-    text += formatted_string::parse_string(_status_mut_abilities());
+    text += formatted_string::parse_string(_status_mut_abilities(80));
     text += "\n";
 
     return text;
@@ -1969,7 +1996,11 @@ std::string stealth_desc(int stealth)
 
 std::string magic_res_adjective(int mr)
 {
-    return ((mr <  10) ? "not" :
+    if (mr == MAG_IMMUNE)
+        return "immune";
+
+    std::string prefix =
+            (mr <  10) ? "not" :
             (mr <  30) ? "slightly" :
             (mr <  60) ? "somewhat" :
             (mr <  90) ? "quite" :
@@ -1978,12 +2009,13 @@ std::string magic_res_adjective(int mr)
             (mr < 190) ? "extraordinarily" :
             (mr < 240) ? "incredibly" :
             (mr < 300) ? "uncannily"
-                       : "almost entirely");
+                       : "almost entirely";
+    return prefix + " resistant";
 }
 
 // Creates rows of short descriptions for current
 // status, mutations and abilities.
-std::string _status_mut_abilities()
+static std::string _status_mut_abilities(int sw)
 {
     //----------------------------
     // print status information
@@ -2030,7 +2062,7 @@ std::string _status_mut_abilities()
         DUR_FIRE_SHIELD,
         DUR_POISONING,
         STATUS_SICK,
-        STATUS_GLOW,
+        STATUS_CONTAMINATION,
         STATUS_ROT,
         DUR_CONFUSING_TOUCH,
         DUR_SLIMIFY,
@@ -2048,6 +2080,8 @@ std::string _status_mut_abilities()
         STATUS_FIREBALL,
         DUR_SHROUD_OF_GOLUBRIA,
         DUR_TORNADO_COOLDOWN,
+        STATUS_BACKLIT,
+        STATUS_UMBRA,
     };
 
     status_info inf;
@@ -2070,7 +2104,7 @@ std::string _status_mut_abilities()
     }
 
     status.push_back(magic_res_adjective(player_res_magic(false))
-                     + " resistant to hostile enchantments");
+                     + " to hostile enchantments");
 
     // character evaluates their ability to sneak around:
     status.push_back(stealth_desc(check_stealth()));
@@ -2412,7 +2446,7 @@ std::string _status_mut_abilities()
                                          ", ", ", ").c_str());
     }
 
-    linebreak_string(text, get_number_of_cols());
+    linebreak_string(text, sw);
 
     return text;
 }

@@ -213,7 +213,7 @@ static bool _zin_retribution()
             you.hibernate();
             break;
         case 2:
-            you.paralyse(NULL, 3 + random2(10));
+            paralyse_player("the wrath of Zin", 3 + random2(10));
             break;
         }
         break;
@@ -1215,7 +1215,7 @@ bool divine_retribution(god_type god, bool no_bonus, bool force)
     // gods don't use divine retribution on followers of gods they don't
     // hate.
     if (!force && ((god == you.religion && is_good_god(god))
-        || (god != you.religion && !god_hates_your_god(god))))
+        || (!god_hates_your_god(god))))
     {
         return (false);
     }
@@ -1226,7 +1226,9 @@ bool divine_retribution(god_type god, bool no_bonus, bool force)
     switch (god)
     {
     // One in ten chance that Xom might do something good...
-    case GOD_XOM: xom_acts(one_chance_in(10), abs(you.piety - 100)); break;
+    case GOD_XOM:
+        xom_acts(one_chance_in(10), abs(you.piety - HALF_MAX_PIETY));
+        break;
     case GOD_SHINING_ONE:   do_more = _tso_retribution(); break;
     case GOD_ZIN:           do_more = _zin_retribution(); break;
     case GOD_MAKHLEB:       do_more = _makhleb_retribution(); break;

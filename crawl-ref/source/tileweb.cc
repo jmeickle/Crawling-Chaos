@@ -289,8 +289,8 @@ bool TilesFramework::_send_cell(int x, int y,
     if (cell.is_silenced != old_cell.is_silenced)
         write_message("silenced:%u,", cell.is_silenced);
 
-    if (cell.is_haloed != old_cell.is_haloed)
-        write_message("haloed:%u,", cell.is_haloed);
+    if (cell.halo != old_cell.halo)
+        write_message("halo:%u,", cell.halo);
 
     if (cell.is_moldy != old_cell.is_moldy)
         write_message("moldy:%u,", cell.is_moldy);
@@ -303,6 +303,9 @@ bool TilesFramework::_send_cell(int x, int y,
 
     if (cell.is_liquefied != old_cell.is_liquefied)
         write_message("liquefied:%u,", cell.is_liquefied);
+
+    if (cell.orb_glow != old_cell.orb_glow)
+        write_message("orb_glow:%u,", cell.orb_glow);
 
     if (cell.swamp_tree_water != old_cell.swamp_tree_water)
         write_message("swtree:%u,", cell.swamp_tree_water);
@@ -471,7 +474,8 @@ force_overlay:%u,show_diameter:%u,msg_min_height:%u,stat_width:%u,   \
 min_stat_height:%u,gxm:%u,gym:%u},%u);",
                        Options.view_max_width, Options.view_max_height,
                        Options.tile_force_overlay, ENV_SHOW_DIAMETER,
-                       Options.msg_min_height, stat_width, min_stat_height,
+                       Options.msg_min_height, stat_width,
+                       min_stat_height + (Options.show_gold_turns ? 1 : 0),
                        GXM, GYM,
                        need_response);
 }
@@ -557,8 +561,10 @@ int TilesFramework::getch_ck()
             m_text_stat.send(true);
             m_text_message.send(true);
             _send_layout_data(false);
-            send_message("vgrdc(%d,%d);", m_current_gc.x, m_current_gc.y);
+            send_message("vgrdc(%d,%d);",
+                         m_current_gc.x - m_origin.x, m_current_gc.y - m_origin.y);
             send_message("set_flash(%d);", m_current_flash_colour);
+            write_message("mappable(%u);", player_in_mappable_area());
             _send_current_view();
             switch (m_active_layer)
             {
@@ -749,6 +755,12 @@ void TilesFramework::update_minimap(const coord_def& gc)
     if (gc.x < 0 || gc.x >= m_next_view.size().x ||
         gc.y < 0 || gc.y >= m_next_view.size().y)
         return;
+
+    if (you.see_cell(gc))
+        return; // This will get updated by load_dungeon.
+                // Also, it's possible that tile_bg is not yet
+                // initialized, which could lead to problems
+                // if we try to draw in-los cells.
 
     screen_cell_t *cell = &m_next_view[gc.x + gc.y * GXM];
 

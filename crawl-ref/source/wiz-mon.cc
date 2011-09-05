@@ -350,7 +350,7 @@ void wizard_spawn_control()
         if (!cancelable_get_line(specs, sizeof(specs)))
         {
             const int rate = atoi(specs);
-            if (rate)
+            if (rate || specs[0] == '0')
             {
                 env.spawn_random_rate = rate;
                 done = true;
@@ -396,6 +396,25 @@ void wizard_spawn_control()
 
     if (!done)
         canned_msg(MSG_OK);
+}
+
+void wizard_abyss_speed()
+{
+    char specs[256];
+    mprf(MSGCH_PROMPT, "Set abyss speed to what? (now %d, lower value = "
+                       "higher speed) ", you.abyss_speed);
+
+    if (!cancelable_get_line(specs, sizeof(specs)))
+    {
+        const int speed = atoi(specs);
+        if (speed || specs[0] == '0')
+        {
+            you.abyss_speed = speed;
+            return;
+        }
+    }
+
+    canned_msg(MSG_OK);
 }
 
 // Prints a number of useful (for debugging, that is) stats on monsters.
@@ -824,7 +843,7 @@ void wizard_give_monster_item(monster* mon)
         }
     }
 
-    int index = get_item_slot(10);
+    int index = get_mitm_slot(10);
     if (index == NON_ITEM)
     {
         mpr("Too many items on level, bailing.");

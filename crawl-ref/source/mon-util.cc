@@ -5,6 +5,8 @@
 
 #include "AppHdr.h"
 
+#include <math.h>
+
 #include "mon-util.h"
 
 #include "act-iter.h"
@@ -276,12 +278,6 @@ void init_monster_symbols()
         if (md.colour)
             monster_symbols[md.type].colour = md.colour;
     }
-
-    monster_symbols[MONS_GOLD_MIMIC].glyph   = dchar_glyph(DCHAR_ITEM_GOLD);
-    monster_symbols[MONS_WEAPON_MIMIC].glyph = dchar_glyph(DCHAR_ITEM_WEAPON);
-    monster_symbols[MONS_ARMOUR_MIMIC].glyph = dchar_glyph(DCHAR_ITEM_ARMOUR);
-    monster_symbols[MONS_SCROLL_MIMIC].glyph = dchar_glyph(DCHAR_ITEM_SCROLL);
-    monster_symbols[MONS_POTION_MIMIC].glyph = dchar_glyph(DCHAR_ITEM_POTION);
 
     // Validate all glyphs, even those which didn't come from an override.
     for (int i = 0; i < NUM_MONSTERS; ++i)
@@ -1461,7 +1457,7 @@ bool mons_immune_magic(const monster* mon)
 std::string mons_resist_string(const monster* mon, int res_margin)
 {
     if (mons_immune_magic(mon))
-        return " is unaffected";
+        return " is unaffected.";
     else
         return resist_margin_phrase(res_margin);
 }
@@ -1496,6 +1492,17 @@ flight_type mons_flies(const monster* mon, bool temp)
         && scan_mon_inv_randarts(mon, ARTP_LEVITATE) > 0)
     {
         ret = FL_LEVITATE;
+    }
+
+    if (temp && ret == FL_NONE)
+    {
+        const int armour = mon->inv[MSLOT_ARMOUR];
+        if (armour != NON_ITEM
+            && mitm[armour].base_type == OBJ_ARMOUR
+            && mitm[armour].special == SPARM_LEVITATION)
+        {
+            ret = FL_LEVITATE;
+        }
     }
 
     if (temp && ret == FL_NONE && mon->has_ench(ENCH_LEVITATION))
@@ -1858,7 +1865,7 @@ static bool _get_spellbook_list(mon_spellbook_type book[6],
     return (retval);
 }
 
-void _mons_load_spells(monster* mon, mon_spellbook_type book)
+static void _mons_load_spells(monster* mon, mon_spellbook_type book)
 {
     if (book == MST_GHOST)
         return mon->load_ghost_spells();
@@ -1956,7 +1963,7 @@ static int _serpent_of_hell_color(const monster* mon)
         return ETC_IRON;
         break;
     case BRANCH_TARTARUS:
-        return ETC_NECRO;
+        return ETC_DEATH;
         break;
     default:
         return ETC_FIRE;
@@ -2616,6 +2623,16 @@ bool mons_is_fleeing_sanctuary(const monster* m)
             && (m->flags & MF_FLEEING_FROM_SANCTUARY));
 }
 
+// Moving body parts, turning oklob flowers and so on counts as motile here.
+// So does preparing resurrect, struggling against a net, etc.
+bool mons_is_immotile(const monster* mons)
+{
+    return mons_is_firewood(mons)
+        || mons->petrified()
+        || mons->asleep()
+        || mons->paralysed();
+}
+
 bool mons_is_batty(const monster* m)
 {
     return mons_class_flag(m->type, M_BATTY);
@@ -2673,8 +2690,8 @@ void mons_pacify(monster* mon, mon_attitude_type att)
 {
     // If the _real_ (non-charmed) attitude is already that or better,
     // don't degrade it.  This can happen, for example, with a high-power
-    // Crusade card or the Ring of Charms on Pikel's slaves who would then
-    // go down from friendly to good_neutral when you kill Pikel.
+    // Crusade card on Pikel's slaves who would then go down from friendly
+    // to good_neutral when you kill Pikel.
     if (mon->attitude >= att)
         return;
 
@@ -3213,6 +3230,9 @@ bool monster_senior(const monster* m1, const monster* m2, bool fleeing)
 
 bool mons_class_can_pass(int mc, const dungeon_feature_type grid)
 {
+    if (grid == DNGN_MALIGN_GATEWAY)
+        return (mc == MONS_ELDRITCH_TENTACLE || mc == MONS_ELDRITCH_TENTACLE_SEGMENT);
+
     if (mons_class_wall_shielded(mc))
     {
         // Permanent walls can't be passed through.
@@ -3680,24 +3700,36 @@ std::string do_mon_str_replacements(const std::string &in_msg,
     }
 
     // The monster's god, not the player's.  Atheists get
-    // "NO GOD"/"NO GOD", and worshippers of nameless gods get
-    // "a god"/"its god".
+    // "NO GOD"/"NO GOD"/"NO_GOD"/"NO_GOD", and worshippers of nameless
+    // gods get "a god"/"its god/my God/My God".
+    //
+    // XXX: Crawl currently has no first-person possessive pronoun;
+    // if it gets one, it should be used for the last two entries.
     if (mons->god == GOD_NO_GOD)
     {
         msg = replace_all(msg, "@God@", "NO GOD");
         msg = replace_all(msg, "@possessive_God@", "NO GOD");
+
+        msg = replace_all(msg, "@my_God@", "NO GOD");
+        msg = replace_all(msg, "@My_God@", "NO GOD");
     }
     else if (mons->god == GOD_NAMELESS)
     {
         msg = replace_all(msg, "@God@", "a god");
-        std::string possessive = mons->pronoun(PRONOUN_NOCAP_POSSESSIVE);
-        possessive += " god";
+        std::string possessive =
+            mons->pronoun(PRONOUN_NOCAP_POSSESSIVE) + " god";
         msg = replace_all(msg, "@possessive_God@", possessive.c_str());
+
+        msg = replace_all(msg, "@my_God@", "my God");
+        msg = replace_all(msg, "@My_God@", "My God");
     }
     else
     {
         msg = replace_all(msg, "@God@", god_name(mons->god));
         msg = replace_all(msg, "@possessive_God@", god_name(mons->god));
+
+        msg = replace_all(msg, "@my_God@", god_name(mons->god));
+        msg = replace_all(msg, "@My_God@", god_name(mons->god));
     }
 
     // Replace with species specific insults.
@@ -4167,4 +4199,23 @@ bool mons_is_tentacle_end(const int mtype)
 {
     return (mtype == MONS_KRAKEN_TENTACLE
             || mtype == MONS_ELDRITCH_TENTACLE);
+}
+
+mon_threat_level_type mons_threat_level(const monster *mon, bool real)
+{
+    const double factor = sqrt(exp_needed(you.experience_level) / 30.0);
+    const int tension = exper_value(mon) / (1 + factor);
+
+    if (tension <= 0)
+        // Conjurators use melee to conserve mana, MDFis switch plates...
+        return MTHRT_TRIVIAL;
+    else if (tension <= 5)
+        // An easy fight but not ignorable.
+        return MTHRT_EASY;
+    else if (tension <= 32)
+        // Hard but reasonable.
+        return MTHRT_TOUGH;
+    else
+        // Check all wands/jewels several times, wear brown pants...
+        return MTHRT_NASTY;
 }

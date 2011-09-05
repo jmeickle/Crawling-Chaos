@@ -9,6 +9,7 @@
 #include "externs.h"
 
 #include "abyss.h"
+#include "areas.h"
 #include "branch.h"
 #include "cloud.h"
 #include "coord.h"
@@ -48,6 +49,15 @@ static bool _abyss_blocks_teleport(bool cblink)
 {
     // Controlled Blink (the spell) works more reliably in the Abyss.
     return (cblink ? coinflip() : !one_chance_in(3));
+}
+
+// XXX: can miscast before cancelling.
+spret_type cast_controlled_blink(int pow, bool fail)
+{
+    fail_check();
+    if (blink(pow, true) == -1)
+        return SPRET_ABORT;
+    return SPRET_SUCCESS;
 }
 
 // If wizard_blink is set, all restriction are ignored (except for
@@ -221,6 +231,13 @@ int blink(int pow, bool high_level_controlled_blink, bool wizard_blink,
     return (1);
 }
 
+spret_type cast_blink(bool allow_partial_control, bool fail)
+{
+    fail_check();
+    random_blink(allow_partial_control);
+    return SPRET_SUCCESS;
+}
+
 void random_blink(bool allow_partial_control, bool override_abyss)
 {
     ASSERT(!crawl_state.game_is_arena());
@@ -280,6 +297,13 @@ bool allow_control_teleport(bool quiet)
     }
 
     return (retval);
+}
+
+spret_type cast_teleport_self(bool fail)
+{
+    fail_check();
+    you_teleport();
+    return SPRET_SUCCESS;
 }
 
 void you_teleport(void)
@@ -677,49 +701,50 @@ void you_teleport_now(bool allow_control, bool new_abyss_area, bool wizard_tele)
             || you.level_type != LEVEL_ABYSS && player_in_a_dangerous_place()))
     {
         if (you.level_type == LEVEL_LABYRINTH && you.species == SP_MINOTAUR)
-            xom_is_stimulated(128);
+            xom_is_stimulated(100);
         else
-            xom_is_stimulated(255);
+            xom_is_stimulated(200);
     }
 }
 
-bool cast_portal_projectile(int pow)
+spret_type cast_portal_projectile(int pow, bool fail)
 {
     dist target;
     int item = get_ammo_to_shoot(-1, target, true);
     if (item == -1)
-        return (false);
+        return SPRET_ABORT;
 
     if (cell_is_solid(target.target))
     {
         mpr("You can't shoot at gazebos.");
-        return (false);
+        return SPRET_ABORT;
     }
 
     // Can't use portal through walls. (That'd be just too cheap!)
     if (you.trans_wall_blocking(target.target))
     {
         mpr("A translucent wall is in the way.");
-        return (false);
+        return SPRET_ABORT;
     }
 
     if (!check_warning_inscriptions(you.inv[item], OPER_FIRE))
-        return (false);
+        return SPRET_ABORT;
 
+    fail_check();
     bolt beam;
     throw_it(beam, item, true, random2(pow/4), &target);
 
-    return (true);
+    return SPRET_SUCCESS;
 }
 
-bool cast_apportation(int pow, bolt& beam)
+spret_type cast_apportation(int pow, bolt& beam, bool fail)
 {
     const coord_def where = beam.target;
 
     if (you.trans_wall_blocking(where))
     {
         mpr("Something is in the way.");
-        return (false);
+        return SPRET_ABORT;
     }
 
     // Letting mostly-melee characters spam apport after every Shoals
@@ -728,7 +753,7 @@ bool cast_apportation(int pow, bolt& beam)
     if (grd(where) == DNGN_DEEP_WATER || grd(where) == DNGN_LAVA)
     {
         mpr("The density of the terrain blocks your spell.");
-        return (false);
+        return SPRET_ABORT;
     }
 
     // Let's look at the top item in that square...
@@ -741,15 +766,16 @@ bool cast_apportation(int pow, bolt& beam)
         {
             if (mons_is_item_mimic(m->type) && you.can_see(m))
             {
+                fail_check();
                 mprf("%s twitches.", m->name(DESC_CAP_THE).c_str());
                 // Nothing else gives this message, so identify the mimic.
                 discover_mimic(m);
-                return (true);  // otherwise you get free mimic ID
+                return SPRET_SUCCESS;  // otherwise you get free mimic ID
             }
         }
 
         mpr("There are no items there.");
-        return (false);
+        return SPRET_ABORT;
     }
 
     item_def& item = mitm[item_idx];
@@ -758,7 +784,7 @@ bool cast_apportation(int pow, bolt& beam)
     if (crawl_state.game_is_zotdef() && item_is_orb(item))
     {
         mpr("You cannot apport the sacred Orb!");
-        return (false);
+        return SPRET_ABORT;
     }
 
     // Protect the player from destroying the item.
@@ -767,9 +793,10 @@ bool cast_apportation(int pow, bolt& beam)
                   false, 'n'))
     {
         canned_msg(MSG_OK);
-        return (false);
+        return SPRET_ABORT;
     }
 
+    fail_check();
     // Mass of one unit.
     const int unit_mass = item_mass(item);
     const int max_mass = pow * 30 + random2(pow * 20);
@@ -784,13 +811,11 @@ bool cast_apportation(int pow, bolt& beam)
         {
             orb_pickup_noise(where, 30);
             mpr("The mass is resisting your pull.");
-            return (true);
         }
         else
-        {
             mpr("The mass is resisting your pull.");
-            return (true);
-        }
+
+            return SPRET_SUCCESS;
     }
 
     // We need to modify the item *before* we move it, because
@@ -805,7 +830,7 @@ bool cast_apportation(int pow, bolt& beam)
         {
             orb_pickup_noise(where, 30, "The orb shrieks and becomes a dead weight against your magic!",
                              "The orb lets out a furious burst of light and becomes a dead weight against your magic!");
-            return (true);
+            return SPRET_SUCCESS;
         }
         else // Otherwise it's just a noisy little shiny thing
         {
@@ -856,7 +881,7 @@ bool cast_apportation(int pow, bolt& beam)
         if (feat_virtually_destroys_item(grd(new_spot), item))
         {
             mpr("Not with that terrain in the way!");
-            return (true);
+            return SPRET_SUCCESS;
         }
     }
     // If power is high enough it'll just come straight to you.
@@ -874,17 +899,23 @@ bool cast_apportation(int pow, bolt& beam)
             // Always >1 item.
             mpr("They abruptly stop in place!");
             // Too late to abort.
-            return (true);
+            return SPRET_SUCCESS;
         }
         item.quantity -= max_units;
     }
     else
         move_top_item(where, new_spot);
 
+    if (item_is_orb(item))
+    {
+        env.orb_pos = new_spot;
+        invalidate_agrid();
+    }
+
     // Mark the item as found now.
     origin_set(new_spot);
 
-    return (true);
+    return SPRET_SUCCESS;
 }
 
 static int _quadrant_blink(coord_def where, int pow, int, actor *)
@@ -958,7 +989,7 @@ bool can_cast_golubrias_passage()
     return find_golubria_on_level().size() < 2;
 }
 
-bool cast_golubrias_passage(const coord_def& where)
+spret_type cast_golubrias_passage(const coord_def& where, bool fail)
 {
     // randomize position a bit to make it not as useful to use on monsters
     // chasing you, as well as to not give away hidden trap positions
@@ -985,28 +1016,31 @@ bool cast_golubrias_passage(const coord_def& where)
         else
             // XXX: bleh, dumb message
             mpr("Creating a passage of Golubria requires sufficient empty space.");
-        return false;
+        return SPRET_ABORT;
     }
 
     if (!allow_control_teleport(true) ||
         testbits(env.pgrid(randomized_where), FPROP_NO_CTELE_INTO))
     {
+        fail_check();
         // lose a turn
         mpr("A powerful magic interferes with the creation of the passage.");
         place_cloud(CLOUD_TLOC_ENERGY, randomized_where, 3 + random2(3), &you);
-        return true;
+        return SPRET_SUCCESS;
     }
 
+    fail_check();
     place_specific_trap(randomized_where, TRAP_GOLUBRIA);
+    env.level_state |= LSTATE_GOLUBRIA;
 
     trap_def *trap = find_trap(randomized_where);
     if (!trap)
     {
         mpr("Something buggy happened.");
-        return false;
+        return SPRET_ABORT;
     }
 
     trap->reveal();
 
-    return true;
+    return SPRET_SUCCESS;
 }

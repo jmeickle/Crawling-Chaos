@@ -241,12 +241,10 @@ std::string item_def::name(description_level_type descrip,
                 case EQ_WEAPON:
                     if (this->base_type == OBJ_WEAPONS || item_is_staff(*this))
                         buff << " (weapon)";
-                    else if (you.has_usable_tentacles(true))
-                        buff << " (in tentacles)";
                     else if (you.species == SP_FELID)
                         buff << " (in mouth)";
                     else
-                        buff << " (in hand)";
+                        buff << " (in " << you.hand_name(false) << ")";
                     break;
                 case EQ_CLOAK:
                 case EQ_HELMET:
@@ -257,12 +255,12 @@ std::string item_def::name(description_level_type descrip,
                     buff << " (worn)";
                     break;
                 case EQ_LEFT_RING:
-                    buff << (you.species != SP_FELID ? " (left hand)"
-                                                     : " (left paw)");
-                    break;
                 case EQ_RIGHT_RING:
-                    buff << (you.species != SP_FELID ? " (right hand)"
-                                                     : " (right paw)");
+                    buff << " (";
+                    buff << (eq == EQ_LEFT_RING ? "left" : "right");
+                    buff << " ";
+                    buff << you.hand_name(false);
+                    buff << ")";
                     break;
                 case EQ_AMULET:
                     if (you.species == SP_OCTOPODE)
@@ -274,12 +272,22 @@ std::string item_def::name(description_level_type descrip,
                 case EQ_RING_TWO:
                 case EQ_RING_THREE:
                 case EQ_RING_FOUR:
+                    if (you.form == TRAN_SPIDER)
+                    {
+                        buff << " (on front leg)";
+                        break;
+                    }
                 case EQ_RING_FIVE:
                 case EQ_RING_SIX:
                 case EQ_RING_SEVEN:
                 case EQ_RING_EIGHT:
+                    if (you.form == TRAN_SPIDER)
+                    {
+                        buff << " (on hind leg)";
+                        break;
+                    }
                     buff << " (on tentacle)";
-                break;
+                    break;
                 default:
                     die("Item in an invalid slot");
                 }
@@ -862,80 +870,50 @@ static const char* deck_rarity_name(deck_rarity_type rarity)
 
 static const char* misc_type_name(int type, bool known)
 {
-    if (known)
+    if (!known)
     {
-        switch (static_cast<misc_item_type>(type))
-        {
-        case MISC_DECK_OF_ESCAPE:      return "deck of escape";
-        case MISC_DECK_OF_DESTRUCTION: return "deck of destruction";
-        case MISC_DECK_OF_DUNGEONS:    return "deck of dungeons";
-        case MISC_DECK_OF_SUMMONING:   return "deck of summonings";
-        case MISC_DECK_OF_WONDERS:     return "deck of wonders";
-        case MISC_DECK_OF_PUNISHMENT:  return "deck of punishment";
-        case MISC_DECK_OF_WAR:         return "deck of war";
-        case MISC_DECK_OF_CHANGES:     return "deck of changes";
-        case MISC_DECK_OF_DEFENCE:     return "deck of defence";
-
-        case MISC_CRYSTAL_BALL_OF_ENERGY:   return "crystal ball of energy";
-#if TAG_MAJOR_VERSION == 32
-        case MISC_CRYSTAL_BALL_OF_FIXATION: return "old crystal ball";
-#endif
-        case MISC_CRYSTAL_BALL_OF_SEEING:   return "crystal ball of seeing";
-        case MISC_BOX_OF_BEASTS:            return "box of beasts";
-        case MISC_EMPTY_EBONY_CASKET:       return "empty ebony casket";
-        case MISC_AIR_ELEMENTAL_FAN:        return "air elemental fan";
-        case MISC_LAMP_OF_FIRE:             return "lamp of fire";
-        case MISC_LANTERN_OF_SHADOWS:       return "lantern of shadows";
-        case MISC_HORN_OF_GERYON:           return "horn of Geryon";
-        case MISC_DISC_OF_STORMS:           return "disc of storms";
-        case MISC_BOTTLED_EFREET:           return "bottled efreet";
-        case MISC_STONE_OF_EARTH_ELEMENTALS:
-            return "stone of earth elementals";
-        case MISC_QUAD_DAMAGE:              return "quad damage";
-
-        case MISC_RUNE_OF_ZOT:
-        case NUM_MISCELLANY:
-            return "buggy miscellaneous item";
-        }
-    }
-    else
-    {
-        switch (static_cast<misc_item_type>(type))
-        {
-        case MISC_DECK_OF_ESCAPE:
-        case MISC_DECK_OF_DESTRUCTION:
-        case MISC_DECK_OF_DUNGEONS:
-        case MISC_DECK_OF_SUMMONING:
-        case MISC_DECK_OF_WONDERS:
-        case MISC_DECK_OF_PUNISHMENT:
-        case MISC_DECK_OF_WAR:
-        case MISC_DECK_OF_CHANGES:
-        case MISC_DECK_OF_DEFENCE:
+        if (type >= MISC_FIRST_DECK && type <= MISC_LAST_DECK)
             return "deck of cards";
-        case MISC_CRYSTAL_BALL_OF_ENERGY:
-#if TAG_MAJOR_VERSION == 32
-        case MISC_CRYSTAL_BALL_OF_FIXATION:
-#endif
-        case MISC_CRYSTAL_BALL_OF_SEEING:
+        if (type == MISC_CRYSTAL_BALL_OF_ENERGY
+            || type == MISC_CRYSTAL_BALL_OF_SEEING)
+        {
             return "crystal ball";
-        case MISC_BOX_OF_BEASTS:
-        case MISC_EMPTY_EBONY_CASKET:
-            return "small ebony casket";
-        case MISC_AIR_ELEMENTAL_FAN:         return "gauzy fan";
-        case MISC_LAMP_OF_FIRE:              return "blazing lamp";
-        case MISC_LANTERN_OF_SHADOWS:        return "bone lantern";
-        case MISC_HORN_OF_GERYON:            return "silver horn";
-        case MISC_DISC_OF_STORMS:            return "grey disc";
-        case MISC_STONE_OF_EARTH_ELEMENTALS: return "nondescript stone";
-        case MISC_BOTTLED_EFREET:            return "sealed bronze flask";
-        case MISC_QUAD_DAMAGE:               return "quad damage";
-
-        case MISC_RUNE_OF_ZOT:
-        case NUM_MISCELLANY:
-            return "buggy miscellaneous item";
         }
     }
-    return "very buggy miscellaneous item";
+
+    switch (static_cast<misc_item_type>(type))
+    {
+    case MISC_DECK_OF_ESCAPE:      return "deck of escape";
+    case MISC_DECK_OF_DESTRUCTION: return "deck of destruction";
+    case MISC_DECK_OF_DUNGEONS:    return "deck of dungeons";
+    case MISC_DECK_OF_SUMMONING:   return "deck of summonings";
+    case MISC_DECK_OF_WONDERS:     return "deck of wonders";
+    case MISC_DECK_OF_PUNISHMENT:  return "deck of punishment";
+    case MISC_DECK_OF_WAR:         return "deck of war";
+    case MISC_DECK_OF_CHANGES:     return "deck of changes";
+    case MISC_DECK_OF_DEFENCE:     return "deck of defence";
+
+    case MISC_CRYSTAL_BALL_OF_ENERGY:   return "crystal ball of energy";
+#if TAG_MAJOR_VERSION == 32
+    case MISC_CRYSTAL_BALL_OF_FIXATION: return "old crystal ball";
+#endif
+    case MISC_CRYSTAL_BALL_OF_SEEING:   return "crystal ball of seeing";
+    case MISC_BOX_OF_BEASTS:            return "box of beasts";
+    case MISC_EMPTY_EBONY_CASKET:       return "empty ebony casket";
+    case MISC_AIR_ELEMENTAL_FAN:        return "air elemental fan";
+    case MISC_LAMP_OF_FIRE:             return "lamp of fire";
+    case MISC_LANTERN_OF_SHADOWS:       return "lantern of shadows";
+    case MISC_HORN_OF_GERYON:           return "horn of Geryon";
+    case MISC_DISC_OF_STORMS:           return "disc of storms";
+    case MISC_BOTTLED_EFREET:           return "bottled efreet";
+    case MISC_STONE_OF_EARTH_ELEMENTALS:
+        return "stone of earth elementals";
+    case MISC_QUAD_DAMAGE:              return "quad damage";
+
+    case MISC_RUNE_OF_ZOT:
+    default:
+        return "buggy miscellaneous item";
+    }
 }
 
 static const char* book_secondary_string(int s)
@@ -1020,7 +998,7 @@ static const char* _book_type_name(int booktype)
     case BOOK_CANTRIPS:               return "Cantrips";
     case BOOK_PARTY_TRICKS:           return "Party Tricks";
     case BOOK_STALKING:               return "Stalking";
-    case BOOK_BRANDS:                 return "Brands";
+    case BOOK_DEBILITATION:           return "Debilitation";
     case BOOK_DRAGON:                 return "the Dragon";
     case BOOK_BURGLARY:               return "Burglary";
     case BOOK_DREAMS:                 return "Dreams";
@@ -1796,14 +1774,9 @@ std::string item_def::name_aux(description_level_type desc,
             buff << (item_typ == BOOK_MANUAL ? "manual" : "book");
         else if (!know_type)
         {
-            if (item_typ == BOOK_DESTRUCTION)
-                buff << "ancient heavily glowing book";
-            else
-            {
-                buff << book_secondary_string(this->special / NDSC_BOOK_PRI)
-                     << book_primary_string(this->special % NDSC_BOOK_PRI)
-                     << (item_typ == BOOK_MANUAL ? "manual" : "book");
-            }
+            buff << book_secondary_string(this->special / NDSC_BOOK_PRI)
+                 << book_primary_string(this->special % NDSC_BOOK_PRI)
+                 << (item_typ == BOOK_MANUAL ? "manual" : "book");
         }
         else if (item_typ == BOOK_MANUAL)
         {
@@ -2019,17 +1992,16 @@ bool item_type_known(const item_def& item)
         return (true);
     }
 
-    if (item.base_type == OBJ_MISCELLANY &&
-        (item.sub_type == MISC_BOTTLED_EFREET
-         || item.sub_type == MISC_AIR_ELEMENTAL_FAN
-         || item.sub_type == MISC_LAMP_OF_FIRE
-         || item.sub_type == MISC_STONE_OF_EARTH_ELEMENTALS
-         || item.sub_type == MISC_LANTERN_OF_SHADOWS
-         || item.sub_type == MISC_HORN_OF_GERYON
-         || item.sub_type == MISC_DISC_OF_STORMS))
+    if (item.base_type == OBJ_MISCELLANY
+        && (item.sub_type < MISC_FIRST_DECK || item.sub_type > MISC_LAST_DECK)
+        && item.sub_type != MISC_CRYSTAL_BALL_OF_SEEING
+        && item.sub_type != MISC_CRYSTAL_BALL_OF_ENERGY)
     {
         return (true);
     }
+
+    if (item.base_type == OBJ_BOOKS && item.sub_type == BOOK_DESTRUCTION)
+        return (true);
 
     if (!item_type_has_ids(item.base_type))
         return false;
@@ -2270,6 +2242,48 @@ void check_item_knowledge(bool unknown_items)
         check_item_knowledge(!unknown_items);
 }
 
+void display_runes()
+{
+    std::vector<const item_def*> items;
+    for (int i = 0; i < NUM_RUNE_TYPES; i++)
+    {
+        if (!you.runes[i])
+            continue;
+
+        item_def* ptmp = new item_def;
+        if (ptmp != 0)
+        {
+            ptmp->base_type = OBJ_MISCELLANY;
+            ptmp->sub_type  = MISC_RUNE_OF_ZOT;
+            ptmp->quantity  = 1;
+            ptmp->plus      = i;
+            item_colour(*ptmp);
+            items.push_back(ptmp);
+        }
+    }
+
+    if (items.empty())
+    {
+        mpr("You haven't found any rune yet.");
+        return;
+    }
+
+    InvMenu menu;
+
+    menu.set_title("Runes of Zot");
+    menu.set_flags(MF_NOSELECT);
+    menu.set_type(MT_RUNES);
+    menu.load_items(items, discoveries_item_mangle);
+    menu.show();
+    menu.getkey();
+    redraw_screen();
+
+    for (std::vector<const item_def*>::iterator iter = items.begin();
+         iter != items.end(); ++iter)
+    {
+         delete *iter;
+    }
+}
 
 // Used for: Pandemonium demonlords, shopkeepers, scrolls, random artefacts
 std::string make_name(uint32_t seed, bool all_cap, int maxlen, char start)
@@ -3385,7 +3399,8 @@ void init_item_name_cache()
 
             if (item_names_cache.find(name) == item_names_cache.end())
             {
-                item_names_cache[name] = (item_types_pair){base_type, sub_type};
+                item_names_cache[name].base_type = base_type;
+                item_names_cache[name].sub_type = sub_type;
                 if (g.ch)
                     item_names_by_glyph_cache[g.ch].push_back(name);
             }

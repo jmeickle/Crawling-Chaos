@@ -82,7 +82,7 @@ end
 # Add a milestone for entering the Spider's Nest.
 {{
 function spiders_nest_milestone(e)
-  crawl.mark_milestone("br.enter", "entered a Spider's Nest", true)
+  crawl.mark_milestone("br.enter", "entered a Spider's Nest.", true)
 end
 }}
 
@@ -358,7 +358,7 @@ xxxxxx.Wx1.Wxxxx
 xxxxxx.Wxxx.Wxxx
 xxxxxW.xxxxx.W1x
 xxxx1..x***xx.Wx
-xxxxW.xx****xx.x
+xxxx.Wxx****xx.x
 xA<.xxx******Z.x
 xxxxxxxxxxxxxxxx
 ENDMAP

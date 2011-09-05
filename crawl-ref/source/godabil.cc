@@ -45,7 +45,7 @@
 #include "player-stats.h"
 #include "random.h"
 #include "religion.h"
-#include "skills.h"
+#include "skill_menu.h"
 #include "skills2.h"
 #include "shopping.h"
 #include "shout.h"
@@ -64,6 +64,8 @@
 #ifdef USE_TILE
 #include "tiledef-main.h"
 #endif
+
+static void _zin_saltify(monster* mon);
 
 bool zin_sustenance(bool actual)
 {
@@ -380,8 +382,8 @@ typedef FixedVector<int, NUM_RECITE_TYPES> recite_counts;
 // Returns 0, if no monster found.
 // Returns 1, if eligible monster found.
 // Returns -1, if monster already affected or too dumb to understand.
-int zin_check_recite_to_single_monster(const coord_def& where,
-                                       recite_counts &eligibility)
+static int _zin_check_recite_to_single_monster(const coord_def& where,
+                                               recite_counts &eligibility)
 {
     monster* mon = monster_at(where);
 
@@ -495,7 +497,7 @@ int zin_check_recite_to_single_monster(const coord_def& where,
             eligibility[RECITE_HERETIC]++;
 
         // ...but chaotic gods are worse...
-        if (is_evil_god(mon->god))
+        if (is_chaotic_god(mon->god))
             eligibility[RECITE_HERETIC]++;
 
         // ...as are evil gods.
@@ -593,7 +595,7 @@ int zin_check_recite_to_monsters(recite_type *prayertype)
     for (radius_iterator ri(you.pos(), LOS_RADIUS); ri; ++ri)
     {
         recite_counts retval;
-        switch (zin_check_recite_to_single_monster(*ri, retval))
+        switch (_zin_check_recite_to_single_monster(*ri, retval))
         {
         case -1:
             found_ineligible = true;
@@ -709,7 +711,7 @@ bool zin_recite_to_single_monster(const coord_def& where,
     recite_counts eligibility;
     bool affected = false;
 
-    if (zin_check_recite_to_single_monster(where, eligibility) < 1)
+    if (_zin_check_recite_to_single_monster(where, eligibility) < 1)
         return (false);
 
     // First check: are they even eligible for this kind of recitation?
@@ -1129,7 +1131,7 @@ bool zin_recite_to_single_monster(const coord_def& where,
         break;
 
     case ZIN_SALTIFY:
-        zin_saltify(mon);
+        _zin_saltify(mon);
         break;
 
     case ZIN_ROT:
@@ -1172,7 +1174,7 @@ bool zin_recite_to_single_monster(const coord_def& where,
     return (true);
 }
 
-void zin_saltify(monster* mon)
+static void _zin_saltify(monster* mon)
 {
     const coord_def where = mon->pos();
     const monster_type pillar_type =
@@ -1827,7 +1829,7 @@ bool kiku_receive_corpses(int pow, coord_def where)
         monster dummy;
         dummy.type = mon_type;
         define_monster(&dummy);
-        int index_of_corpse_created = get_item_slot();
+        int index_of_corpse_created = get_mitm_slot();
 
         if (index_of_corpse_created == NON_ITEM)
             break;
@@ -2304,7 +2306,7 @@ bool fedhas_sunlight()
 }
 
 template<typename T>
-bool less_second(const T & left, const T & right)
+static bool less_second(const T & left, const T & right)
 {
     return (left.second < right.second);
 }
@@ -3015,6 +3017,7 @@ bool fedhas_evolve_flora()
 
     case MONS_BALLISTOMYCETE:
         simple_monster_message(target, " appears agitated.");
+        env.level_state |= LSTATE_GLOW_MOLD;
         break;
 
     default:
@@ -3247,7 +3250,7 @@ bool ashenzari_transfer_knowledge()
 
     while(true)
     {
-        skill_menu(true);
+        skill_menu(SKMF_RESKILL_FROM);
         if (is_invalid_skill(you.transfer_from_skill))
         {
             redraw_screen();
@@ -3257,7 +3260,7 @@ bool ashenzari_transfer_knowledge()
         you.transfer_skill_points = skill_transfer_amount(
                                                     you.transfer_from_skill);
 
-        skill_menu(true);
+        skill_menu(SKMF_RESKILL_TO);
         if (is_invalid_skill(you.transfer_to_skill))
         {
             you.transfer_from_skill = SK_NONE;
@@ -3268,8 +3271,8 @@ bool ashenzari_transfer_knowledge()
         break;
     }
 
-    if (you.props.exists("skm_view"))
-        you.props.erase("skm_view");
+    // We reset the view to force view transfer next time.
+    you.skill_menu_view = SKM_NONE;
 
     mprf("As you forget about %s, you feel ready to understand %s.",
          skill_name(you.transfer_from_skill),

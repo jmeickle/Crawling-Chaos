@@ -52,6 +52,7 @@
 #include "mon-place.h"
 #include "mon-stuff.h"
 #include "mon-util.h"
+#include "monster.h"
 #include "mutation.h"
 #include "ouch.h"
 #include "player.h"
@@ -230,8 +231,8 @@ static void _ench_animation(int flavour, const monster* mon, bool force)
 
 // If needs_tracer is true, we need to check the beam path for friendly
 // monsters.
-bool zapping(zap_type ztype, int power, bolt &pbolt,
-             bool needs_tracer, const char* msg)
+spret_type zapping(zap_type ztype, int power, bolt &pbolt,
+                   bool needs_tracer, const char* msg, bool fail)
 {
     dprf("zapping: power=%d", power);
 
@@ -242,8 +243,9 @@ bool zapping(zap_type ztype, int power, bolt &pbolt,
     // (or effect), player_tracer should be called directly with the highest
     // power possible respecting current skill, experience level, etc.
     if (needs_tracer && !player_tracer(ztype, power, pbolt))
-        return (false);
+        return SPRET_ABORT;
 
+    fail_check();
     // Fill in the bolt structure.
     _zappy(ztype, power, pbolt);
 
@@ -261,7 +263,7 @@ bool zapping(zap_type ztype, int power, bolt &pbolt,
 
     pbolt.fire();
 
-    return (true);
+    return SPRET_SUCCESS;
 }
 
 // Returns true if the path is considered "safe", and false if there are
@@ -280,6 +282,7 @@ bool player_tracer(zap_type ztype, int power, bolt &pbolt, int range)
     pbolt.is_tracer      = true;
     pbolt.source         = you.pos();
     pbolt.can_see_invis  = you.can_see_invisible();
+    pbolt.nightvision    = you.nightvision();
     pbolt.smart_monster  = true;
     pbolt.attitude       = ATT_FRIENDLY;
     pbolt.thrower        = KILL_YOU_MISSILE;
@@ -811,11 +814,13 @@ void bolt::fake_flavour()
 void bolt::digging_wall_effect()
 {
     const dungeon_feature_type feat = grd(pos());
-    if (feat == DNGN_ROCK_WALL || feat == DNGN_CLEAR_ROCK_WALL
-        || feat == DNGN_SLIMY_WALL || feat == DNGN_GRATE)
+    switch (feat)
     {
+    case DNGN_ROCK_WALL:
+    case DNGN_CLEAR_ROCK_WALL:
+    case DNGN_SLIMY_WALL:
+    case DNGN_GRATE:
         nuke_wall(pos());
-
         if (!msg_generated)
         {
             obvious_effect = true;
@@ -836,9 +841,19 @@ void bolt::digging_wall_effect()
             mprf("The %s liquefies and sinks out of sight.", wall.c_str());
             // This is silent.
         }
-    }
-    else if (feat_is_wall(feat))
+        break;
+
+    case DNGN_SECRET_DOOR:
+        obvious_effect = true;
+        mpr("There is a secret door!");
+        reveal_secret_door(pos());
         finish_beam();
+        break;
+
+    default:
+        if (feat_is_wall(feat))
+            finish_beam();
+    }
 }
 
 void bolt::fire_wall_effect()
@@ -1448,9 +1463,9 @@ void bolt::do_fire()
     if (!invalid_monster_index(beam_source))
     {
         if (foe_info.hurt == 0 && friend_info.hurt > 0)
-            xom_is_stimulated(128);
+            xom_is_stimulated(100);
         else if (foe_info.helped > 0 && friend_info.helped == 0)
-            xom_is_stimulated(128);
+            xom_is_stimulated(100);
 
         // Allow friendlies to react to projectiles, except when in
         // sanctuary when pet_target can only be explicitly changed by
@@ -1853,6 +1868,12 @@ static bool _monster_resists_mass_enchantment(monster* mons,
             return (true);
         }
 
+        if (wh_enchant == ENCH_FEAR
+            && mons->friendly())
+        {
+            return (true);
+        }
+
         int res_margin = mons->check_res_magic(pow);
         if (res_margin > 0)
         {
@@ -1886,9 +1907,10 @@ static bool _monster_resists_mass_enchantment(monster* mons,
 // If m_succumbed is non-NULL, will be set to the number of monsters that
 // were enchanted. If m_attempted is non-NULL, will be set to the number of
 // monsters that we tried to enchant.
-void mass_enchantment(enchant_type wh_enchant, int pow,
-                       int *m_succumbed, int *m_attempted)
+spret_type mass_enchantment(enchant_type wh_enchant, int pow,
+                            int *m_succumbed, int *m_attempted, bool fail)
 {
+    fail_check();
     bool did_msg = false;
 
     if (m_succumbed)
@@ -1937,55 +1959,53 @@ void mass_enchantment(enchant_type wh_enchant, int pow,
 
     if (!did_msg)
         canned_msg(MSG_NOTHING_HAPPENS);
+
+    return SPRET_SUCCESS;
 }
 
 void bolt::apply_bolt_paralysis(monster* mons)
 {
-    if (!mons->paralysed()
-        && mons->add_ench(ENCH_PARALYSIS)
-        && (!mons->petrified()
-            || mons->has_ench(ENCH_PETRIFYING)))
+    if (mons->paralysed())
+        return;
+    // asleep monsters can still be paralysed (and will be always woken by
+    // trying to resist); the message might seem wrong but paralysis is
+    // always visible.
+    if (!mons_is_immotile(mons)
+        && simple_monster_message(mons, " suddenly stops moving!"))
     {
-        if (simple_monster_message(mons, " suddenly stops moving!"))
-            obvious_effect = true;
-
-        mons_check_pool(mons, mons->pos(), killer(), beam_source);
+        obvious_effect = true;
     }
+
+    mons->add_ench(ENCH_PARALYSIS);
+    mons_check_pool(mons, mons->pos(), killer(), beam_source);
 }
 
 // Petrification works in two stages. First the monster is slowed down in
-// all of its actions and cannot move away (petrifying), and when that times
-// out it remains properly petrified (no movement or actions). The second
-// part is similar to paralysis, except that insubstantial monsters can't be
-// affected and damage is drastically reduced.
+// all of its actions, and when that times out it remains properly petrified
+// (no movement or actions).  The second part is similar to paralysis,
+// except that insubstantial monsters can't be affected and damage is
+// drastically reduced.
 void bolt::apply_bolt_petrify(monster* mons)
 {
-    int petrifying = mons->has_ench(ENCH_PETRIFYING);
     if (mons->petrified())
+        return;
+
+    if (mons->petrifying())
     {
         // If the petrifying is not yet finished, we can force it to happen
         // right away by casting again. Otherwise, the spell has no further
         // effect.
-        if (petrifying > 0)
-        {
-            mons->del_ench(ENCH_PETRIFYING, true);
-            if (!mons->has_ench(ENCH_PARALYSIS)
-                && simple_monster_message(mons, " stops moving altogether!"))
-            {
-                obvious_effect = true;
-            }
-        }
-    }
-    else if (mons->add_ench(ENCH_PETRIFIED)
-             && !mons->has_ench(ENCH_PARALYSIS))
-    {
-        // Add both the petrifying and the petrified enchantment. The former
-        // will run out sooner and result in plain petrification behaviour.
-        mons->add_ench(ENCH_PETRIFYING);
-        if (simple_monster_message(mons, " is moving more slowly."))
+        mons->del_ench(ENCH_PETRIFYING, true);
+        if (mons->fully_petrify(agent()))
             obvious_effect = true;
-
-        mons_check_pool(mons, mons->pos(), killer(), beam_source);
+    }
+    else if (mons->add_ench(mon_enchant(ENCH_PETRIFYING, 0, agent())))
+    {
+        if (!mons_is_immotile(mons)
+            && simple_monster_message(mons, " is moving more slowly."))
+        {
+            obvious_effect = true;
+        }
     }
 }
 
@@ -2127,6 +2147,7 @@ void fire_tracer(const monster* mons, bolt &pbolt, bool explode_only)
     pbolt.source        = mons->pos();
     pbolt.beam_source   = mons->mindex();
     pbolt.can_see_invis = mons->can_see_invisible();
+    pbolt.nightvision   = mons->nightvision();
     pbolt.smart_monster = (mons_intel(mons) >= I_NORMAL);
     pbolt.attitude      = mons_attitude(mons);
 
@@ -2202,6 +2223,23 @@ static void _create_feat_at(coord_def center,
         dungeon_terrain_changed(center, newfeat, true, false, true);
 }
 
+static coord_def _random_point_visible_from(const coord_def &c,
+                                            int radius,
+                                            int margin = 1,
+                                            int tries = 5)
+{
+    while (tries-- > 0)
+    {
+        const coord_def point = dgn_random_point_from(c, radius, margin);
+        if (point.origin())
+            continue;
+        if (!cell_see_cell(c, point, LOS_SOLID))
+            continue;
+        return point;
+    }
+    return coord_def();
+}
+
 static void _create_feat_splash(coord_def center,
                                 dungeon_feature_type overwriteable,
                                 dungeon_feature_type newfeat,
@@ -2212,7 +2250,7 @@ static void _create_feat_splash(coord_def center,
     _create_feat_at(center, overwriteable, newfeat);
     for (int i = 0; i < nattempts; ++i)
     {
-        const coord_def newp(dgn_random_point_visible_from(center, radius));
+        const coord_def newp(_random_point_visible_from(center, radius));
         if (newp.origin() || grd(newp) != overwriteable)
             continue;
         _create_feat_at(newp, overwriteable, newfeat);
@@ -2537,7 +2575,8 @@ maybe_bool bolt::affects_wall(dungeon_feature_type wall) const
     // digging
     if (flavour == BEAM_DIGGING
         && (wall == DNGN_ROCK_WALL || wall == DNGN_CLEAR_ROCK_WALL
-            || wall == DNGN_SLIMY_WALL || wall == DNGN_GRATE))
+            || wall == DNGN_SLIMY_WALL || wall == DNGN_GRATE)
+            || wall == DNGN_SECRET_DOOR)
     {
         return (B_TRUE);
     }
@@ -3084,8 +3123,13 @@ bool bolt::misses_player()
         if (you.invisible() && !can_see_invis)
             real_tohit /= 2;
 
+        // Backlit is easier to hit:
         if (you.backlit(true, false))
             real_tohit += 2 + random2(8);
+
+        // Umbra is harder to hit:
+        if (!nightvision && you.umbra(true, true))
+            real_tohit -= 2 + random2(4);
     }
 
     bool train_shields_more = false;
@@ -3209,7 +3253,7 @@ void bolt::affect_player_enchantment()
         // You *could* have gotten a free teleportation in the Abyss,
         // but no, you resisted.
         if (flavour == BEAM_TELEPORT && you.level_type == LEVEL_ABYSS)
-            xom_is_stimulated(255);
+            xom_is_stimulated(200);
 
         extra_range_used += range_used_on_hit(&you);
         return;
@@ -3306,7 +3350,7 @@ void bolt::affect_player_enchantment()
         if (!mons_att_wont_attack(attitude)
             && you.level_type == LEVEL_ABYSS)
         {
-            xom_is_stimulated(255);
+            xom_is_stimulated(200);
         }
 
         obvious_effect = true;
@@ -3452,12 +3496,12 @@ void bolt::affect_player_enchantment()
             {
                 // Beam from player rebounded and hit player.
                 if (!aimed_at_feet)
-                    xom_is_stimulated(255);
+                    xom_is_stimulated(200);
             }
             else
             {
                 // Beam from an ally or neutral.
-                xom_is_stimulated(128);
+                xom_is_stimulated(100);
             }
         }
         else
@@ -3470,7 +3514,7 @@ void bolt::affect_player_enchantment()
         else
         {
             foe_info.helped++;
-            xom_is_stimulated(128);
+            xom_is_stimulated(100);
         }
     }
 
@@ -3602,7 +3646,7 @@ void bolt::affect_player()
             if (player_caught_in_net())
             {
                 if (beam_source != NON_MONSTER)
-                    xom_is_stimulated(64);
+                    xom_is_stimulated(50);
                 was_affected = true;
             }
         }
@@ -3669,10 +3713,10 @@ void bolt::affect_player()
             if (beam_source == NON_MONSTER)
             {
                 if (!aimed_at_feet)
-                    xom_is_stimulated(255);
+                    xom_is_stimulated(200);
             }
             else if (was_affected)
-                xom_is_stimulated(128);
+                xom_is_stimulated(100);
         }
         else
             foe_info.hurt++;
@@ -3713,10 +3757,8 @@ void bolt::update_hurt_or_helped(monster* mon)
             // Accidentally helped a foe.
             if (!is_tracer && !effect_known)
             {
-                int interest = 128;
-                if (flavour == BEAM_INVISIBILITY && can_see_invis)
-                    interest = 32;
-
+                const int interest =
+                    (flavour == BEAM_INVISIBILITY && can_see_invis) ? 25 : 100;
                 xom_is_stimulated(interest);
             }
         }
@@ -3729,7 +3771,7 @@ void bolt::update_hurt_or_helped(monster* mon)
 
             // Harmful beam from this monster rebounded and hit the monster.
             if (!is_tracer && mon->mindex() == beam_source)
-                xom_is_stimulated(128);
+                xom_is_stimulated(100);
         }
         else if (nice_to(mon))
             friend_info.helped++;
@@ -4372,8 +4414,13 @@ void bolt::affect_monster(monster* mon)
         if (mon->invisible() && !can_see_invis)
             beam_hit /= 2;
 
+        // Backlit is easier to hit:
         if (mon->backlit(true, false))
             beam_hit += 2 + random2(8);
+
+        // Umbra is harder to hit:
+        if (!nightvision && mon->umbra(true, true))
+            beam_hit -= 2 + random2(4);
     }
 
     defer_rand r;
@@ -4745,9 +4792,8 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         if (!mons_can_be_zombified(mon) || mons_intel(mon) < I_NORMAL)
             return (MON_UNAFFECTED);
 
-        // The monster can be no more than lightly wounded/damaged,
-        // using the formula from mon-stuff.cc:mons_get_damage_level().
-        if (mon->hit_points <= mon->max_hit_points * 3 / 4)
+        // The monster can be no more than lightly wounded/damaged.
+        if (mons_get_damage_level(mon) > MDAM_LIGHTLY_DAMAGED)
         {
             simple_monster_message(mon, "'s soul is too badly injured.");
             return (MON_OTHER);
@@ -4814,7 +4860,7 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
             && !mons_is_stationary(mon)
             && mon->add_ench(ENCH_HASTE))
         {
-            if (!mon->paralysed() && !mon->petrified()
+            if (!mons_is_immotile(mon)
                 && simple_monster_message(mon, " seems to speed up."))
             {
                 obvious_effect = true;
@@ -5576,7 +5622,7 @@ bolt::bolt() : origin_spell(SPELL_NO_SPELL),
                aimed_at_feet(false), msg_generated(false),
                noise_generated(false), passed_target(false),
                in_explosion_phase(false), smart_monster(false),
-               can_see_invis(false), attitude(ATT_HOSTILE), foe_ratio(0),
+               can_see_invis(false), nightvision(false), attitude(ATT_HOSTILE), foe_ratio(0),
                chose_ray(false), beam_cancelled(false),
                dont_stop_player(false), bounces(false), bounce_pos(),
                reflections(0), reflector(-1), auto_hit(false)

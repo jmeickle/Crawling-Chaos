@@ -202,7 +202,7 @@ static void _remove_equipment(const std::set<equipment_type>& removed,
             {
                 const int slot = you.equip[EQ_WEAPON];
                 unwield_item(!you.berserk());
-                canned_msg(MSG_EMPTY_HANDED);
+                canned_msg(MSG_EMPTY_HANDED_NOW);
                 you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED] = slot + 1;
             }
             else
@@ -212,7 +212,7 @@ static void _remove_equipment(const std::set<equipment_type>& removed,
             {
                 // A mutation made us not only lose an equipment slot
                 // but actually removed a worn item: Funny!
-                xom_is_stimulated(is_artefact(*equip) ? 255 : 128);
+                xom_is_stimulated(is_artefact(*equip) ? 200 : 100);
             }
         }
         else
@@ -760,6 +760,9 @@ bool transform(int pow, transformation_type which_trans, bool force,
     // for example if Xom decides to transform you while you're busy
     // running around or butchering corpses.
     stop_delay();
+
+    if (crawl_state.which_god_acting() == GOD_XOM)
+       you.transform_uncancellable = true;
 
     if (you.species != SP_VAMPIRE || which_trans != TRAN_BAT)
         transformation_expiration_warning();

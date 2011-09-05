@@ -19,7 +19,6 @@
 #include "artefact.h"
 #include "branch.h"
 #include "chardump.h"
-#include "cloud.h"
 #include "coord.h"
 #include "coordit.h"
 #include "defines.h"
@@ -108,7 +107,6 @@ static void _place_chance_vaults();
 static void _place_minivaults(void);
 static int _place_uniques(int level_number, level_area_type level_type);
 static void _place_traps(int level_number);
-static void _place_fog_machines(int level_number);
 static void _prepare_water(int level_number);
 static void _check_doors();
 static void _hide_doors();
@@ -783,6 +781,8 @@ static bool _is_upwards_exit_stair(const coord_def &c)
     case DNGN_RETURN_FROM_TOMB:
     case DNGN_RETURN_FROM_SWAMP:
     case DNGN_RETURN_FROM_SHOALS:
+    case DNGN_RETURN_FROM_SPIDER_NEST:
+    case DNGN_RETURN_FROM_FOREST:
     case DNGN_EXIT_PANDEMONIUM:
     case DNGN_TRANSIT_PANDEMONIUM:
     case DNGN_EXIT_ABYSS:
@@ -823,6 +823,8 @@ static bool _is_exit_stair(const coord_def &c)
     case DNGN_RETURN_FROM_TOMB:
     case DNGN_RETURN_FROM_SWAMP:
     case DNGN_RETURN_FROM_SHOALS:
+    case DNGN_RETURN_FROM_SPIDER_NEST:
+    case DNGN_RETURN_FROM_FOREST:
     case DNGN_EXIT_PANDEMONIUM:
     case DNGN_TRANSIT_PANDEMONIUM:
     case DNGN_EXIT_ABYSS:
@@ -1378,12 +1380,12 @@ static void _fixup_misplaced_items()
             if (feat >= DNGN_MINITEM)
                 continue;
 
-            dprf("Item buggily placed in feature at (%d, %d).",
+            mprf(MSGCH_ERROR, "Item buggily placed in feature at (%d, %d).",
                  item.pos.x, item.pos.y);
         }
         else
         {
-            dprf("Item buggily placed out of bounds at (%d, %d).",
+            mprf(MSGCH_ERROR, "Item buggily placed out of bounds at (%d, %d).",
                  item.pos.x, item.pos.y);
         }
 
@@ -1803,6 +1805,13 @@ static void _dgn_verify_connectivity(unsigned nvaults)
         throw dgn_veto_exception("Failed to ensure interlevel connectivity.");
 }
 
+static void _fixup_hatches_dest()
+{
+    for (rectangle_iterator ri(0); ri; ++ri)
+        if (feat_is_escape_hatch(grd(*ri)))
+            env.markers.add(new map_position_marker(*ri, random_in_bounds()));
+}
+
 // Structure of OVERFLOW_TEMPLES:
 //
 // * A vector, with one cell per dungeon level (unset if there's no
@@ -2072,8 +2081,6 @@ static void _build_dungeon_level(int level_number, level_area_type level_type)
 
         _place_traps(level_number);
 
-        _place_fog_machines(level_number);
-
         // Place items.
         _builder_items(level_number, _num_items_wanted(level_number));
 
@@ -2084,6 +2091,7 @@ static void _build_dungeon_level(int level_number, level_area_type level_type)
 
         _fixup_walls();
         _fixup_branch_stairs();
+        _fixup_hatches_dest();
     }
 
     _fixup_misplaced_items();
@@ -2112,8 +2120,13 @@ void dgn_set_colours_from_monsters()
     {
         env.floor_colour = mons_class_colour(env.mons_alloc[9]);
     }
-    if (env.floor_colour == BLACK)
+    // Don't use silence or halo colours.
+    if (env.floor_colour == BLACK
+        || env.floor_colour == CYAN
+        || env.floor_colour == YELLOW)
+    {
         env.floor_colour = LIGHTGREY;
+    }
 
     if (env.mons_alloc[8] >= 0 && env.mons_alloc[8] != MONS_NO_MONSTER
         && env.mons_alloc[8] < NUM_MONSTERS)
@@ -2241,7 +2254,7 @@ static void _prepare_water(int level_number)
             }
         }
     }
-}                               // end prepare_water()
+}
 
 static void _pan_level(int level_number)
 {
@@ -2951,41 +2964,19 @@ static void _place_traps(int level_number)
             ts.reveal();
         ts.prepare_ammo();
     }
-}
 
-static void _place_fog_machines(int level_number)
-{
-    int i;
-    int num_fogs = num_fogs_for_place(level_number);
-
-    ASSERT(num_fogs >= 0);
-
-    for (i = 0; i < num_fogs; i++)
+    if (player_in_branch(BRANCH_SPIDER_NEST))
     {
-        fog_machine_data data = random_fog_for_place(level_number);
-
-        if (!valid_fog_machine_data(data))
-        {
-            mpr("Invalid fog machine data, bailing.", MSGCH_DIAGNOSTICS);
-            return;
-        }
-
-        int tries = 200;
-        int x, y;
-        dungeon_feature_type feat;
-        do
-        {
-            x = random2(GXM);
-            y = random2(GYM);
-            feat = grd[x][y];
-        }
-        while (feat <= DNGN_MAXWALL && --tries > 0);
-
-        if (tries <= 0)
-            break;
-
-        place_fog_machine(data, x, y);
+        int max_webs = 400 - num_traps - 50;
+        // Adjust for branch depth
+        max_webs = max_webs / (6 - player_branch_depth()) / 2;
+        // Vary from 1/2 to full max amount
+        place_webs(max_webs + random2(max_webs));
     }
+    else if (player_in_branch(BRANCH_CRYPT))
+        place_webs(random2(20));
+    else if (player_in_branch(BRANCH_MAIN_DUNGEON) && you.absdepth0 == 12)
+        place_webs(300);
 }
 
 static void _dgn_place_feature_at_random_floor_square(dungeon_feature_type feat,
@@ -3470,11 +3461,6 @@ static void _builder_monsters(int level_number, level_area_type level_type, int 
     const bool in_shoals = player_in_branch(BRANCH_SHOALS);
     if (in_shoals)
         dgn_shoals_generate_flora();
-    else if (player_in_branch(BRANCH_MAIN_DUNGEON)
-             || player_in_branch(BRANCH_VAULTS))
-    {
-        _place_door_mimics(level_number);
-    }
 
     // Try to place Shoals monsters on floor where possible instead of
     // letting all the merfolk be generated in the middle of the
@@ -3864,7 +3850,7 @@ static bool _build_vault_impl(int level_number, const map_def *vault,
                                  + place.map.name);
 
     return (true);
-}                               // end build_vaults()
+}
 
 static void _build_postvault_level(vault_placement &place)
 {
@@ -5168,7 +5154,7 @@ void place_spec_shop(int level_number,
     grd(where) = DNGN_ENTER_SHOP;
 
     activate_notes(note_status);
-}                               // end place_spec_shop()
+}
 
 static object_class_type _item_in_shop(shop_type shop_type)
 {
@@ -5212,7 +5198,7 @@ static object_class_type _item_in_shop(shop_type shop_type)
     }
 
     return (OBJ_RANDOM);
-}                               // end item_in_shop()
+}
 
 // Keep seeds away from the borders so we don't end up with a
 // straight wall.
@@ -5452,23 +5438,6 @@ coord_def dgn_random_point_from(const coord_def &c, int radius, int margin)
         {
             return res;
         }
-    }
-    return coord_def();
-}
-
-coord_def dgn_random_point_visible_from(const coord_def &c,
-                                        int radius,
-                                        int margin,
-                                        int tries)
-{
-    while (tries-- > 0)
-    {
-        const coord_def point = dgn_random_point_from(c, radius, margin);
-        if (point.origin())
-            continue;
-        if (!cell_see_cell(c, point))
-            continue;
-        return point;
     }
     return coord_def();
 }

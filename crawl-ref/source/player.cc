@@ -64,6 +64,7 @@
 #include "skills.h"
 #include "skills2.h"
 #include "species.h"
+#include "spl-damage.h"
 #include "spl-other.h"
 #include "spl-selfench.h"
 #include "spl-transloc.h"
@@ -117,7 +118,7 @@ static void _moveto_maybe_repel_stairs()
                  prep.c_str());
 
             if (player_in_a_dangerous_place() && one_chance_in(5))
-                xom_is_stimulated(32);
+                xom_is_stimulated(25);
         }
     }
 }
@@ -180,9 +181,8 @@ static bool _check_moveto_trap(const coord_def& p, const std::string &move_verb)
             viewwindow();
 
             mprf(MSGCH_WARN,
-                 "Wait a moment, %s! Do you really want to %s there?",
-                 you.your_name.c_str(),
-                 move_verb.c_str());
+                 "You found %s trap!",
+                 trap->name(DESC_NOCAP_A).c_str());
 
             if (!you.running.is_any_travel())
                 more();
@@ -221,16 +221,19 @@ static bool _check_moveto_trap(const coord_def& p, const std::string &move_verb)
     return (true);
 }
 
-static bool _check_moveto_dangerous(const coord_def& p)
+static bool _check_moveto_dangerous(const coord_def& p, const std::string& msg,
+                                    bool cling = true)
 {
     if (you.can_swim() && feat_is_water(env.grid(p))
-        || you.airborne() || you.can_cling_to(p)
+        || you.airborne() || cling && you.can_cling_to(p)
         || !is_feat_dangerous(env.grid(p)))
     {
         return (true);
     }
 
-    if (you.species == SP_MERFOLK && feat_is_water(env.grid(p)))
+    if (msg != "")
+        mpr(msg.c_str());
+    else if (you.species == SP_MERFOLK && feat_is_water(env.grid(p)))
         mpr("You cannot swim in your current form.");
     else
         canned_msg(MSG_UNTHINKING_ACT);
@@ -239,17 +242,26 @@ static bool _check_moveto_dangerous(const coord_def& p)
 }
 
 static bool _check_moveto_terrain(const coord_def& p,
-                                  const std::string &move_verb)
+                                  const std::string &move_verb,
+                                  const std::string &msg)
 {
-    if (you.is_wall_clinging() && move_verb == "blink")
-        return (_check_moveto_dangerous(p));
+    if (you.is_wall_clinging()
+        && (move_verb == "blink" || move_verb == "passwall"))
+    {
+        return (_check_moveto_dangerous(p, msg, false));
+    }
 
     if (!need_expiration_warning() && need_expiration_warning(p))
     {
-        if (!_check_moveto_dangerous(p))
+        if (!_check_moveto_dangerous(p, msg))
             return false;
 
-        std::string prompt = "Are you sure you want to " + move_verb;
+        std::string prompt;
+
+        if (msg != "")
+            prompt = msg + " ";
+
+        prompt += "Are you sure you want to " + move_verb;
 
         if (you.ground_level())
             prompt += " into ";
@@ -269,12 +281,13 @@ static bool _check_moveto_terrain(const coord_def& p,
         }
     }
 
-    return _check_moveto_dangerous(p);
+    return _check_moveto_dangerous(p, msg);
 }
 
-bool check_moveto(const coord_def& p, const std::string &move_verb)
+bool check_moveto(const coord_def& p, const std::string &move_verb,
+                  const std::string &msg)
 {
-    return (_check_moveto_terrain(p, move_verb)
+    return (_check_moveto_terrain(p, move_verb, msg)
             && _check_moveto_cloud(p, move_verb)
             && _check_moveto_trap(p, move_verb));
 }
@@ -381,7 +394,10 @@ void move_player_to_grid(const coord_def& p, bool stepped, bool allow_shift)
     ASSERT(in_bounds(p));
 
     if (!stepped)
+    {
         you.clear_clinging();
+        tornado_move(p);
+    }
 
     // assuming that entering the same square means coming from above (levitate)
     const coord_def old_pos = you.pos();
@@ -460,10 +476,13 @@ bool player_can_open_doors()
             && you.form != TRAN_PIG);
 }
 
-bool player_can_reach_floor(std::string feat)
+bool player_can_reach_floor(std::string feat, bool quiet)
 {
     if (you.flight_mode() != FL_LEVITATE)
         return true;
+
+    if (quiet)
+        return false;
 
     if (feat == "")
         mpr("You can't reach the floor from up here.");
@@ -740,14 +759,6 @@ bool you_tran_can_wear(const item_def &item)
             return (you.species == SP_NAGA && you_tran_can_wear(EQ_BOOTS));
         else if (item.sub_type == ARM_CENTAUR_BARDING)
             return (you.species == SP_CENTAUR && you_tran_can_wear(EQ_BOOTS));
-
-        if (get_armour_slot(item) == EQ_HELMET
-            && !is_hard_helmet(item)
-            && (you.form == TRAN_SPIDER
-                || you.form == TRAN_ICE_BEAST))
-        {
-            return (true);
-        }
 
         if (fit_armour_size(item, you.body_size()) != 0)
             return (false);
@@ -1111,7 +1122,7 @@ bool player_equip_unrand(int unrand_index)
 int player_evokable_levitation()
 {
     return player_equip(EQ_RINGS, RING_LEVITATION)
-           + player_equip_ego_type(EQ_BOOTS, SPARM_LEVITATION)
+           + player_equip_ego_type(EQ_ALL_ARMOUR, SPARM_LEVITATION)
            + scan_artefacts(ARTP_LEVITATE);
 }
 
@@ -1641,21 +1652,6 @@ int player_res_electricity(bool calc_unid, bool temp, bool items)
 {
     int re = 0;
 
-    if (temp)
-    {
-        if (you.duration[DUR_INSULATION])
-            re++;
-
-        // transformations:
-        if (you.form == TRAN_STATUE)
-            re += 1;
-
-        if (you.attribute[ATTR_DIVINE_LIGHTNING_PROTECTION])
-            re = 3;
-        else if (re > 1)
-            re = 1;
-    }
-
     if (items)
     {
         // staff
@@ -1672,6 +1668,21 @@ int player_res_electricity(bool calc_unid, bool temp, bool items)
     // mutations:
     re += player_mutation_level(MUT_THIN_METALLIC_SCALES) == 3 ? 1 : 0;
     re += player_mutation_level(MUT_SHOCK_RESISTANCE);
+
+    if (temp)
+    {
+        if (you.duration[DUR_INSULATION])
+            re++;
+
+        // transformations:
+        if (you.form == TRAN_STATUE)
+            re += 1;
+
+        if (you.attribute[ATTR_DIVINE_LIGHTNING_PROTECTION])
+            re = 3;
+        else if (re > 1)
+            re = 1;
+    }
 
     return (re);
 }
@@ -2808,7 +2819,7 @@ void gain_exp(unsigned int exp_gained, unsigned int* actual_gain,
         // Bonus skill training from Sage.
         you.exp_available =
             (exp_gained * you.sage_bonus_degree) / 100 + exp_gained / 2;
-        practise(EX_SAGE, you.sage_bonus_skill);
+        train_skill(you.sage_bonus_skill, you.exp_available);
         you.exp_available = old_avail;
         exp_gained /= 2;
     }
@@ -2968,6 +2979,7 @@ void level_change(bool skip_attribute_increase)
             if (!(new_exp % 3) && !skip_attribute_increase)
                 attribute_increase();
 
+            crawl_state.stat_gain_prompt = false;
             you.experience_level = new_exp;
             you.max_level = you.experience_level;
 
@@ -3386,7 +3398,7 @@ void level_change(bool skip_attribute_increase)
                 std::min(you.magic_points, note_maxmp), note_maxmp);
         take_note(Note(NOTE_XP_LEVEL_CHANGE, you.experience_level, 0, buf));
 
-        xom_is_stimulated(16);
+        xom_is_stimulated(12);
 
         learned_something_new(HINT_NEW_LEVEL);
     }
@@ -3940,7 +3952,7 @@ void display_char_status()
         DUR_POISONING,
         STATUS_SICK,
         STATUS_ROT,
-        STATUS_GLOW,
+        STATUS_CONTAMINATION,
         DUR_CONFUSING_TOUCH,
         DUR_SURE_BLADE,
         DUR_AFRAID,
@@ -3949,6 +3961,8 @@ void display_char_status()
         STATUS_CLINGING,
         STATUS_FIREBALL,
         DUR_SHROUD_OF_GOLUBRIA,
+        STATUS_BACKLIT,
+        STATUS_UMBRA,
     };
 
     status_info inf;
@@ -3964,7 +3978,7 @@ void display_char_status()
     _display_attack_delay();
 
     // magic resistance
-    mprf("You are %s resistant to hostile enchantments.",
+    mprf("You are %s to hostile enchantments.",
          magic_res_adjective(player_res_magic(false)).c_str());
 
     // character evaluates their ability to sneak around:
@@ -4383,7 +4397,7 @@ void rot_hp(int hp_loss)
     calc_hp();
 
     if (you.species != SP_GHOUL)
-        xom_is_stimulated(hp_loss * 32);
+        xom_is_stimulated(hp_loss * 25);
 
     you.redraw_hit_points = true;
 }
@@ -4642,7 +4656,7 @@ void contaminate_player(int change, bool controlled, bool msg)
         }
 
         if (change > 0)
-            xom_is_stimulated(new_level * 32);
+            xom_is_stimulated(new_level * 25);
 
         if (old_level > 1 && new_level <= 1
             && you.duration[DUR_INVIS] && !you.backlit())
@@ -4738,6 +4752,15 @@ bool curare_hits_player(int death_source, int amount, const bolt &beam)
     potion_effect(POT_SLOWING, 2 + random2(4 + amount));
 
     return (hurted > 0);
+}
+
+void paralyse_player(std::string source, int amount, int factor)
+{
+    if (!amount)
+        amount = 2 + random2(6 + you.duration[DUR_PARALYSIS] / BASELINE_DELAY);
+
+    amount /= factor;
+    you.paralyse(NULL, amount, source);
 }
 
 bool poison_player(int amount, std::string source, std::string source_aux,
@@ -5297,7 +5320,7 @@ void player::init()
     deaths = 0;
     xray_vision = false;
 
-    auto_training = true;
+    auto_training = !(Options.default_manual_training);
     skills.init(0);
     train.init(1);
     training.init(0);
@@ -5305,6 +5328,9 @@ void player::init()
     ct_skill_points.init(0);
     skill_order.init(MAX_SKILL_ORDER);
     exercises.clear();
+
+    skill_menu_do = SKM_NONE;
+    skill_menu_view = SKM_NONE;
 
     transfer_from_skill = SK_NONE;
     transfer_to_skill = SK_NONE;
@@ -5429,6 +5455,8 @@ void player::init()
         montiers[i] = 0;
 #endif
 
+    spell_usage.clear();
+
 
     // Volatile (same-turn) state:
     turn_is_over     = false;
@@ -5452,6 +5480,7 @@ void player::init()
 
     entry_cause         = EC_SELF_EXPLICIT;
     entry_cause_god     = GOD_NO_GOD;
+    abyss_speed         = 40;
 
     old_hunger          = hunger;
     transit_stair       = DNGN_UNSEEN;
@@ -6256,7 +6285,7 @@ flight_type player::flight_mode() const
 bool player::permanent_levitation() const
 {
     return you.attribute[ATTR_PERM_LEVITATION]
-           && player_equip_ego_type(EQ_BOOTS, SPARM_LEVITATION);
+           && player_equip_ego_type(EQ_ALL_ARMOUR, SPARM_LEVITATION);
 }
 
 bool player::permanent_flight() const
@@ -6275,6 +6304,12 @@ bool player::light_flight() const
 bool player::travelling_light() const
 {
     return (burden < carrying_capacity(BS_UNENCUMBERED) * 70 / 100);
+}
+
+bool player::nightvision() const
+{
+    return (undead_or_demonic() ||
+           (religion == GOD_YREDELEMNUL && piety > piety_breakpoint(2)));
 }
 
 int player::mons_species() const
@@ -6411,8 +6446,9 @@ void player::confuse(actor *who, int str)
  *
  * @param who Pointer to the actor who paralysed the player.
  * @param str The number of turns the paralysis will last.
+ * @param source Description of the source of the paralysis.
  */
-void player::paralyse(actor *who, int str)
+void player::paralyse(actor *who, int str, std::string source)
 {
     ASSERT(!crawl_state.game_is_arena());
 
@@ -6429,10 +6465,13 @@ void player::paralyse(actor *who, int str)
 
     int &paralysis(duration[DUR_PARALYSIS]);
 
-    if (!paralysis && who)
+    if (source.empty() && who)
+        source = who->name(DESC_NOCAP_A);
+
+    if (!paralysis && !source.empty())
     {
-        take_note(Note(NOTE_PARALYSIS, str, 0,
-                       who->name(DESC_NOCAP_A).c_str()));
+        take_note(Note(NOTE_PARALYSIS, str, 0, source.c_str()));
+        you.props["paralysed_by"] = source;
     }
 
 
@@ -6461,12 +6500,22 @@ void player::petrify(actor *who)
         return;
     }
 
-    if (you.petrified() || you.petrifying())
+    if (you.petrified())
         return;
 
     you.duration[DUR_PETRIFYING] = 3 * BASELINE_DELAY;
 
+    you.redraw_evasion = true;
     mprf(MSGCH_WARN, "You are slowing down.");
+}
+
+bool player::fully_petrify(actor *foe, bool quiet)
+{
+    you.duration[DUR_PETRIFIED] = 6 * BASELINE_DELAY
+                        + random2(4 * BASELINE_DELAY);
+    you.redraw_evasion = true;
+    mpr("You have turned to stone.");
+    return true;
 }
 
 void player::slow_down(actor *foe, int str)
@@ -6768,7 +6817,19 @@ bool player::backlit(bool check_haloed, bool self_halo) const
         return (true);
     }
     if (check_haloed)
-        return (haloed() && (self_halo || halo_radius2() == -1));
+        return (!antihaloed() && haloed()
+                && (self_halo || halo_radius2() == -1));
+    return (false);
+}
+
+bool player::umbra(bool check_haloed, bool self_halo) const
+{
+    if (backlit())
+        return (false);
+
+    if (check_haloed)
+        return (antihaloed() && !haloed()
+                && (self_halo || antihalo_radius2() == -1));
     return (false);
 }
 

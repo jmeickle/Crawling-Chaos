@@ -1512,7 +1512,8 @@ struct complicated_sight_check
     coord_def base_position;
     bool operator()(monster* mons, actor * test)
     {
-        return (test->visible_to(mons) && cell_see_cell(base_position, test->pos()));
+        return (test->visible_to(mons)
+                && cell_see_cell(base_position, test->pos(), LOS_SOLID));
     }
 };
 
@@ -2859,5 +2860,6 @@ void activate_ballistomycetes(monster* mons, const coord_def & origin,
 
             thread = thread->last;
         }
+        env.level_state |= LSTATE_GLOW_MOLD;
     }
 }

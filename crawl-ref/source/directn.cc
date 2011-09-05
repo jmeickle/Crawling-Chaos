@@ -369,6 +369,8 @@ void direction_chooser::print_key_hints() const
         if (you.see_cell(target()))
             prompt += ", v - describe";
         prompt += ", . - travel";
+        if (in_bounds(target()) && env.map_knowledge(target()).item())
+            prompt += ", g - get item";
     }
     else
     {
@@ -598,8 +600,6 @@ void full_describe_view()
 
     // Get monsters via the monster_info, sorted by difficulty.
     get_monster_info(list_mons);
-    std::sort(list_mons.begin(), list_mons.end(),
-              monster_info::less_than_wrapper);
 
     if (list_mons.empty() && list_items.empty() && list_features.empty())
     {
@@ -1340,6 +1340,49 @@ bool direction_chooser::select(bool allow_out_of_range, bool endpoint)
     return true;
 }
 
+bool direction_chooser::pickup_item()
+{
+    item_info *ii = 0;
+    if (in_bounds(target()))
+        ii = env.map_knowledge(target()).item();
+    if (!ii || !ii->is_valid())
+    {
+        mpr("You can't see any item there.", MSGCH_EXAMINE_FILTER);
+        return false;
+    }
+    ii->flags |= ISFLAG_THROWN; // make autoexplore greedy
+
+    // From this point, if there's no item, we'll fake one.  False info means
+    // it's out of bounds and taken, or a mimic.
+    item_def *item = 0;
+    unsigned short it = env.igrid(target());
+    monster *mon = monster_at(target());
+    if (mon && mons_is_item_mimic(mon->type))
+        item = &get_mimic_item(mon);
+    if (it != NON_ITEM && !item)
+    {
+        item = &mitm[it];
+        // Check if it appears to be the same item.
+        if (!item->is_valid()
+            || ii->base_type != item->base_type
+            || ii->sub_type != item->sub_type
+            || ii->colour != item->colour)
+        {
+            item = 0;
+        }
+    }
+    if (item)
+        item->flags |= ISFLAG_THROWN;
+
+    if (!just_looking) // firing/casting prompt
+        return false;
+
+    moves.isValid  = true;
+    moves.isTarget = true;
+    update_previous_target();
+    return true;
+}
+
 bool direction_chooser::handle_signals()
 {
     // If we've received a HUP signal then the user can't choose a
@@ -1940,6 +1983,8 @@ bool direction_chooser::do_main_loop()
 
     case CMD_TARGET_MOUSE_MOVE: tiles_update_target(); break;
 #endif
+
+    case CMD_TARGET_GET:             loop_done = pickup_item(); break;
 
     case CMD_TARGET_CYCLE_BACK:
         if (restricts != DIR_TARGET_OBJECT)
@@ -2941,6 +2986,8 @@ static std::string _base_feature_desc(dungeon_feature_type grid,
             return ("passage of Golubria");
         case TRAP_PLATE:
             return ("pressure plate");
+        case TRAP_WEB:
+            return ("web");
         default:
             error_message_to_player();
             return ("undefined trap");
@@ -3031,6 +3078,8 @@ static std::string _base_feature_desc(dungeon_feature_type grid,
         return ("magical trap");
     case DNGN_TRAP_NATURAL:
         return ("natural trap");
+    case DNGN_TRAP_WEB:
+        return ("web");
     case DNGN_ENTER_SHOP:
         return ("shop");
     case DNGN_ABANDONED_SHOP:
@@ -3087,13 +3136,17 @@ static std::string _base_feature_desc(dungeon_feature_type grid,
         return ("staircase to the Swamp");
     case DNGN_ENTER_SHOALS:
         return ("staircase to the Shoals");
+    case DNGN_ENTER_SPIDER_NEST:
+        return ("hole to the Spider Nest");
+    case DNGN_ENTER_FOREST:
+        return ("staircase to the Enchanted Forest");
     case DNGN_ENTER_PORTAL_VAULT:
         // The bazaar description should be set in the bazaar marker; this
         // is the description for a portal of unknown type.
         return ("gate leading to a distant place");
     case DNGN_EXIT_PORTAL_VAULT:
         return ("gate leading back to the Dungeon");
-    case DNGN_TEMP_PORTAL:
+    case DNGN_MALIGN_GATEWAY:
         return ("portal to somewhere");
     case DNGN_RETURN_FROM_DWARVEN_HALL:
     case DNGN_RETURN_FROM_ORCISH_MINES:
@@ -3101,12 +3154,15 @@ static std::string _base_feature_desc(dungeon_feature_type grid,
     case DNGN_RETURN_FROM_LAIR:
     case DNGN_RETURN_FROM_VAULTS:
     case DNGN_RETURN_FROM_TEMPLE:
+    case DNGN_RETURN_FROM_FOREST:
         return ("staircase back to the Dungeon");
     case DNGN_RETURN_FROM_SLIME_PITS:
     case DNGN_RETURN_FROM_SNAKE_PIT:
     case DNGN_RETURN_FROM_SWAMP:
     case DNGN_RETURN_FROM_SHOALS:
         return ("staircase back to the Lair");
+    case DNGN_RETURN_FROM_SPIDER_NEST:
+        return ("crawl-hole back to the Lair");
     case DNGN_RETURN_FROM_CRYPT:
     case DNGN_RETURN_FROM_HALL_OF_BLADES:
         return ("staircase back to the Vaults");
@@ -3363,6 +3419,7 @@ std::string feature_description(const coord_def& where, bool covering,
     case DNGN_TRAP_MECHANICAL:
     case DNGN_TRAP_MAGICAL:
     case DNGN_TRAP_NATURAL:
+    case DNGN_TRAP_WEB:
         return (feature_description(grid, get_trap_type(where),
                                     covering_description, dtype,
                                     add_stop, base_desc));
@@ -3502,6 +3559,9 @@ static std::vector<std::string> _get_monster_desc_vector(const monster_info& mi)
     if (mi.is(MB_HALOED))
         descs.push_back("haloed");
 
+    if (mi.is(MB_ANTIHALOED))
+        descs.push_back("umbra");
+
     if (mi.is(MB_POSSESSABLE))
         descs.push_back("possessable"); // FIXME: better adjective
     else if (mi.is(MB_ENSLAVED))
@@ -3565,6 +3625,9 @@ static std::string _get_monster_desc(const monster_info& mi)
 
     if (mi.is(MB_HALOED))
         text += pronoun + " is illuminated by a divine halo.\n";
+
+    if (mi.is(MB_ANTIHALOED))
+        text += pronoun + " is wreathed by an unholy umbra.\n";
 
     if (mi.intel() <= I_PLANT)
         text += pronoun + " is mindless.\n";
@@ -3801,13 +3864,24 @@ std::string get_monster_equipment_desc(const monster_info& mi,
 
 static bool _print_cloud_desc(const coord_def where)
 {
+    std::vector<std::string> areas;
     if (is_sanctuary(where))
+        areas.push_back("lies inside a sanctuary");
+    if (silenced(where))
+        areas.push_back("is shrouded in silence");
+    if (haloed(where) && !antihaloed(where))
+        areas.push_back("is lit by a halo");
+    if (antihaloed(where) && !haloed(where))
+        areas.push_back("is wreathed by an umbra");
+    if (liquefied(where))
+        areas.push_back("is liquefied");
+    if (orb_haloed(where))
+        areas.push_back("is covered in magical glow");
+    if (!areas.empty())
     {
-        mprf("This square lies inside a sanctuary%s.",
-             silenced(where) ? ", and is shrouded in silence" : "");
+        mprf("This square %s.",
+             comma_separated_line(areas.begin(), areas.end()).c_str());
     }
-    else if (silenced(where))
-        mpr("This square is shrouded in silence.");
 
     if (env.cgrid(where) == EMPTY_CLOUD)
         return false;

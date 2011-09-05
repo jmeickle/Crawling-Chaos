@@ -50,7 +50,7 @@
 #include "potion.h"
 #include "religion.h"
 #include "godconduct.h"
-#include "skills.h"
+#include "skill_menu.h"
 #include "skills2.h"
 #include "spl-cast.h"
 #include "spl-damage.h"
@@ -1276,7 +1276,7 @@ static int _xom_check_card(item_def &deck, card_type card,
         amusement *= 2;
     // Expecting one type of card but got another, real funny.
     else if (flags & CFLAG_ODDITY)
-        amusement = 255;
+        amusement = 200;
 
     if (player_in_a_dangerous_place())
         amusement *= 2;
@@ -1962,7 +1962,7 @@ static void _blade_card(int power, deck_rarity_type rarity)
                      wpn->quantity == 1 ? "s" : "");
             }
             else
-                mprf("Your %s twitch.", your_hand(true).c_str());
+                mprf("Your %s twitch.", you.hand_name(true).c_str());
         }
     }
 }
@@ -2087,12 +2087,8 @@ static void _experience_card(int power, deck_rarity_type rarity)
     else
         mpr("You feel knowledgeable.");
 
-    // Put some free XP into pool; power_level 2 means +20k
-    int exp_gain = HIGH_EXP_POOL;
-    if (power_level <= 1)
-        exp_gain = std::min(exp_gain, power * 50);
-    you.exp_available += exp_gain;
-    train_skills();
+    more();
+    skill_menu(SKMF_EXPERIENCE_CARD, std::min(power * 50, HIGH_EXP_POOL));
 
     // After level 27, boosts you get don't get increased (matters for
     // charging V:8 with no rN+++ and for felids).
@@ -2931,7 +2927,7 @@ bool card_effect(card_type which_card, deck_rarity_type rarity,
             // Being a self-centered deity, Xom *always* finds this
             // maximally hilarious.
             god_speaks(GOD_XOM, "Xom roars with laughter!");
-            you.gift_timeout = 255;
+            you.gift_timeout = 200;
         }
         else if (you.penance[GOD_XOM])
             god_speaks(GOD_XOM, "Xom laughs nastily.");

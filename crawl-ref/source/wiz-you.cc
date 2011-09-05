@@ -412,8 +412,8 @@ void wizard_set_skill_level(skill_type skill)
                 you.train[skill] = 0;
                 check_selected_skills();
             }
-            else if (!amount && !you.train[skill])
-                you.train[skill] = 1;
+            else if (!amount)
+                lose_skill(skill);
 
             reset_training();
             calc_total_skill_points();
@@ -999,4 +999,13 @@ void wizard_god_wrath()
     if (!divine_retribution(you.religion, true, true))
         // Currently only dead Jiyva.
         mpr("You're not eligible for wrath.");
+}
+
+void wizard_god_mollify()
+{
+    for (int i = GOD_NO_GOD; i < NUM_GODS; ++i)
+    {
+        if (you.penance[i])
+            dec_penance((god_type) i, you.penance[i]);
+    }
 }

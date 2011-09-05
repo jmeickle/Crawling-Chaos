@@ -154,9 +154,7 @@ static void _print_character_info(const newgame_def* ng)
     cprintf("%s\n", _welcome(ng).c_str());
 }
 
-// Determines if a species is valid. If 'display' is true, returns if
-// the species is displayable in the new game screen - this is
-// primarily used to suppress the display of the draconian variants.
+// Determines if a species is valid.
 static bool _is_species_valid_choice(species_type species)
 {
     if (species < 0 || species > NUM_SPECIES)
@@ -165,16 +163,31 @@ static bool _is_species_valid_choice(species_type species)
     if (species >= SP_ELF) // These are all invalid.
         return (false);
 
-    if (species == SP_OCTOPODE
+#if 0
+    if (species == SP_MY_NEW_TRUNK_ONLY_EXPERIMENT
         && Version::ReleaseType() != VER_ALPHA)
     {
-        // Octopodes are not targetted at 0.9.
         return (false);
     }
+#endif
 
     // Non-base draconians cannot be selected either.
     if (species >= SP_RED_DRACONIAN && species < SP_BASE_DRACONIAN)
         return (false);
+
+    return (true);
+}
+
+// Determines if a job is valid.
+static bool _is_job_valid_choice(job_type job)
+{
+    if (job < 0 || job > NUM_JOBS)
+        return (false);
+
+#if TAG_MAJOR_VERSION == 32
+    if (job == JOB_PALADIN || job == JOB_REAVER)
+        return (false);
+#endif
 
     return (true);
 }
@@ -240,8 +253,10 @@ static void _resolve_species(newgame_def* ng, const newgame_def* ng_choice)
     case SP_RANDOM:
         if (ng->job == JOB_UNKNOWN)
         {
-            // any species will do
-            ng->species = get_species(random2(ng_num_species()));
+            // any valid species will do
+            do
+                ng->species = get_species(random2(ng_num_species()));
+            while (!_is_species_valid_choice(ng->species));
         }
         else
         {
@@ -297,8 +312,10 @@ static void _resolve_job(newgame_def* ng, const newgame_def* ng_choice)
     case JOB_RANDOM:
         if (ng->species == SP_UNKNOWN)
         {
-            // any job will do
-            ng->job = job_type(random2(NUM_JOBS));
+            // any valid job will do
+            do
+                ng->job = job_type(random2(NUM_JOBS));
+            while (_is_job_valid_choice(ng->job));
         }
         else
         {
@@ -566,9 +583,11 @@ static void _construct_species_menu(const newgame_def* ng,
                                     MenuFreeform* menu)
 {
     ASSERT(menu != NULL);
-    int ITEMS_IN_COLUMN = 8;
-    if (is_valid_species(SP_OCTOPODE))
-        ITEMS_IN_COLUMN++;
+    int items_in_column = 0;
+    for (int i = 0; i < NUM_SPECIES; ++i)
+        if (_is_species_valid_choice((species_type)i))
+            items_in_column++;
+    items_in_column = (items_in_column + 2) / 3;
     // Construct the menu, 3 columns
     TextItem* tmp = NULL;
     std::string text;
@@ -613,9 +632,9 @@ static void _construct_species_menu(const newgame_def* ng,
         // Fill to column width - 1
         text.append(COLUMN_WIDTH - text.size() - 1 , ' ');
         tmp->set_text(text);
-        ASSERT(i < ITEMS_IN_COLUMN * 3);
-        min_coord.x = X_MARGIN + (i / ITEMS_IN_COLUMN) * COLUMN_WIDTH;
-        min_coord.y = 3 + i % ITEMS_IN_COLUMN;
+        ASSERT(i < items_in_column * 3);
+        min_coord.x = X_MARGIN + (i / items_in_column) * COLUMN_WIDTH;
+        min_coord.y = 3 + i % items_in_column;
         max_coord.x = min_coord.x + text.size();
         max_coord.y = min_coord.y + 1;
         tmp->set_bounds(min_coord, max_coord);
@@ -1012,20 +1031,20 @@ static void _construct_backgrounds_menu(const newgame_def* ng,
         },
         {
             "Zealot",
-            coord_def(17, 0), 20,
+            coord_def(15, 0), 20,
             {JOB_BERSERKER, JOB_ABYSSAL_KNIGHT, JOB_CHAOS_KNIGHT,
              JOB_DEATH_KNIGHT, JOB_PRIEST, JOB_HEALER, JOB_UNKNOWN,
              JOB_UNKNOWN, JOB_UNKNOWN}
         },
         {
-            "Warrior-mage",    // XXX: Arcane Marksmen are temporarily disabled
-            coord_def(39, 0), 17,
-            {JOB_SKALD, JOB_ENCHANTER, JOB_TRANSMUTER, JOB_STALKER,
-             JOB_WARPER, JOB_ALCHEMIST, JOB_UNKNOWN, JOB_UNKNOWN, JOB_UNKNOWN}
+            "Warrior-mage",
+            coord_def(35, 0), 21,
+            {JOB_SKALD, JOB_TRANSMUTER, JOB_WARPER, JOB_ARCANE_MARKSMAN,
+             JOB_ENCHANTER, JOB_STALKER, JOB_ALCHEMIST, JOB_UNKNOWN, JOB_UNKNOWN}
         },
         {
             "Mage",
-            coord_def(57, 0), 22,
+            coord_def(56, 0), 23,
             {JOB_WIZARD, JOB_CONJURER, JOB_SUMMONER, JOB_NECROMANCER,
              JOB_FIRE_ELEMENTALIST, JOB_ICE_ELEMENTALIST,
              JOB_AIR_ELEMENTALIST, JOB_EARTH_ELEMENTALIST, JOB_VENOM_MAGE}
@@ -1376,8 +1395,24 @@ static void _construct_weapon_menu(const weapon_type& defweapon,
 
         text += letter;
         text += " - ";
-        text += weapons[i].first == WPN_UNARMED
-                ? "claws" : weapon_base_name(weapons[i].first);
+        switch(weapons[i].first)
+        {
+        case WPN_UNARMED:
+            text += "claws";
+            break;
+        case WPN_JAVELINS:
+            text += "javelins";
+            break;
+        case WPN_ROCKS:
+            text += "large rocks";
+            break;
+        case WPN_DARTS:
+            text += "darts";
+            break;
+        default:
+            text += weapon_base_name(weapons[i].first);
+            break;
+        }
         // Fill to column width to give extra padding for the highlight
         text.append(COLUMN_WIDTH - text.size() - 1 , ' ');
         tmp->set_text(text);
@@ -1618,38 +1653,66 @@ static bool _prompt_weapon(const newgame_def* ng, newgame_def* ng_choice,
 static std::vector<weapon_choice> _get_weapons(const newgame_def* ng)
 {
     std::vector<weapon_choice> weapons;
-
-    weapon_type startwep[6] = { WPN_UNARMED, WPN_SHORT_SWORD, WPN_MACE,
-                                WPN_HAND_AXE, WPN_SPEAR, WPN_FALCHION };
-    for (int i = 0; i < 6; ++i)
+    if (ng->job == JOB_HUNTER || ng->job == JOB_ARCANE_MARKSMAN)
     {
-        weapon_choice wp;
-        wp.first = startwep[i];
+        weapon_type startwep[4] = { WPN_THROWN, WPN_SLING, WPN_BOW,
+                                    WPN_CROSSBOW };
 
-        switch (wp.first)
+        for (int i = 0; i < 4; i++)
         {
-        case WPN_UNARMED:
-            if (!species_has_claws(ng->species))
-                continue;
-            break;
-        case WPN_SPEAR:
-            // Non-small fighters and gladiators get tridents.
-            if ((ng->job == JOB_FIGHTER || ng->job == JOB_GLADIATOR)
-                  && species_size(ng->species, PSIZE_BODY) >= SIZE_MEDIUM)
+            weapon_choice wp;
+            wp.first = startwep[i];
+
+            if (wp.first == WPN_THROWN)
             {
-                wp.first = WPN_TRIDENT;
+                if (species_size(ng->species, PSIZE_TORSO) == SIZE_LARGE)
+                    wp.first = WPN_ROCKS;
+                else if (species_size(ng->species, PSIZE_TORSO) <= SIZE_SMALL)
+                    wp.first = WPN_DARTS;
+                else
+                    wp.first = WPN_JAVELINS;
             }
-            break;
-        case WPN_MACE:
-            if (ng->species == SP_OGRE)
-                wp.first = WPN_ANKUS;
-            break;
-        default:
-            break;
+
+            wp.second = weapon_restriction(wp.first, *ng);
+            if (wp.second != CC_BANNED)
+                weapons.push_back(wp);
         }
-        wp.second = weapon_restriction(wp.first, *ng);
-        if (wp.second != CC_BANNED)
-            weapons.push_back(wp);
+    }
+    else
+    {
+        weapon_type startwep[6] = { WPN_UNARMED, WPN_SHORT_SWORD, WPN_MACE,
+                                    WPN_HAND_AXE, WPN_SPEAR, WPN_FALCHION };
+        for (int i = 0; i < 6; ++i)
+        {
+            weapon_choice wp;
+            wp.first = startwep[i];
+
+            switch (wp.first)
+            {
+            case WPN_UNARMED:
+                if (!species_has_claws(ng->species))
+                    continue;
+                break;
+            case WPN_SPEAR:
+                // Non-small fighters and gladiators get tridents.
+                if ((ng->job == JOB_FIGHTER || ng->job == JOB_GLADIATOR)
+                      && species_size(ng->species, PSIZE_BODY) >= SIZE_MEDIUM)
+                {
+                    wp.first = WPN_TRIDENT;
+                }
+                break;
+            case WPN_MACE:
+                if (ng->species == SP_OGRE)
+                    wp.first = WPN_ANKUS;
+                break;
+            default:
+                break;
+            }
+
+            wp.second = weapon_restriction(wp.first, *ng);
+            if (wp.second != CC_BANNED)
+                weapons.push_back(wp);
+        }
     }
     return weapons;
 }
@@ -1716,6 +1779,8 @@ static bool _choose_weapon(newgame_def* ng, newgame_def* ng_choice,
     case JOB_ABYSSAL_KNIGHT:
     case JOB_SKALD:
     case JOB_WARPER:
+    case JOB_HUNTER:
+    case JOB_ARCANE_MARKSMAN:
         break;
     default:
         return (true);

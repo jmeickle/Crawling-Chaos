@@ -905,7 +905,7 @@ bolt mons_spells(monster* mons, spell_type spell_cast, int power,
     case SPELL_PETRIFYING_CLOUD:
         beam.name     = "blast of calcifying dust";
         beam.colour   = WHITE;
-        beam.damage   = dice_def(1, 0);
+        beam.damage   = dice_def(2, 6);
         beam.hit      = AUTOMATIC_HIT;
         beam.flavour  = BEAM_PETRIFYING_CLOUD;
         beam.is_beam  = true;
@@ -1266,6 +1266,27 @@ static bool _is_physiological_spell(spell_type spell)
         || spell == SPELL_FIRE_BREATH;
 }
 
+static void _mons_set_priest_wizard_god(monster* mons, bool& priest,
+                                        bool& wizard, god_type& god)
+{
+    priest = mons->is_priest();
+    wizard = mons->is_actual_spellcaster();
+
+    // If the monster's a priest, assume summons come from priestly
+    // abilities, in which case they'll have the same god. If the
+    // monster is neither a priest nor a wizard, assume summons come
+    // from intrinsic abilities, in which case they'll also have the
+    // same god.
+    god = (priest || !(priest || wizard)) ? mons->god : GOD_NO_GOD;
+
+    // Permanent wizard summons of Yred should have the same god even
+    // though they aren't priests. This is so that e.g. the zombies of
+    // Yred's skeletal warriors will properly turn on you if you abandon
+    // Yred.
+    if (mons->god == GOD_YREDELEMNUL)
+        god = mons->god;
+}
+
 //---------------------------------------------------------------
 //
 // handle_spell
@@ -1306,14 +1327,11 @@ bool handle_mon_spell(monster* mons, bolt &beem)
         return (false);
     }
 
-    // If the monster's a priest, assume summons come from priestly
-    // abilities, in which case they'll have the same god.  If the
-    // monster is neither a priest nor a wizard, assume summons come
-    // from intrinsic abilities, in which case they'll also have the
-    // same god.
-    const bool priest = mons->is_priest();
-    const bool wizard = mons->is_actual_spellcaster();
-    god_type god = (priest || !(priest || wizard)) ? mons->god : GOD_NO_GOD;
+    bool priest;
+    bool wizard;
+    god_type god;
+
+    _mons_set_priest_wizard_god(mons, priest, wizard, god);
 
     if ((silenced(mons->pos()) || mons->has_ench(ENCH_MUTE))
         && (priest || wizard || spellcasting_poly
@@ -1695,7 +1713,7 @@ bool handle_mon_spell(monster* mons, bolt &beem)
             //friendly monsters cannot cast tukima's ball for now.
             if (mons->friendly())
                 return false;
-            if (!cast_tukimas_ball(mons, 100, GOD_NO_GOD ,true))
+            if (!cast_tukimas_ball(mons, 100, GOD_NO_GOD, true))
                 return false;
         }
 
@@ -2251,23 +2269,13 @@ static int _mons_cause_fear(monster* mons, bool actual)
                 continue;
 
             // Magic-immune, unnatural and "firewood" monsters are
-            // immune to being scared.
+            // immune to being scared. Same-aligned monsters are
+            // never affected, even though they aren't immune.
             if (mons_immune_magic(m)
                 || m->holiness() != MH_NATURAL
-                || mons_is_firewood(m))
+                || mons_is_firewood(m)
+                || mons_atts_aligned(m->attitude, mons->attitude))
             {
-                if (actual)
-                    simple_monster_message(m, " is unaffected.");
-                continue;
-            }
-
-            // A same-aligned intelligent monster is never scared, even
-            // though it's not immune.
-            if (mons_intel(m) > I_ANIMAL
-                && mons_atts_aligned(m->attitude, mons->attitude))
-            {
-                if (actual)
-                    simple_monster_message(m, " resists.");
                 continue;
             }
 
@@ -2415,20 +2423,12 @@ static bool _mon_spell_bail_out_early(monster* mons, spell_type spell_cast)
 }
 
 static void _clone_monster(monster* mons, monster_type clone_type,
-                           int summon_type, bool clone_hp = false,
-                           std::string name = "")
+                           int summon_type, bool clone_hp = false)
 {
     mgen_data summ_mon =
         mgen_data(clone_type, SAME_ATTITUDE(mons),
                   mons, 3, summon_type, mons->pos(),
                   mons->foe, 0, mons->god);
-    // This is somewhat hacky, to prevent "A Mara", and such,
-    // as MONS_FAKE_MARA is not M_UNIQUE.
-    if (name != "")
-    {
-        summ_mon.mname = name;
-        summ_mon.extra_flags |= MF_NAME_REPLACE;
-    }
 
     int created = create_monster(summ_mon);
     if (created == -1)
@@ -2456,7 +2456,7 @@ static void _clone_monster(monster* mons, monster_type clone_type,
         if (old_index == NON_ITEM)
             continue;
 
-        const int new_index = get_item_slot(0);
+        const int new_index = get_mitm_slot(0);
         if (new_index == NON_ITEM)
         {
             new_fake->unequip(mitm[old_index], i, 0, true);
@@ -2474,6 +2474,7 @@ static void _clone_monster(monster* mons, monster_type clone_type,
     }
 
     new_fake->props = mons->props;
+    new_fake->props["faking"] = *mons;
 }
 
 void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
@@ -2544,14 +2545,11 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
     if (do_noise)
         mons_cast_noise(mons, pbolt, spell_cast, special_ability);
 
-    // If the monster's a priest, assume summons come from priestly
-    // abilities, in which case they'll have the same god.  If the
-    // monster is neither a priest nor a wizard, assume summons come
-    // from intrinsic abilities, in which case they'll also have the
-    // same god.
-    const bool priest = mons->is_priest();
-    const bool wizard = mons->is_actual_spellcaster();
-    god_type god = (priest || !(priest || wizard)) ? mons->god : GOD_NO_GOD;
+    bool priest;
+    bool wizard;
+    god_type god;
+
+    _mons_set_priest_wizard_god(mons, priest, wizard, god);
 
     // Used for summon X elemental and nothing else. {bookofjude}
     monster_type summon_type = MONS_NO_MONSTER;
@@ -2853,6 +2851,7 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
             mpr("Tentacles burst out of the water!");
         return;
     }
+
     case SPELL_FAKE_MARA_SUMMON:
         // We only want there to be two fakes, which, plus Mara, means
         // a total of three Maras; if we already have two, give up, otherwise
@@ -2860,7 +2859,7 @@ void mons_cast(monster* mons, bolt &pbolt, spell_type spell_cast,
         sumcount2 = 2 - count_mara_fakes();
 
         for (sumcount = 0; sumcount < sumcount2; sumcount++)
-            _clone_monster(mons, MONS_MARA_FAKE, spell_cast, true, "Mara");
+            _clone_monster(mons, MONS_MARA_FAKE, spell_cast, true);
         return;
 
     case SPELL_FAKE_RAKSHASA_SUMMON:

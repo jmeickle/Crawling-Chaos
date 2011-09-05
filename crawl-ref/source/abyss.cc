@@ -57,7 +57,7 @@
  #include "wiz-dgn.h"
 #endif
 
-const int ABYSSAL_RUNE_MAX_ROLL = 200;
+static const int ABYSSAL_RUNE_MAX_ROLL = 200;
 
 #ifdef NEW_ABYSS
 static abyss_state abyssal_state;
@@ -65,6 +65,8 @@ static abyss_state abyssal_state;
 static std::vector<dungeon_feature_type> abyssal_features;
 static std::list<monster*> displaced_monsters;
 #endif
+
+static void abyss_area_shift(void);
 
 // If not_seen is true, don't place the feature where it can be seen from
 // the centre.
@@ -84,7 +86,7 @@ static bool _place_feature_near(const coord_def &centre,
         if (cp == centre || (cp - centre).abs() > radius2 || !in_bounds(cp))
             continue;
 
-        if (not_seen && cell_see_cell(cp, centre))
+        if (not_seen && cell_see_cell_nocache(cp, centre))
             continue;
 
         if (grd(cp) == candidate)
@@ -114,7 +116,7 @@ static dungeon_feature_type _abyss_proto_feature()
 }
 
 #ifdef NEW_ABYSS
-void _write_abyssal_features()
+static void _write_abyssal_features()
 {
     if (abyssal_features.empty())
         return;
@@ -478,7 +480,7 @@ void push_features_to_abyss()
         if (feat_is_altar(feature))
             feature = (one_chance_in(9) ? DNGN_ALTAR_XOM : DNGN_FLOOR);
 
-        if (feat_is_trap(feature, true))
+        if (feat_is_trap(feature, true) || feature == DNGN_ENTER_SHOP)
             feature = DNGN_FLOOR;
 
         switch (feature)
@@ -723,10 +725,10 @@ public:
         const bool rune_is_near = abyss_rune_nearness();
 
         if (exit_was_near && !exit_is_near || rune_was_near && !rune_is_near)
-            xom_is_stimulated(255, "Xom snickers loudly.", true);
+            xom_is_stimulated(200, "Xom snickers loudly.", true);
 
         if (!rune_was_near && rune_is_near || !exit_was_near && exit_is_near)
-            xom_is_stimulated(255);
+            xom_is_stimulated(200);
     }
 };
 
@@ -806,6 +808,10 @@ static void _abyss_wipe_square_at(coord_def p)
     destroy_shop_at(p);
     destroy_trap(p);
 
+    // Nuke vault flag.
+    if (map_masked(p, MMT_VAULT))
+        env.level_map_mask(p) &= ~MMT_VAULT;
+
     grd(p) = DNGN_UNSEEN;
 
     // Nuke items.
@@ -844,6 +850,8 @@ static void _abyss_wipe_square_at(coord_def p)
     env.level_map_ids(p)  = INVALID_MAP_INDEX;
 
     remove_markers_and_listeners_at(p);
+
+    env.map_knowledge(p).clear();
 }
 
 // Removes monsters, clouds, dungeon features, and items from the
@@ -1114,8 +1122,11 @@ void maybe_shift_abyss_around_player()
 void save_abyss_uniques()
 {
     for (monster_iterator mi; mi; ++mi)
-        if (mi->needs_abyss_transit())
+        if (mi->needs_abyss_transit()
+            && !testbits(mi->flags, MF_TAKING_STAIRS))
+        {
             mi->set_transit(level_id(LEVEL_ABYSS));
+        }
 }
 
 #ifdef NEW_ABYSS
@@ -1185,10 +1196,14 @@ static void _abyss_apply_terrain(const map_mask &abyss_genlevel_mask,
 
         const coord_def p(*ri);
 
-        if (you.pos() == p)
+        if (you.pos() == p || !abyss_genlevel_mask(p))
             continue;
 
-        if (!abyss_genlevel_mask(p) || map_masked(p, MMT_VAULT))
+        // Dont' decay vaults.
+        if (map_masked(p, MMT_VAULT))
+            continue;
+
+        if (!one_chance_in(you.abyss_speed) && applyGlobal)
             continue;
 
         double x = (p.x + major_coord.x);
@@ -1300,7 +1315,7 @@ static void _generate_area(const map_mask &abyss_genlevel_mask)
 }
 #endif
 
-void abyss_area_shift(void)
+static void abyss_area_shift(void)
 {
 #ifdef DEBUG_ABYSS
     dprf("area_shift() - player at pos (%d, %d)",
@@ -1316,6 +1331,7 @@ void abyss_area_shift(void)
         _abyss_shift_level_contents_around_player(
             ABYSS_AREA_SHIFT_RADIUS, ABYSS_CENTRE, abyss_genlevel_mask);
 #ifdef NEW_ABYSS
+        forget_map(true);
         _generate_area(abyss_genlevel_mask);
 #else
         _generate_area(abyss_genlevel_mask, true);
@@ -1331,16 +1347,10 @@ void abyss_area_shift(void)
     // And allow monsters in transit another chance to return.
     place_transiting_monsters();
     place_transiting_items();
-
-#ifdef WIZARD
-    // Update map, if already mapped.
-    if (!testbits(env.level_flags, LFLAG_NOT_MAPPABLE))
-        wizard_map_level();
-#endif
 }
 
 #ifdef NEW_ABYSS
-void _initialize_abyss_state()
+static void _initialize_abyss_state()
 {
     abyssal_state.major_coord.x = random2(0x7FFFFFFF);
     abyssal_state.major_coord.y = random2(0x7FFFFFFF);
@@ -1401,6 +1411,9 @@ void generate_abyss()
     // Generate the initial abyss without vaults. Vaults are horrifying.
     _abyss_generate_new_area();
     _write_abyssal_features();
+    map_mask abyss_genlevel_mask;
+    _abyss_invert_mask(&abyss_genlevel_mask);
+    _abyss_apply_terrain(abyss_genlevel_mask);
 
     // If we're starting out in the Abyss, make sure the starting grid is
     // an altar to Lugonu and there's an exit near-by.
@@ -1424,47 +1437,6 @@ void generate_abyss()
 
     generate_random_blood_spatter_on_level();
     setup_environment_effects();
-}
-
-void _mulch_vault_item(const coord_def &pos)
-{
-    int item_count = 0;
-    for (stack_iterator si(pos); si; ++si)
-    {
-        ++item_count;
-        if (si->defined() && (si->flags &= ~(ISFLAG_THROWN | ISFLAG_DROPPED)))
-        {
-            --item_count;
-            item_was_lost(*si);
-            si->clear();
-        }
-    }
-
-    if (!item_count)
-        igrd(pos) = NON_ITEM;
-}
-
-void _decay_vaults()
-{
-    for (rectangle_iterator ri(MAPGEN_BORDER); ri; ++ri)
-    {
-        if (map_masked(*ri, MMT_VAULT))
-        {
-            _mulch_vault_item(*ri);
-            env.level_map_mask(*ri) &= ~MMT_VAULT;
-        }
-    }
-}
-
-void abyss_maybe_decay_vaults()
-{
-    if (coinflip())
-        _decay_vaults();
-    else
-    {
-        push_features_to_abyss();
-        _abyss_generate_new_area();
-    }
 }
 
 void abyss_morph()

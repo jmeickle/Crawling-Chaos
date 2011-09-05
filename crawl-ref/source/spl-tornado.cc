@@ -107,7 +107,7 @@ static void _set_tornado_durations(int powc)
     you.attribute[ATTR_LEV_UNCANCELLABLE] = 1;
 }
 
-bool cast_tornado(int powc)
+spret_type cast_tornado(int powc, bool fail)
 {
     bool friendlies = false;
     for (radius_iterator ri(you.pos(), TORNADO_RADIUS, C_ROUND); ri; ++ri)
@@ -127,8 +127,10 @@ bool cast_tornado(int powc)
         && !yesno("There are friendlies around, are you sure you want to hurt them?",
                   true, 'n'))
     {
-        return false;
+        return SPRET_ABORT;
     }
+
+    fail_check();
 
     mprf("A great vortex of raging winds %s.",
          you.airborne() ? "appears around you"
@@ -141,7 +143,7 @@ bool cast_tornado(int powc)
     _set_tornado_durations(powc);
     burden_change();
 
-    return true;
+    return SPRET_SUCCESS;
 }
 
 static bool _mons_is_unmovable(const monster *mons)
@@ -194,6 +196,23 @@ static int _rdam(int rage)
         return rage * 10 - 50;
 }
 
+static int _tornado_age(const actor *caster)
+{
+    if (caster->props.exists("tornado_since"))
+        return you.elapsed_time - caster->props["tornado_since"].get_int();
+    return 100; // for permanent tornadoes
+}
+
+// time needed to reach the given radius
+static int _age_needed(int r)
+{
+    if (r <= 0)
+        return 0;
+    if (r > TORNADO_RADIUS)
+        return INT_MAX;
+    return sqr(r) * 5 / 4;
+}
+
 void tornado_damage(actor *caster, int dur)
 {
     if (!dur)
@@ -210,9 +229,7 @@ void tornado_damage(actor *caster, int dur)
     noisy(25, org, caster->mindex());
     WindSystem winds(org);
 
-    int age = 100; // for permanent tornadoes
-    if (caster->props.exists("tornado_since"))
-        age = you.elapsed_time - caster->props["tornado_since"].get_int();
+    int age = _tornado_age(caster);
     ASSERT(age >= 0);
 
     std::vector<actor*>        move_act;   // victims to move
@@ -234,7 +251,7 @@ void tornado_damage(actor *caster, int dur)
             ++count_i;
         }
         // effective age at radius r
-        int rage = age - sqr(r) * 5 / 4;
+        int rage = age - _age_needed(r);
         /* Not just "portion of time affected":
                           **
                         **
@@ -323,7 +340,7 @@ void tornado_damage(actor *caster, int dur)
                             float_player(false);
                     }
                     int dmg = apply_chunked_AC(
-                                div_rand_round(roll_dice(6, rpow), 15),
+                                div_rand_round(roll_dice(7, rpow), 15),
                                 victim->armour_class());
                     if (dur < 0)
                         dmg = 0;
@@ -411,7 +428,7 @@ void tornado_damage(actor *caster, int dur)
         fire_final_effects();
 }
 
-void cancel_tornado()
+void cancel_tornado(bool tloc)
 {
     if (!you.duration[DUR_TORNADO])
         return;
@@ -419,13 +436,71 @@ void cancel_tornado()
     dprf("Aborting tornado.");
     if (you.duration[DUR_TORNADO] == you.duration[DUR_LEVITATION])
     {
-        you.duration[DUR_LEVITATION] = 0;
-        you.duration[DUR_CONTROLLED_FLIGHT] = 0;
-        you.attribute[ATTR_LEV_UNCANCELLABLE] = 0;
-        burden_change();
-        // NO checking for water, since this is called only during level
-        // change, and being, say, banished from above water shouldn't
-        // kill you.
+        if (tloc)
+        {
+            // it'd be better to abort levitation instantly, but let's first
+            // make damn sure all ways of translocating are prevented from
+            // landing you in water.  Insta-kill due to an arrow of dispersal
+            // is not nice.
+            you.duration[DUR_LEVITATION] = std::min(20,
+                you.duration[DUR_LEVITATION]);
+            you.duration[DUR_CONTROLLED_FLIGHT] = std::min(20,
+                you.duration[DUR_CONTROLLED_FLIGHT]);
+        }
+        else
+        {
+            you.duration[DUR_LEVITATION] = 0;
+            you.duration[DUR_CONTROLLED_FLIGHT] = 0;
+            you.attribute[ATTR_LEV_UNCANCELLABLE] = 0;
+            burden_change();
+            // NO checking for water, since this is called only during level
+            // change, and being, say, banished from above water shouldn't
+            // kill you.
+        }
     }
     you.duration[DUR_TORNADO] = 0;
+    you.duration[DUR_TORNADO_COOLDOWN] = 0;
+}
+
+void tornado_move(const coord_def &p)
+{
+    if (!you.duration[DUR_TORNADO] && !you.duration[DUR_TORNADO_COOLDOWN])
+        return;
+
+    int age = _tornado_age(&you);
+    int dist2 = (you.pos() - p).abs();
+    if (dist2 <= 2)
+        return;
+
+    int dist = 0;
+    while (dist * dist + 1 < dist2)
+        dist++;
+
+    if (!you.duration[DUR_TORNADO])
+    {
+        if (age < _age_needed(dist - TORNADO_RADIUS))
+            you.duration[DUR_TORNADO_COOLDOWN] = 0;
+        return;
+    }
+
+    if (age > _age_needed(dist))
+    {
+        // check for actual wind too, not just the radius
+        WindSystem winds(you.pos());
+        if (winds.has_wind(p))
+        {
+            // blinking/cTele inside an already windy area
+            dprf("Tloc penalty: reducing tornado by %d turns", dist - 1);
+            you.duration[DUR_TORNADO] = std::max(1,
+                         you.duration[DUR_TORNADO] - (dist - 1) * 10);
+            return;
+        }
+    }
+
+    cancel_tornado(true);
+
+    // there's an intersection between the area of the old tornado, and what
+    // a new one could possibly grow into
+    if (age > _age_needed(dist - TORNADO_RADIUS))
+        you.duration[DUR_TORNADO_COOLDOWN] = random_range(25, 35);
 }

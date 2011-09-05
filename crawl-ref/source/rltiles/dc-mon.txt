@@ -164,7 +164,6 @@ prince_ribbit MONS_PRINCE_RIBBIT
 %rim 1
 %sdir dc-mon/animals
 giant_frog MONS_GIANT_FROG
-giant_toad MONS_GIANT_TOAD
 %rim 0
 blink_frog MONS_BLINK_FROG
 %rim 1
@@ -177,7 +176,6 @@ black_mamba MONS_BLACK_MAMBA
 water_moccasin MONS_WATER_MOCCASIN
 anaconda MONS_ANACONDA
 lava_snake MONS_LAVA_SNAKE
-viper MONS_VIPER
 sea_snake MONS_SEA_SNAKE
 salamander MONS_SALAMANDER
 
@@ -489,6 +487,8 @@ paladin MONS_PALADIN
 angel MONS_ANGEL
 daeva MONS_DAEVA
 cherub MONS_CHERUB
+%sdir dc-mon/undead
+profane_servitor MONS_PROFANE_SERVITOR
 %sdir dc-mon/unique
 mennas MONS_MENNAS
 
@@ -690,6 +690,7 @@ eidolon MONS_EIDOLON
 %rim 0
 orb_guardian MONS_ORB_GUARDIAN /*'X'*/
 %rim 1
+../player/base/octopode1 MONS_OCTOPODE
 
 ## Centaurs ('c')
 %sdir dc-mon/unique

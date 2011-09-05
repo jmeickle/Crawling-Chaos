@@ -153,7 +153,7 @@ int holy_word_monsters(coord_def where, int pow, int caster,
     if (attacker == mons)
         hploss = std::max(0, mons->hit_points / 2 - 1);
     else
-        hploss = roll_dice(3, 15) + (random2(pow) / 3);
+        hploss = roll_dice(3, 15) + (random2(pow) / 10);
 
     if (hploss && caster != HOLY_WORD_ZIN)
         simple_monster_message(mons, " convulses!");
@@ -205,7 +205,7 @@ int holy_word(int pow, int caster, const coord_def& where, bool silent,
     los.update();
     int r = 0;
     for (radius_iterator ri(&los); ri; ++ri)
-        r += holy_word_monsters(*ri, 0, caster, attacker);
+        r += holy_word_monsters(*ri, pow, caster, attacker);
     return (r);
 }
 
@@ -228,11 +228,11 @@ int torment_player(actor *attacker, int taux)
     }
 
     // Kiku protects you from torment to a degree.
-    bool kiku_shielding_player =
+    const bool kiku_shielding_player =
         (you.religion == GOD_KIKUBAAQUDGHA
         && !player_under_penance()
         && you.piety > 80
-        && you.gift_timeout == 0); // no protection during pain branding weapon
+        && !you.gift_timeout); // no protection during pain branding weapon
 
     if (kiku_shielding_player)
     {
@@ -325,7 +325,7 @@ int torment_monsters(coord_def where, actor *attacker, int taux)
 
     int hploss = std::max(0, mons->hit_points / 2 - 1);
 
-    if (hploss)
+    if (hploss && !mons_is_firewood(mons))
     {
         simple_monster_message(mons, " convulses!");
 
@@ -833,7 +833,7 @@ void random_uselessness(int scroll_slot)
 
     case 1:
         mprf("The scroll reassembles itself in your %s!",
-             your_hand(true).c_str());
+             you.hand_name(true).c_str());
         inc_inv_item_quantity(scroll_slot, 1);
         break;
 
@@ -847,7 +847,7 @@ void random_uselessness(int scroll_slot)
         else
         {
             mprf("Your %s glow %s for a moment.",
-                 your_hand(true).c_str(), weird_glowing_colour().c_str());
+                 you.hand_name(true).c_str(), weird_glowing_colour().c_str());
         }
         break;
 
@@ -998,8 +998,10 @@ int recharge_wand(int item_slot, bool known, std::string *pre_msg)
 // Berserking monsters cannot be ordered around.
 static bool _follows_orders(monster* mon)
 {
-    return (mon->friendly() && mon->type != MONS_GIANT_SPORE
-        && !mon->berserk());
+    return (mon->friendly()
+            && mon->type != MONS_GIANT_SPORE
+            && !mon->berserk()
+            && !mons_is_projectile(mon->type));
 }
 
 // Sets foe target of friendly monsters.
@@ -2250,6 +2252,12 @@ void handle_time()
         mutagenic_randart = true;
     }
 
+    // The Orb adds .25 points per turn (effectively halving dissipation),
+    // but won't cause glow on its own -- otherwise it'd spam the player
+    // with messages about contamination oscillating near zero.
+    if (you.magic_contamination && orb_haloed(you.pos()) && one_chance_in(4))
+        added_contamination++;
+
     // We take off about .5 points per turn.
     if (!you.duration[DUR_INVIS] && !you.duration[DUR_HASTE] && coinflip())
         added_contamination--;
@@ -2394,6 +2402,9 @@ void handle_time()
 
     if (you.religion == GOD_JIYVA && one_chance_in(25))
         jiyva_eat_offlevel_items();
+
+    if (player_in_branch(BRANCH_SPIDER_NEST) && coinflip())
+        place_webs(random2(20 / (6 - player_branch_depth())), true);
 }
 
 // Move monsters around to fake them walking around while player was

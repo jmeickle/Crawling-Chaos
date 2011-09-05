@@ -200,7 +200,7 @@ void handle_behaviour(monster* mon)
     // Zotdef rotting
     if (crawl_state.game_is_zotdef())
     {
-        if (!isFriendly && !isNeutral && orb_position() == mon->pos()
+        if (!isFriendly && !isNeutral && env.orb_pos == mon->pos()
             && mon->speed)
         {
             const int loss = div_rand_round(10, mon->speed);
@@ -244,10 +244,6 @@ void handle_behaviour(monster* mon)
             mon->behaviour = BEH_FLEE;
         }
     }
-
-    const dungeon_feature_type can_move =
-        (mons_habitat(mon) == HT_AMPHIBIOUS) ? DNGN_DEEP_WATER
-                                             : DNGN_SHALLOW_WATER;
 
     // Validate current target exists.
     _mon_check_foe_invalid(mon);
@@ -589,7 +585,7 @@ void handle_behaviour(monster* mon)
                     break;
                 }
 
-                if (mon->firing_pos.zero() && try_pathfind(mon, can_move))
+                if (mon->firing_pos.zero() && try_pathfind(mon))
                     break;
 
                 // Whew. If we arrived here, path finding didn't yield anything
@@ -615,10 +611,9 @@ void handle_behaviour(monster* mon)
                 mon->target = menv[mon->foe].pos();
             }
 
-            // Smart monsters, zombified monsters other than spectral
-            // things, plants, and nonliving monsters cannot flee.
+            // Smart monsters, undead, plants, and nonliving monsters cannot flee.
             if (isHurt && !isSmart && isMobile
-                && (!mons_is_zombified(mon) || mon->type == MONS_SPECTRAL_THING)
+                && mon->holiness() != MH_UNDEAD
                 && mon->holiness() != MH_PLANT
                 && mon->holiness() != MH_NONLIVING
                 && !mons_class_flag(mon->type, M_NO_FLEE))
@@ -682,7 +677,7 @@ void handle_behaviour(monster* mon)
                 break;
             }
 
-            check_wander_target(mon, isPacified, can_move);
+            check_wander_target(mon, isPacified);
 
             // During their wanderings, monsters will eventually relax
             // their guard (stupid ones will do so faster, smart
@@ -1024,11 +1019,7 @@ void behaviour_event(monster* mon, mon_event_type event, int src,
             if (src == MHITYOU && src_pos == you.pos()
                 && !you.see_cell(mon->pos()))
             {
-                const dungeon_feature_type can_move =
-                    (mons_habitat(mon) == HT_AMPHIBIOUS) ? DNGN_DEEP_WATER
-                                                         : DNGN_SHALLOW_WATER;
-
-                try_pathfind(mon, can_move);
+                try_pathfind(mon);
             }
         }
         break;
@@ -1172,14 +1163,4 @@ void make_mons_stop_fleeing(monster* mon)
 {
     if (mons_is_fleeing(mon))
         behaviour_event(mon, ME_CORNERED);
-}
-
-// Returns the position of the Orb, or you.pos() if
-// the Orb's not found.
-coord_def zotdef_target()
-{
-    coord_def tgt = orb_position();
-    if (tgt.origin())
-        tgt = you.pos();
-    return tgt;
 }

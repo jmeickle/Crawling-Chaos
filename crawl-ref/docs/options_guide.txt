@@ -15,7 +15,8 @@ The contents of this text are:
 0-d     Aliases and variables.
 1-  Starting Screen.
                 name, remember_name, weapon, wand, species, background,
-                random_pick, good_random, restart_after_game
+                random_pick, good_random, restart_after_game,
+                default_manual_training
 2-  File System and Sound.
                 crawl_dir, morgue_dir, save_dir, macro_dir, sound
 3-  Lua files.
@@ -46,7 +47,7 @@ The contents of this text are:
 4-g     Travel and Exploration.
                 travel_delay, explore_delay, travel_avoid_terrain,
                 explore_greedy, explore_stop, explore_stop_pickup_ignore,
-                explore_improved, travel_key_stop,
+                explore_wall_bias, explore_improved, travel_key_stop,
                 tc_reachable, tc_dangerous, tc_disconnected,
                 tc_excluded, tc_exclude_circle,
                 runrest_ignore_message, runrest_stop_message,
@@ -302,6 +303,10 @@ restart_after_game = true/false
         When a game ends, Crawl will return to the main menu if
         restart_after_game is set. This option is enabled by default
         for tiles builds and disabled by default for other builds.
+
+default_manual_training = false
+        When set to true, new characters will start with skill training
+        set to manual mode instead of automatic mode.
 
 2-  File System.
 ================
@@ -877,6 +882,12 @@ explore_stop_pickup_ignore = <regex list>
         This options has no affect on items which were thrown by the
         player.
 
+explore_wall_bias = 0
+        Adjusts how much autoexplore favours attempting to discover room
+        perimeters and corners. At higher values, autoexplore will more
+        heavily favour visiting squares that are next to walls; at 0 it
+        will not favour them at all.
+
 explore_improved = false
         If set to true explore will attempt to reduce zig-zagging during
         auto-explore.  On average it increases the number of turns taken
@@ -909,7 +920,7 @@ runrest_stop_message = <list of regexes>
         Use these to force messages to interrupt travel and resting, or
         not. These are matched against full message text. To limit a
         substring match to a message channel, prefix the substring with
-        the channel name and a colon (see section 4-k below on Message
+        the channel name and a colon (see section 4-l below on Message
         Channels). For instance, if you want travel to stop when you're
         hit by divine retribution, you could use:
              runrest_stop_message = god:wrath finds you
@@ -1853,7 +1864,8 @@ tile_layout_priority = minimap, inventory, gold_turn, command, spell, monster
         tab before it on the option line, the tab will still be placed above it,
         but it will have priority over it so the inventory might not be able to
         expand to its maximum size (6 lines). The minimap is always placed
-        between the stat area and the tabs.
+        between the stat area and the tabs. The memorisation and skill tabs can
+        be added to the list too, but are not by default.
 
 tile_force_regenerate_levels = false
 
@@ -1929,6 +1941,9 @@ dump_order += monlist,kills
         in the game.  This will only be included in the final dump
         which happens when you die, quit or win (or in ordinary dumps
         while in wizard mode).
+
+        Also, "spell_usage" will count spells you have used, in total and
+        per every three experience levels.
 
 dump_book_spells = true
         By default all randart spellbooks in inventory will have all their

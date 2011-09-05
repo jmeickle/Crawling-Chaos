@@ -783,6 +783,7 @@ void item_colour(item_def &item)
                      ETC_KRAKEN};
 
                 item.colour = RANDOM_ELEMENT(types);
+                item.special = random_int();
                 break;
             }
 
@@ -1551,7 +1552,9 @@ static brand_type _determine_weapon_brand(const item_def& item, int item_level)
         case WPN_BLESSED_FALCHION:      // special gifts of TSO
         case WPN_BLESSED_LONG_SWORD:
         case WPN_BLESSED_SCIMITAR:
+#if TAG_MAJOR_VERSION == 32
         case WPN_BLESSED_KATANA:
+#endif
         case WPN_EUDEMON_BLADE:
         case WPN_BLESSED_DOUBLE_SWORD:
         case WPN_BLESSED_GREAT_SWORD:
@@ -1636,7 +1639,6 @@ bool is_weapon_brand_ok(int type, int brand, bool strict)
     case SPWPN_DEBUG_RANDART:
     case NUM_SPECIAL_WEAPONS:
     case NUM_REAL_SPECIAL_WEAPONS:
-    case SPWPN_DUMMY_CRUSHING:
         die("invalid brand %d on weapon %d (%s)", brand, type,
             item.name(DESC_PLAIN).c_str());
         break;
@@ -2356,8 +2358,10 @@ bool is_armour_brand_ok(int type, int brand, bool strict)
     case SPARM_NORMAL:
         return (true);
 
-    case SPARM_RUNNING:
     case SPARM_LEVITATION:
+        if (slot == EQ_BODY_ARMOUR)
+            return (true);
+    case SPARM_RUNNING:
     case SPARM_STEALTH:
         return (slot == EQ_BOOTS);
 
@@ -3080,6 +3084,7 @@ static void _generate_misc_item(item_def& item, int force_type, int force_ego)
 #if TAG_MAJOR_VERSION == 32
              || item.sub_type == MISC_CRYSTAL_BALL_OF_FIXATION
 #endif
+             || item.sub_type == MISC_EMPTY_EBONY_CASKET
              // Pure decks are rare in the dungeon.
              || (item.sub_type == MISC_DECK_OF_ESCAPE
                     || item.sub_type == MISC_DECK_OF_DESTRUCTION
@@ -3087,10 +3092,6 @@ static void _generate_misc_item(item_def& item, int force_type, int force_ego)
                     || item.sub_type == MISC_DECK_OF_SUMMONING
                     || item.sub_type == MISC_DECK_OF_WONDERS)
                  && !one_chance_in(5));
-
-        // filling those silly empty boxes -- bwr
-        if (item.sub_type == MISC_EMPTY_EBONY_CASKET && !one_chance_in(20))
-            item.sub_type = MISC_BOX_OF_BEASTS;
     }
 
     if (is_deck(item))
@@ -3136,7 +3137,7 @@ int items(bool allow_uniques,
               && force_type <= MISC_LAST_DECK);
 
     // Find an empty slot for the item (with culling if required).
-    int p = get_item_slot(10);
+    int p = get_mitm_slot(10);
     if (p == NON_ITEM)
         return (NON_ITEM);
 

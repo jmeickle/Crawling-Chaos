@@ -28,6 +28,9 @@
 
 #include "artefact.h"
 #include "branch.h"
+#if TAG_MAJOR_VERSION == 32
+# include "colour.h"
+#endif
 #include "coord.h"
 #include "coordit.h"
 #include "describe.h"
@@ -1129,6 +1132,9 @@ static void tag_construct_you(writer &th)
         marshallInt(th, *it);
     }
 
+    marshallByte(th, you.skill_menu_do);
+    marshallByte(th, you.skill_menu_view);
+
     marshallInt(th, you.transfer_from_skill);
     marshallInt(th, you.transfer_to_skill);
     marshallInt(th, you.transfer_skill_points);
@@ -1240,6 +1246,21 @@ static void tag_construct_you(writer &th)
     for (unsigned int k = 0; k < ARRAYSZ(you.montiers); k++)
         marshallInt(th, you.montiers[k]);
 #endif
+
+    j = 0;
+    for (std::map<spell_type, FixedVector<int, 27> >::const_iterator sp =
+         you.spell_usage.begin(); sp != you.spell_usage.end(); ++sp)
+    {
+        j++;
+    }
+    marshallShort(th, j);
+    for (std::map<spell_type, FixedVector<int, 27> >::const_iterator sp =
+         you.spell_usage.begin(); sp != you.spell_usage.end(); ++sp)
+    {
+        marshallShort(th, sp->first);
+        for (int k = 0; k < 27; k++)
+            marshallInt(th, sp->second[k]);
+    }
 
     if (!dlua.callfn("dgn_save_data", "u", &th))
         mprf(MSGCH_ERROR, "Failed to save Lua data: %s", dlua.error.c_str());
@@ -1911,7 +1932,7 @@ static void tag_read_you(reader &th)
             you.train[j]  = unmarshallByte(th);
         else if (th.getMinorVersion() < TAG_MINOR_FOCUS_SKILL)
         {
-            char training = unmarshallByte(th);
+            int8_t training = unmarshallByte(th);
             if (training == -1)
                 you.train[j] = you.training[j] = 0;
             else
@@ -1944,12 +1965,24 @@ static void tag_read_you(reader &th)
 #if TAG_MAJOR_VERSION == 32
     }
     else
+    {
+        check_selected_skills();
         init_training();
+    }
 #endif
 
     // If somebody SIGHUP'ed out of the skill menu with all skills disabled.
     check_selected_skills();
 
+#if TAG_MAJOR_VERSION == 32
+    if (th.getMinorVersion() >= TAG_MINOR_SKILL_MENU_STATES)
+    {
+#endif
+    you.skill_menu_do = static_cast<skill_menu_state>(unmarshallByte(th));
+    you.skill_menu_view = static_cast<skill_menu_state>(unmarshallByte(th));
+#if TAG_MAJOR_VERSION == 32
+    }
+#endif
     you.transfer_from_skill = static_cast<skill_type>(unmarshallInt(th));
     you.transfer_to_skill = static_cast<skill_type>(unmarshallInt(th));
     you.transfer_skill_points = unmarshallInt(th);
@@ -2102,6 +2135,20 @@ static void tag_read_you(reader &th)
     if (th.getMinorVersion() >= TAG_MINOR_MON_TIER_STATS)
         for (unsigned int k = 0; k < ARRAYSZ(you.montiers); k++)
             you.montiers[k] = unmarshallInt(th);
+
+    if (th.getMinorVersion() >= TAG_MINOR_SPELL_USAGE)
+    {
+#endif
+    // Counts of spells cast, per level.
+    count = unmarshallShort(th);
+    for (i = 0; i < count; i++)
+    {
+        spell_type spell = (spell_type)unmarshallShort(th);
+        for (j = 0; j < 27; j++)
+            you.spell_usage[spell][j] = unmarshallInt(th);
+    }
+#if TAG_MAJOR_VERSION == 32
+    }
 #endif
 
     if (!dlua.callfn("dgn_load_data", "u", &th))
@@ -2113,6 +2160,25 @@ static void tag_read_you(reader &th)
 
     you.props.clear();
     you.props.read(th);
+
+#if TAG_MAJOR_VERSION == 32
+    if (th.getMinorVersion() < TAG_MINOR_SKILL_MENU_STATES)
+    {
+        if (you.props.exists("skm_do"))
+        {
+            you.skill_menu_do =
+                static_cast<skill_menu_state>(you.props["skm_do"].get_int());
+            you.props.erase("skm_do");
+        }
+        if (you.props.exists("skm_view"))
+        {
+            you.skill_menu_view =
+                static_cast<skill_menu_state>(you.props["skm_view"].get_int());
+            you.props.erase("skm_view");
+        }
+
+    }
+#endif
 }
 
 static void tag_read_you_items(reader &th)
@@ -2646,6 +2712,10 @@ void unmarshallMapCell(reader &th, map_cell& cell)
 
     if (flags & MAP_SERIALIZE_FEATURE_COLOUR)
         feat_colour = unmarshallUnsigned(th);
+#if TAG_MAJOR_VERSION == 32
+    if (feat_colour > ETC_DISCO && th.getMinorVersion() < TAG_MINOR_SKILL_MENU_STATES)
+        feat_colour = ETC_DISCO;
+#endif
 
     if (feat_is_trap(feature))
 #if TAG_MAJOR_VERSION == 32
@@ -2814,6 +2884,7 @@ void marshallMonsterInfo(writer &th, const monster_info& mi)
     marshallUnsigned(th, mi.number);
     marshallUnsigned(th, mi.colour);
     marshallUnsigned(th, mi.attitude);
+    marshallUnsigned(th, mi.threat);
     marshallUnsigned(th, mi.dam);
     marshallUnsigned(th, mi.fire_blocker);
     marshallString(th, mi.description);
@@ -2846,6 +2917,10 @@ void unmarshallMonsterInfo(reader &th, monster_info& mi)
     unmarshallUnsigned(th, mi.number);
     unmarshallUnsigned(th, mi.colour);
     unmarshallUnsigned(th, mi.attitude);
+#if TAG_MAJOR_VERSION == 32
+    if (th.getMinorVersion() >= TAG_MINOR_MONS_THREAT_LEVEL)
+#endif
+        unmarshallUnsigned(th, mi.threat);
     unmarshallUnsigned(th, mi.dam);
     unmarshallUnsigned(th, mi.fire_blocker);
     mi.description = unmarshallString(th);
@@ -3011,6 +3086,7 @@ void tag_construct_level_tiles(writer &th)
         }
 
     mcache.construct(th);
+    marshallInt(th, TILEP_PLAYER_MAX);
 
     marshallInt(th, TILE_WALL_MAX);
 #endif
@@ -3050,6 +3126,14 @@ static void tag_read_level(reader &th)
 
     env.grid_colours.init(BLACK);
     _run_length_decode(th, unmarshallByte, env.grid_colours, GXM, GYM);
+#if TAG_MAJOR_VERSION == 32
+    if (th.getMinorVersion() <= TAG_MINOR_SKILL_MENU_STATES)
+    {
+        for (rectangle_iterator ri(0); ri; ++ri)
+            if (env.grid_colours(*ri) > ETC_DISCO)
+                env.grid_colours(*ri) = ETC_DISCO;
+    }
+#endif
 
     env.cloud_no = 0;
 
@@ -3477,6 +3561,19 @@ void tag_read_level_tiles(reader &th)
     _debug_count_tiles();
 
     mcache.read(th);
+#if TAG_MAJOR_VERSION == 32
+    if (th.getMinorVersion() < TAG_MINOR_MONSTER_TILES)
+        mcache.clear_all();
+    else
+#endif
+    if (unmarshallInt(th) != TILEP_PLAYER_MAX)
+    {
+        dprf("MON/PLAYER tilecount has changed -- dropping tilemcache.");
+        mcache.clear_all();
+    }
+
+    if (mcache.empty())
+        env.tile_bk_fg.init(0);
 
     if (unmarshallInt(th) != TILE_WALL_MAX)
     {

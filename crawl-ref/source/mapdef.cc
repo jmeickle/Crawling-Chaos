@@ -69,6 +69,9 @@ static const char *map_section_names[] = {
 
 static string_set Map_Flag_Names;
 
+const char *traversable_glyphs =
+    ".+=w@{}()[]<>BC^~TUVY$%*|Odefghijk0123456789";
+
 // atoi that rejects strings containing non-numeric trailing characters.
 // returns defval for invalid input.
 template <typename V>
@@ -1034,7 +1037,8 @@ int map_lines::glyph(const coord_def &c) const
 
 bool map_lines::is_solid(int gly) const
 {
-    return (gly == 'x' || gly == 'c' || gly == 'b' || gly == 'v' || gly == 't');
+    return (gly == 'x' || gly == 'c' || gly == 'b' || gly == 'v' || gly == 't'
+         || gly == 'X');
 }
 
 void map_lines::check_borders()
@@ -2329,8 +2333,7 @@ void map_def::load()
     if (!index_only)
         return;
 
-    const std::string descache_base = get_descache_path(file, "");
-
+    const std::string descache_base = get_descache_path(cache_name, "");
     file_lock deslock(descache_base + ".lk", "rb", false);
     const std::string loadfile = descache_base + ".dsc";
 
@@ -2439,6 +2442,7 @@ void map_def::set_file(const std::string &s)
     veto.set_file(s);
     epilogue.set_file(s);
     file = get_base_filename(s);
+    cache_name = get_cache_name(s);
 }
 
 std::string map_def::run_lua(bool run_main)
@@ -5526,7 +5530,7 @@ feature_spec_list keyed_mapspec::parse_feature(const std::string &str)
         return (list);
     }
 
-    if (s.find("trap") != std::string::npos)
+    if (s.find("trap") != std::string::npos || s == "web")
     {
         list.push_back(parse_trap(s, weight));
         return (list);

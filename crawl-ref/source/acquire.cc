@@ -29,6 +29,7 @@
 #include "misc.h"
 #include "player.h"
 #include "random.h"
+#include "random-weight.h"
 #include "religion.h"
 #include "skills2.h"
 #include "spl-book.h"
@@ -577,12 +578,24 @@ static missile_type _acquirement_missile_subtype()
     case SK_CROSSBOWS: result = MI_BOLT; break;
 
     case SK_THROWING:
-        // Assuming that blowgun in inventory means that they
-        // may want needles for it (but darts might also be
-        // wanted).  Maybe expand this... see above comment.
-        result =
-            (_have_item_with_types(OBJ_WEAPONS, WPN_BLOWGUN) && coinflip())
-            ? MI_NEEDLE : MI_DART;
+        {
+            // Choose from among all usable missile types.
+            // Only give needles if they have a blowgun in inventory.
+            std::vector<std::pair<missile_type, int> > missile_weights;
+
+            missile_weights.push_back(std::make_pair(MI_DART, 100));
+
+            if (_have_item_with_types(OBJ_WEAPONS, WPN_BLOWGUN))
+                missile_weights.push_back(std::make_pair(MI_NEEDLE, 100));
+
+            if (you.body_size() >= SIZE_MEDIUM)
+                missile_weights.push_back(std::make_pair(MI_JAVELIN, 100));
+
+            if (you.can_throw_large_rocks())
+                missile_weights.push_back(std::make_pair(MI_LARGE_ROCK, 100));
+
+            result = *random_choose_weighted(missile_weights);
+        }
         break;
 
     default:
@@ -1037,7 +1050,7 @@ static bool _do_book_acquirement(item_def &book, int agent)
             }
 #if TAG_MAJOR_VERSION == 32
             if (bk == BOOK_MINOR_MAGIC_II || bk == BOOK_MINOR_MAGIC_III
-                || bk == BOOK_CONJURATIONS_I || bk == BOOK_BRANDS)
+                || bk == BOOK_CONJURATIONS_I)
             {
                 weights[bk] = 0;
                 continue;
@@ -1406,6 +1419,8 @@ int acquirement_create_item(object_class_type class_wanted,
                                    * roll_dice(1, 8)
                                    * roll_dice(1, 8)));
     }
+    else if (class_wanted == OBJ_MISSILES && !divine)
+        thing.quantity *= 2;
     else if (quant > 1)
         thing.quantity = quant;
 
@@ -1599,25 +1614,29 @@ bool acquirement(object_class_type class_wanted, int agent,
     {
         ASSERT(!quiet);
         mesclr();
-        mprf("%-24s[c] Jewellery      [d] Book",
-            you.species == SP_FELID ? "" : "[a] Weapon  [b] Armour");
-        mprf("%-24s[g] Miscellaneous  [h] %s [i] Gold",
-            you.species == SP_FELID ? "" : "[e] Staff   [f] Wand",
-            you.religion == GOD_FEDHAS ? "Fruit" : "Food ");
-        mpr("What kind of item would you like to acquire? ", MSGCH_PROMPT);
+        mprf("%-29s[c] Jewellery [d] Book%s",
+            you.species == SP_FELID ? "" : "[a] Weapon [b] Armour",
+            you.species == SP_FELID ? "" : " [e] Staff");
+        mprf("%-11s[g] Miscellaneous [h] %-5s     [i] Gold %s",
+            you.species == SP_FELID ? "" : "[f] Wand",
+            you.religion == GOD_FEDHAS ? "Fruit" : "Food ",
+            you.species == SP_FELID ? "" : "[j] Ammunition");
+        mpr("What kind of item would you like to acquire? (\\ to view known items)", MSGCH_PROMPT);
 
         const int keyin = tolower(get_ch());
         switch (keyin)
         {
-        case 'a': case ')':            class_wanted = OBJ_WEAPONS;    break;
-        case 'b': case '[':  case ']': class_wanted = OBJ_ARMOUR;     break;
-        case 'c': case '=':  case '"': class_wanted = OBJ_JEWELLERY;  break;
-        case 'd': case '+':  case ':': class_wanted = OBJ_BOOKS;      break;
-        case 'e': case '\\': case '|': class_wanted = OBJ_STAVES;     break;
-        case 'f': case '/':            class_wanted = OBJ_WANDS;      break;
-        case 'g': case '}':  case '{': class_wanted = OBJ_MISCELLANY; break;
-        case 'h': case '%':            class_wanted = OBJ_FOOD;       break;
-        case 'i': case '$':            class_wanted = OBJ_GOLD;       break;
+        case 'a':    class_wanted = OBJ_WEAPONS;    break;
+        case 'b':    class_wanted = OBJ_ARMOUR;     break;
+        case 'c':    class_wanted = OBJ_JEWELLERY;  break;
+        case 'd':    class_wanted = OBJ_BOOKS;      break;
+        case 'e':    class_wanted = OBJ_STAVES;     break;
+        case 'f':    class_wanted = OBJ_WANDS;      break;
+        case 'g':    class_wanted = OBJ_MISCELLANY; break;
+        case 'h':    class_wanted = OBJ_FOOD;       break;
+        case 'i':    class_wanted = OBJ_GOLD;       break;
+        case 'j':    class_wanted = OBJ_MISSILES;   break;
+        case '\\':   check_item_knowledge();        break;
         default:
             // Lets wizards escape out of accidently choosing acquirement.
             if (agent == AQ_WIZMODE)

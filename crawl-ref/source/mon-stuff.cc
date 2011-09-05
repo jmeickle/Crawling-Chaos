@@ -27,9 +27,6 @@
 #include "food.h"
 #include "godabil.h"
 #include "godconduct.h"
-#if TAG_MAJOR_VERSION == 32
-#include "godpassive.h"
-#endif
 #include "hints.h"
 #include "hiscores.h"
 #include "itemname.h"
@@ -560,14 +557,14 @@ int place_monster_corpse(const monster* mons, bool silent,
     you.montiers[4]++;
 #endif
 
-    int o = get_item_slot();
+    int o = get_mitm_slot();
 
     // Zotdef corpse creation forces cleanup, otherwise starvation
     // kicks in. The magic number 9 is less than the magic number of
-    // 10 in get_item_slot which indicates that a cull will be initiated
+    // 10 in get_mitm_slot which indicates that a cull will be initiated
     // if a free slot can't be found.
     if (o == NON_ITEM && crawl_state.game_is_zotdef())
-        o = get_item_slot(9);
+        o = get_mitm_slot(9);
 
     if (o == NON_ITEM)
     {
@@ -876,9 +873,6 @@ static bool _ely_protect_ally(monster* mons)
 // be killed by you or one of your friends.
 static bool _ely_heal_monster(monster* mons, killer_type killer, int i)
 {
-    if (you.religion == GOD_ELYVILON)
-        return (false);
-
     god_type god = GOD_ELYVILON;
 
     if (!you.penance[god] || !god_hates_your_god(god))
@@ -1659,15 +1653,7 @@ int monster_die(monster* mons, killer_type killer,
 
 #if TAG_MAJOR_VERSION == 32
     if (gives_xp)
-    {
-        int tier = ash_monster_tier(mons);
-        if (tier != MONS_SENSED_FRIENDLY)
-        {
-            tier -= MONS_SENSED_TRIVIAL;
-            ASSERT(tier >= 0 && tier <= 3);
-            you.montiers[tier]++;
-        }
-    }
+        you.montiers[mons_threat_level(mons, true)]++;
 #endif
 
     // Take note!
@@ -1749,7 +1735,7 @@ int monster_die(monster* mons, killer_type killer,
         if (!silent && !mons_reset && !was_banished)
         {
             simple_monster_message(mons, " vapourises!",
-                                   MSGCH_MONSTER_DAMAGE,  MDAM_DEAD);
+                                   MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
             silent = true;
         }
 
@@ -2436,15 +2422,6 @@ int monster_die(monster* mons, killer_type killer,
                 monster_die(*mit, KILL_MISC, NON_MONSTER, true);
             }
         }
-        if (mons->has_ench(ENCH_PORTAL_TIMER))
-        {
-            coord_def base_pos = mons->props["base_position"].get_coord();
-
-            if (env.grid(base_pos) == DNGN_TEMP_PORTAL)
-            {
-                env.grid(base_pos) = DNGN_FLOOR;
-            }
-        }
     }
     else if (mons->type == MONS_ELDRITCH_TENTACLE_SEGMENT
              && killer != KILL_MISC)
@@ -2544,8 +2521,9 @@ int monster_die(monster* mons, killer_type killer,
     // Monsters haloes should be removed when they die.
     if (mons->holiness() == MH_HOLY)
         invalidate_agrid();
-    // Likewise silence
-    if (mons->type == MONS_SILENT_SPECTRE)
+    // Likewise silence and antihalos
+    if (mons->type == MONS_SILENT_SPECTRE
+        || mons->type == MONS_PROFANE_SERVITOR)
         invalidate_agrid();
 
     const coord_def mwhere = mons->pos();
@@ -2672,6 +2650,7 @@ static bool _valid_morph(monster* mons, monster_type new_mclass)
 
     // Various inappropriate polymorph targets.
     if (mons_class_holiness(new_mclass) != mons->holiness()
+        || mons_class_flag(new_mclass, M_UNFINISHED)  // no unfinished monsters
         || mons_class_flag(new_mclass, M_NO_POLY_TO)  // explicitly disallowed
         || mons_class_flag(new_mclass, M_UNIQUE)      // no uniques
         || mons_class_flag(new_mclass, M_NO_EXP_GAIN) // not helpless
@@ -3064,9 +3043,10 @@ bool monster_polymorph(monster* mons, monster_type targetc,
         player_angers_monster(mons);
 
     // Xom likes watching monsters being polymorphed.
-    xom_is_stimulated(mons->is_shapeshifter()               ? 16 :
-                      power == PPT_LESS || mons->friendly() ? 32 :
-                      power == PPT_SAME                           ? 64 : 128);
+    xom_is_stimulated(mons->is_shapeshifter()               ? 12 :
+                      power == PPT_LESS || mons->friendly() ? 25 :
+                      power == PPT_SAME                     ? 50
+                                                            : 100);
 
     return (player_messaged);
 }
@@ -3395,13 +3375,13 @@ mon_dam_level_type mons_get_damage_level(const monster* mons)
         return MDAM_OKAY;
     }
 
-    if (mons->hit_points <= mons->max_hit_points / 6)
+    if (mons->hit_points <= mons->max_hit_points / 5)
         return MDAM_ALMOST_DEAD;
-    else if (mons->hit_points <= mons->max_hit_points / 4)
+    else if (mons->hit_points <= mons->max_hit_points * 2 / 5)
         return MDAM_SEVERELY_DAMAGED;
-    else if (mons->hit_points <= mons->max_hit_points / 3)
+    else if (mons->hit_points <= mons->max_hit_points * 3 / 5)
         return MDAM_HEAVILY_DAMAGED;
-    else if (mons->hit_points <= mons->max_hit_points * 3 / 4)
+    else if (mons->hit_points <= mons->max_hit_points * 4 / 5)
         return MDAM_MODERATELY_DAMAGED;
     else if (mons->hit_points < mons->max_hit_points)
         return MDAM_LIGHTLY_DAMAGED;
@@ -3535,8 +3515,28 @@ void make_mons_leave_level(monster* mon)
     }
 }
 
-// Checks whether there is a straight path from p1 to p2 that passes
-// through features >= allowed.
+static bool _can_safely_go_through(const monster * mon, const coord_def p)
+{
+    const dungeon_feature_type can_move =
+        (mons_habitat(mon) == HT_AMPHIBIOUS) ? DNGN_DEEP_WATER
+                                             : DNGN_SHALLOW_WATER;
+
+    if (env.grid(p) < can_move)
+        return false;
+
+    // Stupid monsters don't pathfind around shallow water
+    // except the clinging ones.
+    if (mon->floundering_at(p)
+        && (mons_intel(mon) >= I_NORMAL || mon->can_cling_to_walls()))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+// Checks whether there is a straight path from p1 to p2 that monster can
+// safely passes through.
 // If it exists, such a path may be missed; on the other hand, it
 // is not guaranteed that p2 is visible from p1 according to LOS rules.
 // Not symmetric.
@@ -3544,7 +3544,7 @@ void make_mons_leave_level(monster* mon)
 //        something like exists_ray(p1, p2, opacity_monmove(mons)),
 //        where opacity_monmove() is fixed to include opacity_immob.
 bool can_go_straight(const monster* mon, const coord_def& p1,
-                     const coord_def& p2, dungeon_feature_type allowed)
+                     const coord_def& p2)
 {
     // If no distance, then trivially true
     if (p1 == p2)
@@ -3558,20 +3558,11 @@ bool can_go_straight(const monster* mon, const coord_def& p1,
     if (!find_ray(p1, p2, ray, opc_immob))
         return (false);
 
-    dungeon_feature_type max_disallowed = DNGN_MAXOPAQUE;
-    if (allowed != DNGN_UNSEEN)
-        max_disallowed = static_cast<dungeon_feature_type>(allowed - 1);
-
     for (ray.advance(); ray.pos() != p2; ray.advance())
     {
         ASSERT(map_bounds(ray.pos()));
-        dungeon_feature_type feat = env.grid(ray.pos());
-        if (feat >= DNGN_UNSEEN && feat <= max_disallowed
-            || (mons_intel(mon) >= I_NORMAL || mon->can_cling_to_walls())
-                && mon->floundering_at(ray.pos()))
-        {
+        if (!_can_safely_go_through(mon, ray.pos()))
             return (false);
-        }
     }
 
     return (true);

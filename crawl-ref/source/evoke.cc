@@ -33,6 +33,7 @@
 #include "misc.h"
 #include "player-stats.h"
 #include "godconduct.h"
+#include "skills.h"
 #include "skills2.h"
 #include "spl-book.h"
 #include "spl-cast.h"
@@ -349,7 +350,9 @@ static bool _ball_of_seeing(void)
 
     int use = random2(you.skill(SK_EVOCATIONS) * 6);
 
-    if (use < 2)
+    if (you.level_type == LEVEL_LABYRINTH)
+        mpr("You see a maze of twisty little passages, all alike.");
+    else if (use < 2)
         lose_stat(STAT_INT, 1, false, "using a ball of seeing");
     else if (use < 5 && enough_mp(1, true))
     {
@@ -357,12 +360,8 @@ static bool _ball_of_seeing(void)
         set_mp(0);
         // if you're out of mana, the switch chain falls through to confusion
     }
-    else if (use < 10 || you.level_type == LEVEL_LABYRINTH)
-    {
-        if (you.level_type == LEVEL_LABYRINTH)
-            mpr("You see a maze of twisty little passages, all alike.");
+    else if (use < 10)
         confuse_player(10 + random2(10));
-    }
     else if (use < 15 || coinflip())
         mpr("You see nothing.");
     else if (magic_mapping(6 + you.skill(SK_EVOCATIONS),
@@ -465,19 +464,19 @@ void tome_of_power(int slot)
     {
         mpr("A cloud of weird smoke pours from the book's pages!");
         big_cloud(random_smoke_type(), &you, you.pos(), 20, 10 + random2(8));
-        xom_is_stimulated(16);
+        xom_is_stimulated(12);
     }
     else if (x_chance_in_y(2, 43))
     {
         mpr("A cloud of choking fumes pours from the book's pages!");
         big_cloud(CLOUD_POISON, &you, you.pos(), 20, 7 + random2(5));
-        xom_is_stimulated(64);
+        xom_is_stimulated(50);
     }
     else if (x_chance_in_y(2, 41))
     {
         mpr("A cloud of freezing gas pours from the book's pages!");
         big_cloud(CLOUD_COLD, &you, you.pos(), 20, 8 + random2(5));
-        xom_is_stimulated(64);
+        xom_is_stimulated(50);
     }
     else if (x_chance_in_y(3, 39))
     {
@@ -489,7 +488,7 @@ void tome_of_power(int slot)
 
         immolation(15, IMMOLATION_TOME, you.pos(), false, &you);
 
-        xom_is_stimulated(255);
+        xom_is_stimulated(200);
     }
     else if (one_chance_in(36))
     {
@@ -501,7 +500,7 @@ void tome_of_power(int slot)
             mpr("A horrible Thing appears!");
             mpr("It doesn't look too friendly.");
         }
-        xom_is_stimulated(255);
+        xom_is_stimulated(200);
     }
     else
     {
@@ -536,17 +535,23 @@ void tome_of_power(int slot)
 
 void stop_studying_manual(bool finish)
 {
+    const skill_type sk = you.manual_skill;
     if (finish)
     {
         mprf("You have finished your manual of %s and toss it away.",
-             skill_name(you.manual_skill));
+             skill_name(sk));
         dec_inv_item_quantity(you.manual_index, 1);
     }
     else
-        mprf("You stop studying %s.", skill_name(you.manual_skill));
+        mprf("You stop studying %s.", skill_name(sk));
 
     you.manual_skill = SK_NONE;
     you.manual_index = -1;
+    if (!you.skills[sk])
+    {
+        lose_skill(sk);
+        reset_training();
+    }
 }
 
 void skill_manual(int slot)
@@ -568,7 +573,7 @@ void skill_manual(int slot)
     {
         std::string prompt = make_stringf("This is a manual of %s. Do you want "
                                           "to study it?", skill_name(skill));
-        if (!yesno(prompt.c_str()))
+        if (!yesno(prompt.c_str(), true, 'n'))
         {
             canned_msg(MSG_OK);
             return;
@@ -581,6 +586,11 @@ void skill_manual(int slot)
     mprf("You start studying %s.", skill_name(skill));
     you.manual_skill = skill;
     you.manual_index = slot;
+    if (!you.skills[skill])
+    {
+        gain_skill(skill);
+        reset_training();
+    }
     you.turn_is_over = true;
 }
 
@@ -619,7 +629,7 @@ static bool _box_of_beasts(item_def &box)
             success = true;
 
             mpr("...and something leaps out!");
-            xom_is_stimulated(14);
+            xom_is_stimulated(10);
         }
     }
     else
@@ -645,22 +655,15 @@ static bool _ball_of_energy(void)
     int use = random2(you.skill(SK_EVOCATIONS) * 6);
 
     if (use < 2)
-    {
-        const int loss = roll_dice(1, 2 * you.max_intel() / 3);
-        lose_stat(STAT_INT, loss, false, "using a ball of energy");
-    }
-    else if (use < 4 && enough_mp(1, true))
+        lose_stat(STAT_INT, 1 + random2avg(7, 2), false, "using a ball of energy");
+    else if (use < 5 && enough_mp(1, true))
     {
         mpr("You feel your power drain away!");
         set_mp(0);
     }
-    else if (use < 6)
+    else if (use < 10)
     {
         confuse_player(10 + random2(10));
-    }
-    else if (use < 8)
-    {
-        you.paralyse(NULL, 2 + random2(2));
     }
     else
     {
@@ -675,7 +678,7 @@ static bool _ball_of_energy(void)
         else
         {
             mpr("You are suffused with power!");
-            inc_mp(6 + roll_dice(2, you.skill(SK_EVOCATIONS)));
+            inc_mp(5 + random2avg(you.skill(SK_EVOCATIONS), 2));
 
             ret = true;
         }

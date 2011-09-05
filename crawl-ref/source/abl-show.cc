@@ -566,7 +566,7 @@ static std::string _zd_mons_description_for_ability (const ability_def &abil)
     }
 }
 
-int count_relevant_monsters(const ability_def& abil)
+static int _count_relevant_monsters(const ability_def& abil)
 {
     monster_type mtyp = _monster_for_ability(abil);
     if (mtyp == MONS_PROGRAM_BUG)
@@ -574,7 +574,7 @@ int count_relevant_monsters(const ability_def& abil)
     return count_monsters(mtyp, true);        // Friendly ones only
 }
 
-trap_type trap_for_ability(const ability_def& abil)
+static trap_type _trap_for_ability(const ability_def& abil)
 {
     switch (abil.ability)
     {
@@ -595,7 +595,7 @@ trap_type trap_for_ability(const ability_def& abil)
 // Scale the zp cost by the number of friendly monsters
 // of that type. Each successive critter costs 20% more
 // than the last one, after the first two.
-int zp_cost(const ability_def& abil)
+static int _zp_cost(const ability_def& abil)
 {
     int cost = abil.zp_cost;
     int scale10 = 0;        // number of times to scale up by 10%
@@ -614,7 +614,7 @@ int zp_cost(const ability_def& abil)
         case ABIL_MAKE_OKLOB_CIRCLE:
         case ABIL_MAKE_BURNING_BUSH:
         case ABIL_MAKE_LIGHTNING_SPIRE:
-            num = count_relevant_monsters(abil);
+            num = _count_relevant_monsters(abil);
             // special case for oklob circles
             if (abil.ability == ABIL_MAKE_OKLOB_CIRCLE)
                 num /= 3;
@@ -633,14 +633,14 @@ int zp_cost(const ability_def& abil)
         // Monster type 2: less generous
         case ABIL_MAKE_ICE_STATUE:
         case ABIL_MAKE_OCS:
-            num = count_relevant_monsters(abil);
+            num = _count_relevant_monsters(abil);
             num -= 2; // first two are base cost
             scale20 = std::max(num, 0);        // after first two, 20% increment
 
         // Monster type 3: least generous
         case ABIL_MAKE_SILVER_STATUE:
         case ABIL_MAKE_CURSE_SKULL:
-            scale20 = count_relevant_monsters(abil);        // scale immediately
+            scale20 = _count_relevant_monsters(abil); // scale immediately
 
         // Simple Traps
         case ABIL_MAKE_DART_TRAP:
@@ -654,7 +654,7 @@ int zp_cost(const ability_def& abil)
         case ABIL_MAKE_NEEDLE_TRAP:
         case ABIL_MAKE_NET_TRAP:
         case ABIL_MAKE_ALARM_TRAP:
-            num = count_traps(trap_for_ability(abil));
+            num = count_traps(_trap_for_ability(abil));
             scale10 = std::max(num-5, 0);   // First 5 at base cost
             break;
 
@@ -704,7 +704,7 @@ const std::string make_cost_description(ability_type ability)
         if (!ret.str().empty())
             ret << ", ";
 
-        ret << zp_cost(abil);
+        ret << _zp_cost(abil);
         ret << " ZP";
     }
 
@@ -820,7 +820,7 @@ static std::string _get_piety_amount_str(int value)
                          "small");
 }
 
-const std::string make_detailed_cost_description(ability_type ability)
+static const std::string _detailed_cost_description(ability_type ability)
 {
     const ability_def& abil = _get_ability_def(ability);
     std::ostringstream ret;
@@ -1315,10 +1315,8 @@ static void _print_talent_description(const talent& tal)
         cprintf("No description found.");
     else
     {
-        std::ostringstream data;
-        data << name << "\n\n" << lookup << "\n";
-        data << make_detailed_cost_description(tal.which);
-        print_description(data.str());
+        print_description(name + "\n\n" + lookup + "\n"
+                          + _detailed_cost_description(tal.which));
     }
     getchm();
     clrscr();
@@ -1665,7 +1663,7 @@ static bool _activate_talent(const talent& tal)
         return (false);
     }
 
-    int zpcost = zp_cost(abil);
+    int zpcost = _zp_cost(abil);
     if (zpcost)
     {
         if (!enough_zp(zpcost, false))
@@ -1780,7 +1778,7 @@ static bool _do_ability(const ability_def& abil)
 
     // ZotDef traps
     case ABIL_MAKE_TELEPORT_TRAP:
-        if (you.pos().distance_from(orb_position()) < 10)
+        if ((you.pos() - env.orb_pos).abs() < 100)
         {
             mpr("Radiation from the Orb interferes with the trap's magic!");
             return false;
@@ -1794,7 +1792,7 @@ static bool _do_ability(const ability_def& abil)
     case ABIL_MAKE_NET_TRAP:
     case ABIL_MAKE_ALARM_TRAP:
     case ABIL_MAKE_BLADE_TRAP:
-        if (!create_trap(trap_for_ability(abil)))
+        if (!create_trap(_trap_for_ability(abil)))
             return false;
         break;
     // End ZotDef traps
@@ -2134,7 +2132,7 @@ static bool _do_ability(const ability_def& abil)
         break;
 
     case ABIL_EVOKE_LEVITATE:           // ring, boots, randarts
-        if (player_equip_ego_type(EQ_BOOTS, SPARM_LEVITATION))
+        if (player_equip_ego_type(EQ_ALL_ARMOUR, SPARM_LEVITATION))
         {
             bool standing = !you.airborne();
             you.attribute[ATTR_PERM_LEVITATION] = 1;
@@ -2254,12 +2252,7 @@ static bool _do_ability(const ability_def& abil)
 
     case ABIL_YRED_INJURY_MIRROR:
         if (yred_injury_mirror())
-        {
-            // Strictly speaking, since it is random, it is possible it
-            // actually decreases.  The player doesn't know this, and this
-            // way smart-asses won't re-roll it several times before charging.
-            mpr("Your dark aura grows in power.");
-        }
+            mpr("You renew your dark mirror aura.");
         else
         {
             mprf("You %s in prayer and are bathed in unholy energy.",
@@ -3210,7 +3203,7 @@ std::vector<talent> your_talents(bool check_confused)
             // You can still evoke perm levitation if you have temporary one.
             if (!you.is_levitating()
                 || !you.attribute[ATTR_PERM_LEVITATION]
-                   && player_equip_ego_type(EQ_BOOTS, SPARM_LEVITATION))
+                   && player_equip_ego_type(EQ_ALL_ARMOUR, SPARM_LEVITATION))
             {
                 _add_talent(talents, ABIL_EVOKE_LEVITATE, check_confused);
             }

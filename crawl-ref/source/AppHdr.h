@@ -156,8 +156,6 @@
     #ifndef REGEX_PCRE
     #define REGEX_PCRE
     #endif
-
-    #define NEED_USLEEP
 #else
     #error Missing platform #define or unsupported compiler.
 #endif
@@ -309,14 +307,6 @@
     #endif
 #endif
 
-
-#ifdef USE_TILE
-    #ifdef __cplusplus
-    #include "libgui.h"
-    #include "tiles.h"
-    #endif
-#endif
-
 // =========================================================================
 //  Lua user scripts (NOTE: this may also be enabled in your makefile!)
 // =========================================================================
@@ -334,7 +324,7 @@
 //  Game Play Defines
 // =========================================================================
 // use Abyss morphing
-// #define NEW_ABYSS
+#define NEW_ABYSS
 
 // number of older messages stored during play and in save files
 #define NUM_STORED_MESSAGES   1000
@@ -379,15 +369,16 @@
 
 #ifdef __cplusplus
 
-
 template < class T >
 inline void UNUSED(const volatile T &)
 {
 }
 
+#endif // __cplusplus
+
 // And now headers we want precompiled
 #ifdef TARGET_COMPILER_VC
-#include "msvc.h"
+# include "msvc.h"
 #endif
 
 #include "externs.h"
@@ -395,9 +386,14 @@ inline void UNUSED(const volatile T &)
 #include "version.h"
 
 #ifdef TARGET_COMPILER_VC
-#include "libw32c.h"
+# include "libw32c.h"
 #endif
 
-#endif // __cplusplus
+#ifdef USE_TILE
+# ifdef __cplusplus
+#  include "libgui.h"
+#  include "tiles.h"
+# endif
+#endif
 
 #endif // APPHDR_H

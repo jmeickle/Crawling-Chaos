@@ -394,7 +394,7 @@ enum book_type
     BOOK_CANTRIPS,
     BOOK_PARTY_TRICKS,
     BOOK_STALKING,
-    BOOK_BRANDS,
+    BOOK_DEBILITATION,
     BOOK_DRAGON,
     BOOK_BURGLARY,
     BOOK_DREAMS,
@@ -478,7 +478,8 @@ enum canned_message_type
     MSG_NO_ENERGY,
     MSG_SPELL_FIZZLES,
     MSG_HUH,
-    MSG_EMPTY_HANDED,
+    MSG_EMPTY_HANDED_ALREADY,
+    MSG_EMPTY_HANDED_NOW,
     MSG_YOU_BLINK,
     MSG_STRANGE_STASIS,
     MSG_NO_SPELLS,
@@ -593,9 +594,6 @@ enum command_type
     CMD_EVOKE,
     CMD_EVOKE_WIELDED,
     CMD_WIELD_WEAPON,
-#if TAG_MAJOR_VERSION > 32
-    CMD_UNWIELD_WEAPON,
-#endif
     CMD_WEAPON_SWAP,
     CMD_FIRE,
     CMD_QUIVER_ITEM,
@@ -633,6 +631,7 @@ enum command_type
     CMD_DISPLAY_MAP,
     CMD_DISPLAY_OVERMAP,
     CMD_DISPLAY_RELIGION,
+    CMD_DISPLAY_RUNES,
     CMD_DISPLAY_CHARACTER_STATUS,
     CMD_DISPLAY_SPELLS,
     CMD_EXPERIENCE_CHECK,
@@ -768,6 +767,7 @@ enum command_type
     CMD_TARGET_SELECT_ENDPOINT,
     CMD_TARGET_SELECT_FORCE,
     CMD_TARGET_SELECT_FORCE_ENDPOINT,
+    CMD_TARGET_GET,
     CMD_TARGET_OBJ_CYCLE_BACK,
     CMD_TARGET_OBJ_CYCLE_FORWARD,
     CMD_TARGET_CYCLE_FORWARD,
@@ -836,13 +836,10 @@ enum command_type
     CMD_DISABLE_MORE,
     CMD_MIN_SYNTHETIC = CMD_DISABLE_MORE,
     CMD_ENABLE_MORE,
+    CMD_UNWIELD_WEAPON,
 
     // [ds] Silently ignored, requests another round of input.
     CMD_NEXT_CMD,
-
-#if TAG_MAJOR_VERSION == 32
-    CMD_UNWIELD_WEAPON,
-#endif
 
     // Must always be last
     CMD_MAX_CMD
@@ -1019,6 +1016,14 @@ enum level_flag_type
     LFLAG_NO_MAGIC_MAP    = (1 << 2), // Level can't be magic mapped.
 };
 
+enum level_state_type
+{
+    LSTATE_NONE = 0,
+
+    LSTATE_GOLUBRIA       = (1 << 0), // A Golubria trap exists.
+    LSTATE_GLOW_MOLD      = (1 << 1), // Any glowing mold exists.
+};
+
 // NOTE: The order of these is very important to their usage!
 // [dshaligram] If adding/removing from this list, also update view.cc!
 enum dungeon_char_type
@@ -1162,7 +1167,13 @@ enum dungeon_feature_type
     DNGN_TRAP_MECHANICAL = 75,         //   75
     DNGN_TRAP_MAGICAL,
     DNGN_TRAP_NATURAL,
+#if TAG_MAJOR_VERSION == 32
     DNGN_UNDISCOVERED_TRAP,            //   78
+    DNGN_TRAP_WEB,                     //   79
+#else
+    DNGN_TRAP_WEB,
+    DNGN_UNDISCOVERED_TRAP,
+#endif
 
     DNGN_ENTER_SHOP = 80,              //   80
     DNGN_ENTER_LABYRINTH,
@@ -1236,7 +1247,7 @@ enum dungeon_feature_type
     // Portals to various places unknown.
     DNGN_ENTER_PORTAL_VAULT = 160,
     DNGN_EXIT_PORTAL_VAULT,
-    DNGN_TEMP_PORTAL,
+    DNGN_MALIGN_GATEWAY,
 
     // Order of altars must match order of gods (god_type)
     DNGN_ALTAR_FIRST_GOD = 180,        // 180
@@ -1268,12 +1279,12 @@ enum dungeon_feature_type
     DNGN_DRY_FOUNTAIN_SPARKLING,
     DNGN_DRY_FOUNTAIN_BLOOD,           //  205
     DNGN_PERMADRY_FOUNTAIN,
-    DNGN_ABANDONED_SHOP,
+    DNGN_ABANDONED_SHOP,               //  207
 
     // Values below should never be saved.
     DNGN_EXPLORE_HORIZON = 210, // dummy for redefinition
 
-    NUM_FEATURES                       //  208
+    NUM_FEATURES
 };
 
 enum duration_type
@@ -1795,6 +1806,7 @@ enum map_marker_type
     MAT_TOMB,
     MAT_MALIGN,
     MAT_PHOENIX,
+    MAT_POSITION,
     NUM_MAP_MARKER_TYPES,
     MAT_ANY,
 };
@@ -1836,6 +1848,7 @@ enum menu_type
     MT_DROP,
     MT_PICKUP,
     MT_KNOW,
+    MT_RUNES,
 };
 
 enum mon_holy_type
@@ -1875,7 +1888,9 @@ enum monster_type                      // (int) menv[].type
     MONS_SMALL_SNAKE,
     MONS_SNAKE,
     MONS_WATER_MOCCASIN,
+#if TAG_MAJOR_VERSION == 32
     MONS_VIPER,
+#endif
     MONS_BLACK_MAMBA,
     MONS_ANACONDA,
     MONS_SEA_SNAKE,
@@ -1915,7 +1930,9 @@ enum monster_type                      // (int) menv[].type
     MONS_HIPPOGRIFF,
     MONS_GRIFFON,
     MONS_GIANT_FROG,
+#if TAG_MAJOR_VERSION == 32
     MONS_GIANT_TOAD,
+#endif
     MONS_SPINY_FROG,
     MONS_BLINK_FROG,
 #if TAG_MAJOR_VERSION == 32
@@ -2419,6 +2436,8 @@ enum monster_type                      // (int) menv[].type
     MONS_OCTOPODE,
     MONS_LIGHTNING_SPIRE,
     MONS_CATOBLEPAS,
+    MONS_GOLEM,
+    MONS_PROFANE_SERVITOR,
 
     NUM_MONSTERS,                      // used for polymorph
 
@@ -2776,6 +2795,12 @@ enum score_format_type
     SCORE_VERBOSE,              // everything (dates, times, god, etc.)
 };
 
+enum sense_type
+{
+    SENSE_SMELL_BLOOD,
+    SENSE_WEB_VIBRATION,
+};
+
 enum shop_type // (uint8_t) env.sh_type[], item_in_shop(), in_a_shop()
 {
     SHOP_WEAPON,
@@ -2839,6 +2864,7 @@ enum skill_type
     SK_LAST_MUNDANE = SK_UNARMED_COMBAT,
     SK_SPELLCASTING,
     SK_CONJURATIONS,
+    SK_FIRST_MAGIC_SCHOOL = SK_CONJURATIONS, // not SK_FIRST_MAGIC as no Spc
     SK_HEXES,
     SK_CHARMS,
     SK_SUMMONINGS,
@@ -2860,6 +2886,25 @@ enum skill_type
     SK_COLUMN_BREAK,                   // used for skill output
     SK_TITLE,                          // used for skill output
     SK_NONE,
+};
+
+// TAG_MAJOR_VERSION. Just sort this enum when bumping major.
+enum skill_menu_state
+{
+    SKM_NONE,
+    SKM_MODE_AUTO,
+    SKM_MODE_MANUAL,
+    SKM_DO_PRACTISE,
+    SKM_SHOW_KNOWN,
+    SKM_SHOW_ALL,
+    SKM_LEVEL_ENHANCED,
+    SKM_LEVEL_NORMAL,
+    SKM_VIEW_TRAINING,
+    SKM_VIEW_PROGRESS,
+    SKM_VIEW_TRANSFER,
+    SKM_VIEW_POINTS,
+    SKM_DO_FOCUS,
+    SKM_VIEW_NEW_LEVEL,
 };
 
 // order is important on these (see player_speed())
@@ -3068,7 +3113,9 @@ enum spell_type
     SPELL_EVAPORATE,
     SPELL_FRAGMENTATION,
     SPELL_SANDBLAST,
+#if TAG_MAJOR_VERSION == 32
     SPELL_MAXWELLS_SILVER_HAMMER,
+#endif
     SPELL_CONDENSATION_SHIELD,
     SPELL_STONESKIN,
     SPELL_SIMULACRUM,
@@ -3220,6 +3267,7 @@ enum trap_type                         // env.trap_type[]
     TRAP_SHAFT,
     TRAP_GOLUBRIA,
     TRAP_PLATE,
+    TRAP_WEB,
     NUM_TRAPS,                         // must remain last 'regular' member {dlb}
     TRAP_MAX_REGULAR = TRAP_SHAFT,
     TRAP_UNASSIGNED = 100,

@@ -137,6 +137,8 @@ function do_layout()
 
     // Position controls
     set_layer("normal");
+    var minimap_display = $("#minimap").css("display");
+    $("#minimap, #minimap_overlay").show();
     view_size(view_width, view_height);
 
     var dungeon_offset = $("#dungeon").offset();
@@ -162,8 +164,16 @@ function do_layout()
     minimap_overlay.width = minimap_canvas.width;
     minimap_overlay.height = minimap_canvas.height;
 
-    // Go back to the old layer
+    // Go back to the old layer, re-hide the minimap if necessary
+    $("#minimap, #minimap_overlay").css("display", minimap_display);
     set_layer(layer);
+
+    // Update the view
+    view_x = view_center_x - Math.floor(dungeon_cols / 2);
+    view_y = view_center_y - Math.floor(dungeon_rows / 2);
+    force_full_render(true);
+    display();
+    update_minimap_overlay();
 
     // Send the layout
     if (current_layout &&
@@ -205,11 +215,6 @@ function view_size(cols, rows)
     canvas.width = dungeon_cols * dungeon_cell_w;
     canvas.height = dungeon_rows * dungeon_cell_h;
     dungeon_ctx = canvas.getContext("2d");
-
-    for (var y = 0; y < dungeon_rows; y++)
-        for (var x = 0; x < dungeon_cols; x++)
-            render_cell(x + view_x, y + view_y);
-    vgrdc(view_center_x, view_center_y);
 }
 
 function vgrdc(x, y)

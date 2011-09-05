@@ -589,7 +589,7 @@ void list_armour()
 void list_jewellery(void)
 {
     std::string jstr;
-    int cols = get_number_of_cols();
+    int cols = get_number_of_cols() - 1;
     bool split = you.species == SP_OCTOPODE && cols > 84;
 
     for (int i = EQ_LEFT_RING; i < NUM_EQUIP; i++)
@@ -760,6 +760,7 @@ static const char *targeting_help_1 =
     "<w>Esc</w> : cancel (also <w>Space</w>, <w>x</w>)\n"
     "<w>Dir.</w>: move cursor in that direction\n"
     "<w>.</w> : move to cursor (also <w>Enter</w>, <w>Del</w>)\n"
+    "<w>g</w> : pick up item at cursor\n"
     "<w>v</w> : describe monster under cursor\n"
     "<w>+</w> : cycle monsters forward (also <w>=</w>)\n"
     "<w>-</w> : cycle monsters backward\n"
@@ -779,7 +780,7 @@ static const char *targeting_help_1 =
     " \n"
     "<h>Wizard targeting commands:</h>\n"
     "<w>D</w>: get debugging information about the monster\n"
-    "<w>g</w>: give item to monster\n"
+    "<w>o</w>: give item to monster\n"
     "<w>F</w>: cycle monster friendly/good neutral/neutral/hostile\n"
     "<w>Ctrl-H</w>: heal the monster to full hit points\n"
     "<w>P</w>: apply divine blessing to monster\n"
@@ -1374,7 +1375,7 @@ static bool _do_description(std::string key, std::string type,
         }
         else
         {
-            int thing_created = get_item_slot();
+            int thing_created = get_mitm_slot();
             if (thing_created != NON_ITEM
                 && (type == "item" || type == "spell"))
             {
@@ -2096,7 +2097,7 @@ static int _show_keyhelp_menu(const std::vector<formatted_string> &lines,
     return cmd_help.getkey();
 }
 
-void show_specific_help(const std::string &help)
+static void _show_specific_help(const std::string &help)
 {
     std::vector<std::string> lines = split_string("\n", help, false, true);
     std::vector<formatted_string> formatted_lines;
@@ -2111,12 +2112,12 @@ void show_specific_help(const std::string &help)
 
 void show_levelmap_help()
 {
-    show_specific_help(getHelpString("level-map"));
+    _show_specific_help(getHelpString("level-map"));
 }
 
 void show_pickup_menu_help()
 {
-    show_specific_help(getHelpString("pick-up"));
+    _show_specific_help(getHelpString("pick-up"));
 }
 
 void show_targeting_help()
@@ -2131,27 +2132,27 @@ void show_targeting_help()
 }
 void show_interlevel_travel_branch_help()
 {
-    show_specific_help(getHelpString("interlevel-travel.branch.prompt"));
+    _show_specific_help(getHelpString("interlevel-travel.branch.prompt"));
 }
 
 void show_interlevel_travel_depth_help()
 {
-    show_specific_help(getHelpString("interlevel-travel.depth.prompt"));
+    _show_specific_help(getHelpString("interlevel-travel.depth.prompt"));
 }
 
 void show_stash_search_help()
 {
-    show_specific_help(getHelpString("stash-search.prompt"));
+    _show_specific_help(getHelpString("stash-search.prompt"));
 }
 
 void show_butchering_help()
 {
-    show_specific_help(getHelpString("butchering"));
+    _show_specific_help(getHelpString("butchering"));
 }
 
 void show_skill_menu_help()
 {
-    show_specific_help(getHelpString("skill-menu"));
+    _show_specific_help(getHelpString("skill-menu"));
 }
 
 static void _add_command(column_composer &cols, const int column,
@@ -2393,6 +2394,7 @@ static void _add_formatted_keyhelp(column_composer &cols)
     _add_command(cols, 1, CMD_DISPLAY_RELIGION, "show religion screen", 2);
     _add_command(cols, 1, CMD_DISPLAY_MUTATIONS, "show Abilities/mutations", 2);
     _add_command(cols, 1, CMD_DISPLAY_KNOWN_OBJECTS, "show item knowledge", 2);
+    _add_command(cols, 1, CMD_DISPLAY_RUNES, "show runes collected", 2);
     _add_command(cols, 1, CMD_LIST_ARMOUR, "display worn armour", 2);
     _add_command(cols, 1, CMD_LIST_WEAPONS, "display current weapons", 2);
     _add_command(cols, 1, CMD_LIST_JEWELLERY, "display worn jewellery", 2);
@@ -2695,12 +2697,13 @@ void list_commands(int hotkey, bool do_redraw_screen,
     // Page size is number of lines - one line for --more-- prompt.
     cols.set_pagesize(get_number_of_lines() - 1);
 
-    if (crawl_state.game_is_hints_tutorial())
+    const bool hint_tuto = crawl_state.game_is_hints_tutorial();
+    if (hint_tuto)
         _add_formatted_hints_help(cols);
     else
         _add_formatted_keyhelp(cols);
 
-    _show_keyhelp_menu(cols.formatted_lines(), true, Options.easy_exit_menu,
+    _show_keyhelp_menu(cols.formatted_lines(), !hint_tuto, Options.easy_exit_menu,
                        hotkey, highlight_string);
 
     if (do_redraw_screen)
@@ -2752,6 +2755,7 @@ int list_wizard_commands(bool do_redraw_screen)
                        "<w>B</w>      : banish yourself to the Abyss\n"
                        "<w>k</w>      : shift section of a labyrinth\n"
                        "<w>R</w>      : change monster spawn rate\n"
+                       "<w>Ctrl-S</w> : change Abyss speed\n"
                        "<w>u</w>/<w>d</w>    : shift up/down one level\n"
                        "<w>~</w>      : go to a specific level\n"
                        "<w>:</w>      : find branches and overflow\n"
@@ -2775,6 +2779,7 @@ int list_wizard_commands(bool do_redraw_screen)
                        "<w>X</w>      : make Xom do something now\n"
                        "<w>z</w>      : cast spell by number/name\n"
                        "<w>W</w>      : god wrath\n"
+                       "<w>w</w>      : god mollification\n"
                        "<w>Ctrl-V</w> : toggle xray vision\n"
                        "\n"
                        "<yellow>Monster related commands</yellow>\n"

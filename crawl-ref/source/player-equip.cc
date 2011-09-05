@@ -300,7 +300,7 @@ static void _equip_artefact_effect(item_def &item, bool *show_msgs, bool unmeld)
     {
         // Xom loves it when you use an unknown random artefact and
         // there is a dangerous monster nearby...
-        xom_is_stimulated(128);
+        xom_is_stimulated(100);
     }
 
     // Let's try this here instead of up there.
@@ -424,7 +424,7 @@ static void _wield_cursed(item_def& item, bool known_cursed, bool unmeld)
 {
     if (!item.cursed() || unmeld)
         return;
-    mpr("It sticks to your hand!");
+    mprf("It sticks to your %s!", you.hand_name(false).c_str());
     int amusement = 16;
     if (!known_cursed)
     {
@@ -620,13 +620,16 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs, bool unmeld)
                     break;
 
                 case SPWPN_PAIN:
+                {
+                    const char* your_arm = you.arm_name(false).c_str();
                     if (you.skill(SK_NECROMANCY) == 0)
                         mpr("You have a feeling of ineptitude.");
                     else if (you.skill(SK_NECROMANCY) <= 6)
-                        mpr("Pain shudders through your arm!");
+                        mprf("Pain shudders through your %s!", your_arm);
                     else
-                        mpr("A searing pain shoots up your arm!");
+                        mprf("A searing pain shoots up your %s!", your_arm);
                     break;
+                }
 
                 case SPWPN_CHAOS:
                     mpr("It is briefly surrounded by a scintillating aura "
@@ -673,9 +676,9 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs, bool unmeld)
                     // and even more so if he gifted the weapon himself.
                     god_type god;
                     if (origin_is_god_gift(item, &god) && god == GOD_XOM)
-                        xom_is_stimulated(255);
+                        xom_is_stimulated(200);
                     else
-                        xom_is_stimulated(128);
+                        xom_is_stimulated(100);
                 }
                 break;
 
@@ -886,7 +889,7 @@ static void _equip_armour_effect(item_def& arm, bool unmeld)
             break;
 
         case SPARM_MAGIC_RESISTANCE:
-            mpr("You feel resistant to magic.");
+            mpr("You feel resistant to hostile enchantments.");
             break;
 
         case SPARM_PROTECTION:
@@ -1032,12 +1035,15 @@ static void _unequip_armour_effect(item_def& item, bool meld)
         if (you.attribute[ATTR_PERM_LEVITATION] == 0)
             break;
         else if (you.species != SP_KENKU || you.experience_level < 15)
-            you.attribute[ATTR_PERM_LEVITATION] = 0;
+        {
+            if (!player_equip_ego_type(EQ_ALL_ARMOUR, SPARM_LEVITATION))
+                you.attribute[ATTR_PERM_LEVITATION] = 0;
+        }
         land_player();
         break;
 
     case SPARM_MAGIC_RESISTANCE:
-        mpr("You feel less resistant to magic.");
+        mpr("You feel less resistant to hostile enchantments.");
         break;
 
     case SPARM_PROTECTION:
@@ -1547,6 +1553,7 @@ bool unwield_item(bool showMsgs)
     unequip_item(EQ_WEAPON, showMsgs);
 
     you.wield_change     = true;
+    you.redraw_quiver    = true;
     you.attribute[ATTR_WEAPON_SWAP_INTERRUPTED] = 0;
 
     return (true);

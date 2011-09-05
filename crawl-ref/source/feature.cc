@@ -244,6 +244,13 @@ static void _init_feat(feature_def &f, dungeon_feature_type feat)
             f.minimap    = MF_TRAP;
             break;
 
+        case DNGN_TRAP_WEB:
+            f.colour     = LIGHTGREY;
+            f.dchar      = DCHAR_TRAP;
+            f.map_colour = LIGHTGREY;
+            f.minimap    = MF_TRAP;
+            break;
+
         case DNGN_UNDISCOVERED_TRAP:
             f.dchar        = DCHAR_FLOOR;
             f.colour       = ETC_FLOOR;
@@ -288,7 +295,7 @@ static void _init_feat(feature_def &f, dungeon_feature_type feat)
             f.minimap     = MF_STAIR_BRANCH;
             break;
 
-        case DNGN_TEMP_PORTAL:
+        case DNGN_MALIGN_GATEWAY:
             f.dchar       = DCHAR_ARCH;
             f.colour      = ETC_SHIMMER_BLUE;
             f.map_colour  = LIGHTGREY;
@@ -431,6 +438,8 @@ static void _init_feat(feature_def &f, dungeon_feature_type feat)
         case DNGN_ENTER_TOMB:
         case DNGN_ENTER_SWAMP:
         case DNGN_ENTER_SHOALS:
+        case DNGN_ENTER_SPIDER_NEST:
+        case DNGN_ENTER_FOREST:
             f.colour      = YELLOW;
             f.dchar       = DCHAR_STAIRS_DOWN;
             f.flags      |= FFT_NOTABLE;
@@ -462,6 +471,8 @@ static void _init_feat(feature_def &f, dungeon_feature_type feat)
         case DNGN_RETURN_FROM_TOMB:
         case DNGN_RETURN_FROM_SWAMP:
         case DNGN_RETURN_FROM_SHOALS:
+        case DNGN_RETURN_FROM_SPIDER_NEST:
+        case DNGN_RETURN_FROM_FOREST:
             f.colour      = YELLOW;
             f.dchar       = DCHAR_STAIRS_UP;
             f.map_colour  = GREEN;

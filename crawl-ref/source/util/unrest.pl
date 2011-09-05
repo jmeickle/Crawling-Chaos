@@ -4,10 +4,16 @@ use warnings;
 undef $/;
 $_=<>;
 
+# Undo Windows newlines.
+s/\r\n/\n/sg;
+
 # URLs have damn inconsistent handling in reST.
 s|:http: ``(.+)``|$1|g;
 s|:telnet: ``(.+)``|telnet:  $1|g;
 s|:ssh: ``(.+)``|ssh:     $1|g;
+
+# Notes.
+s/\.\. note::/Note: /g;
 
 # Local references.
 s/`(.)\.\s+(.*?)`_/$1. "$2"/sg; # added "" for a nicer look

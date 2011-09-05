@@ -23,11 +23,13 @@
 #include "hints.h"
 #include "item_use.h"
 #include "itemprop.h"
+#include "message.h"
 #include "misc.h"
 #include "mutation.h"
 #include "player.h"
 #include "player-equip.h"
 #include "player-stats.h"
+#include "skill_menu.h"
 #include "skills.h"
 #include "spl-miscast.h"
 #include "terrain.h"
@@ -147,7 +149,7 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known)
                 {
                     // Full herbivores always become ill from blood.
                     you.sicken(50 + random2(100));
-                    xom_is_stimulated(32 / xom_factor);
+                    xom_is_stimulated(25 / xom_factor);
                 }
                 else
                     lessen_hunger(value, true);
@@ -254,25 +256,23 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known)
                 poison_player(1 + random2avg(5, 2), "", "a potion of poison");
             else
                 poison_player(3 + random2avg(13, 2), "", "a potion of strong poison");
-            xom_is_stimulated(128 / xom_factor);
+            xom_is_stimulated(100 / xom_factor);
         }
         break;
 
     case POT_SLOWING:
         if (slow_player((10 + random2(pow)) / factor))
-            xom_is_stimulated(64 / xom_factor);
+            xom_is_stimulated(50 / xom_factor);
         break;
 
     case POT_PARALYSIS:
-        you.paralyse(NULL,
-                     (2 + random2(6 + you.duration[DUR_PARALYSIS]
-                                       / BASELINE_DELAY)) / factor);
-        xom_is_stimulated(64 / xom_factor);
+        paralyse_player("a potion of paralysis", 0, factor);
+        xom_is_stimulated(50 / xom_factor);
         break;
 
     case POT_CONFUSION:
         if (confuse_player((3 + random2(8)) / factor))
-            xom_is_stimulated(128 / xom_factor);
+            xom_is_stimulated(100 / xom_factor);
         break;
 
     case POT_INVISIBILITY:
@@ -293,7 +293,7 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known)
                  "You become %stransparent, but the glow from your "
                  "magical contamination prevents you from becoming "
                  "completely invisible.",
-                 you.duration[DUR_INVIS] ? "further " : "");
+                 you.duration[DUR_INVIS] ? "more " : "");
         }
         else
         {
@@ -336,14 +336,14 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known)
         if (lose_stat(STAT_RANDOM, (1 + random2avg(4, 2)) / factor, false,
                       "drinking a potion of degeneration"))
         {
-            xom_is_stimulated(64 / xom_factor);
+            xom_is_stimulated(50 / xom_factor);
         }
         break;
 
     // Don't generate randomly - should be rare and interesting.
     case POT_DECAY:
         if (you.rot(&you, (10 + random2(10)) / factor))
-            xom_is_stimulated(64 / xom_factor);
+            xom_is_stimulated(50 / xom_factor);
         break;
 
     case POT_FIZZING:
@@ -366,8 +366,8 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known)
         }
         else
             mpr("A flood of memories washes over you.");
-        you.exp_available += 750 * you.experience_level;
-        train_skills();
+        more();
+        skill_menu(SKMF_EXPERIENCE_POTION, 750 * you.experience_level);
         break;
 
     case POT_MAGIC:
@@ -400,14 +400,14 @@ bool potion_effect(potion_type pot_eff, int pow, bool drank_it, bool was_known)
         else
         {
             if (go_berserk(was_known, true))
-                xom_is_stimulated(64);
+                xom_is_stimulated(50);
         }
         break;
 
     case POT_CURE_MUTATION:
         mpr("It has a very clean taste.");
         for (int i = 0; i < 7; i++)
-            if (random2(10) > i)
+            if (random2(9) >= i)
                 delete_mutation(RANDOM_MUTATION, false);
         break;
 

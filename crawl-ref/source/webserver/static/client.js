@@ -101,6 +101,7 @@ function handle_keydown(e)
         {
             e.preventDefault();
             $("#register").hide();
+            $("#rc_edit").hide();
         }
         return;
     }
@@ -192,6 +193,7 @@ function logged_in(username)
     $("#register").hide();
     $("#login_form").hide();
     $("#reg_link").hide();
+    $("#logout_link").show();
 
     if ($("#remember_me").attr("checked"))
     {
@@ -222,12 +224,27 @@ function get_login_cookie()
     return $.cookie("login");
 }
 
+function logout()
+{
+    if (get_login_cookie())
+    {
+        socket.send("UnRemember: " + get_login_cookie());
+        set_login_cookie(null);
+    }
+    location.reload();
+}
+
+function show_dialog(id)
+{
+    $(id).fadeIn(100);
+    var w = $(id).width();
+    var ww = $(window).width();
+    $(id).offset({ left: ww / 2 - w / 2, top: 50 });
+}
+
 function start_register()
 {
-    $("#register").show();
-    var w = $("#register").width();
-    var ww = $(window).width();
-    $("#register").offset({ left: ww / 2 - w / 2, top: 50 });
+    show_dialog("#register");
     $("#reg_username").focus();
 }
 
@@ -269,6 +286,27 @@ function register()
 function register_failed(message)
 {
     $("#register_message").html(message);
+}
+
+var editing_rc;
+function edit_rc(id)
+{
+    socket.send("GetRC: " + id);
+    editing_rc = id;
+}
+
+function rcfile_contents(contents)
+{
+    $("#rc_file_contents").val(contents);
+    show_dialog("#rc_edit");
+    $("#rc_file_contents").focus();
+}
+
+function send_rc()
+{
+    socket.send("SetRC: " + editing_rc + " " + $("#rc_file_contents").val());
+    $("#rc_edit").hide();
+    return false;
 }
 
 function ping()
@@ -327,6 +365,14 @@ function lobby_update()
 {
     socket.send("UpdateLobby");
 }
+function lobby_data(data)
+{
+    $("#player_list tbody").html(data);
+    $("#player_list").trigger("update");
+    setTimeout(function () {
+        $("#player_list").trigger("sorton", [$("#player_list")[0].config.sortList]);
+    }, 2);
+}
 
 var watching = false;
 function set_watching(val)
@@ -382,11 +428,16 @@ $(document).ready(
                        function (ev)
                        {
                            if (location.hash.match(/^#play-(.+)/i) &&
-                               socket.readyState == WebSocket.OPEN)
+                               socket.readyState == 1)
                            {
                                return "Really quit the game?";
                            }
                        });
+
+        if ("MozWebSocket" in window)
+        {
+            window.WebSocket = MozWebSocket;
+        }
 
         if ("WebSocket" in window)
         {
@@ -457,6 +508,10 @@ $(document).ready(
                     showing_close_message = true;
                 }
             };
+
+            $("#player_list").tablesorter({
+                sortList: [[0, 0]]
+            });
         }
         else
         {

@@ -40,7 +40,7 @@ struct spell_desc
     SPELL_CAUSE_FEAR, "Cause Fear",
      SPTYP_HEXES,
      SPFLAG_AREA,
-     5,
+     4,
      200,
      LOS_RADIUS, LOS_RADIUS,
      0,
@@ -66,7 +66,7 @@ struct spell_desc
     SPELL_FIREBALL, "Fireball",
      SPTYP_CONJURATION | SPTYP_FIRE,
      SPFLAG_DIR_OR_TARGET,
-     6,
+     5,
      200,
      6, 6,
      0,
@@ -537,7 +537,7 @@ struct spell_desc
     SPELL_POISONOUS_CLOUD, "Poisonous Cloud",
      SPTYP_CONJURATION | SPTYP_ALCHEMY | SPTYP_AIR,
      SPFLAG_GRID | SPFLAG_AREA | SPFLAG_ALLOW_SELF,
-     5,
+     6,
      200,
      6, 6,
      0,
@@ -1617,7 +1617,7 @@ struct spell_desc
      SPFLAG_DIR_OR_TARGET | SPFLAG_NOT_SELF,
      1,
      40,                           // cap for range; damage cap is at 25
-     1, 4,
+     2, 5,
      0,
      NULL,
      true,
@@ -1897,6 +1897,7 @@ struct spell_desc
      false
 },
 
+#if TAG_MAJOR_VERSION == 32
 {
     SPELL_MAXWELLS_SILVER_HAMMER, "Maxwell's Silver Hammer",
      SPTYP_CHARMS | SPTYP_EARTH,
@@ -1909,6 +1910,7 @@ struct spell_desc
      false,
      true
 },
+#endif
 
 {
     SPELL_CONDENSATION_SHIELD, "Condensation Shield",

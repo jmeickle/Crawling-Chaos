@@ -59,7 +59,11 @@ enum element_type
     ETC_TORNADO,        // twisting swirls of gray
     ETC_LIQUEFIED,      // ripples of yellow and brown.
     ETC_SWAMP_TREE,     // colour of trees on water
-    ETC_FIRST_LUA = 96, // colour indices have to be <128
+    ETC_ORB_GLOW,       // halo coming from the Orb of Zot
+    ETC_DISCO = 96,
+    ETC_FIRST_LUA = ETC_DISCO, // colour indices have to be <128
+
+    NUM_COLOURS
 };
 
 typedef int (*element_colour_calculator)(int, const coord_def&);
@@ -99,10 +103,10 @@ bool is_low_colour(uint8_t colour);
 bool is_high_colour(uint8_t colour);
 uint8_t make_low_colour(uint8_t colour);
 uint8_t make_high_colour(uint8_t colour);
-bool is_element_colour(int col);
 int  element_colour(int element, bool no_random = false,
                     const coord_def& loc = coord_def());
 bool get_tornado_phase(const coord_def& loc);
+bool get_orb_phase(const coord_def& loc);
 
 #if defined(TARGET_OS_WINDOWS) || defined(USE_TILE)
 unsigned short dos_brand(unsigned short colour,

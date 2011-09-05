@@ -25,12 +25,13 @@ void packed_cell::clear()
 
     is_bloody        = false;
     is_silenced      = false;
-    is_haloed        = false;
+    halo             = HALO_NONE;
     is_moldy         = false;
     glowing_mold     = false;
     is_sanctuary     = false;
     is_liquefied     = false;
     swamp_tree_water = false;
+    orb_glow         = 0;
 }
 
 bool packed_cell::operator ==(const packed_cell &other) const
@@ -40,12 +41,13 @@ bool packed_cell::operator ==(const packed_cell &other) const
 
     if (is_bloody != other.is_bloody) return false;
     if (is_silenced != other.is_silenced) return false;
-    if (is_haloed != other.is_haloed) return false;
+    if (halo != other.halo) return false;
     if (is_moldy != other.is_moldy) return false;
     if (glowing_mold != other.glowing_mold) return false;
     if (is_sanctuary != other.is_sanctuary) return false;
     if (is_liquefied != other.is_liquefied) return false;
     if (swamp_tree_water != other.swamp_tree_water) return false;
+    if (orb_glow != other.orb_glow) return false;
 
     if (num_dngn_overlay != other.num_dngn_overlay) return false;
     for (int i = 0; i < num_dngn_overlay; ++i)

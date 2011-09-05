@@ -82,12 +82,12 @@ spell_type which_spell_in_book(int sbook_type, int spl)
     ASSERT(sbook_type >= 0);
     ASSERT(sbook_type < static_cast<int>(NUMBER_SPELLBOOKS));
     return spellbook_template_array[sbook_type][spl];
-}                               // end which_spell_in_book()
+}
 
 int player_spell_skills()
 {
     int sum = 0;
-    for (int i = SK_SPELLCASTING; i <= SK_ALCHEMY; i++)
+    for (int i = SK_SPELLCASTING; i <= SK_LAST_MAGIC; i++)
         sum += you.skills[i];
 
     return (sum);
@@ -258,6 +258,7 @@ int book_rarity(uint8_t which_book)
     case BOOK_YOUNG_POISONERS:
     case BOOK_STALKING:
     case BOOK_WAR_CHANTS:
+    case BOOK_DEBILITATION:
         return 5;
 
     case BOOK_CLOUDS:
@@ -309,7 +310,6 @@ int book_rarity(uint8_t which_book)
     case BOOK_DESTRUCTION:
         return 30;
 
-    case BOOK_BRANDS:        // XXX: Temporarily disabled along with AM
 #if TAG_MAJOR_VERSION == 32
     case BOOK_MINOR_MAGIC_II:
     case BOOK_MINOR_MAGIC_III:
@@ -588,7 +588,7 @@ bool you_cannot_memorise(spell_type spell, bool &undead)
          || spell == SPELL_WARP_BRAND
          || spell == SPELL_EXCRUCIATING_WOUNDS
          || spell == SPELL_POISON_WEAPON
-         || spell == SPELL_MAXWELLS_SILVER_HAMMER
+         || spell == SPELL_SURE_BLADE
          // could be useful if it didn't require wielding
          || spell == SPELL_TUKIMAS_DANCE))
     {
@@ -713,7 +713,8 @@ static bool _get_mem_list(spell_list &mem_spells,
 
         num_books++;
         num_on_ground++;
-        _index_book(book, book_hash, num_unreadable, book_errors);
+        if (player_can_reach_floor("", true))
+            _index_book(book, book_hash, num_unreadable, book_errors);
     }
 
     if (book_errors)
@@ -725,12 +726,12 @@ static bool _get_mem_list(spell_list &mem_spells,
         {
             if (num_unknown > 1)
             {
-                mpr("You must pick those books before reading them.",
+                mpr("You must pick up those books before reading them.",
                     MSGCH_PROMPT);
             }
             else if (num_unknown == 1)
             {
-                mpr("You must pick this book before reading it.",
+                mpr("You must pick up this book before reading it.",
                     MSGCH_PROMPT);
             }
             else
@@ -740,6 +741,11 @@ static bool _get_mem_list(spell_list &mem_spells,
             }
         }
         return (false);
+    }
+    else if (num_on_ground && num_on_ground == num_books
+             && !player_can_reach_floor("", just_check))
+    {
+        return false;
     }
     else if (num_unreadable == num_books)
     {

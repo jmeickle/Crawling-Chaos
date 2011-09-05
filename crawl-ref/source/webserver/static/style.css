@@ -23,28 +23,27 @@ body {
     display: inline-block;
 }
 
+#lobby_body {
+    text-align: center;
+}
+
 #player_list {
     width: 100%;
     text-align: left;
 }
 
-#lobby_body {
-    text-align: center;
+#player_list th.header {
+}
+#player_list th.headerSortDown,
+#player_list th.headerSortUp {
+    background-color: #111111;
 }
 
-#player_list table {
-    width: 100%;
-}
-
-#player_list table th {
-    text-align: left;
-}
-
-#player_list table tr:hover {
+#player_list tr:hover {
     background-color: #101010;
 }
 
-#register {
+.floating_dialog {
     position: absolute;
     left: 50px;
     top: 50px;
@@ -67,12 +66,12 @@ body {
     float: right;
 }
 
-input.text {
+.text {
     background-color: black;
     color: white;
     border: 1px solid white;
 }
-input.button {
+.button {
     background-color: #DDDDDD;
     border: 1px solid white;
 }

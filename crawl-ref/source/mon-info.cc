@@ -221,30 +221,27 @@ monster_info::monster_info(const monster* m, int milev)
 
     mimic_feature = DNGN_UNSEEN;
 
-    // XXX: this doesn't take into account ENCH_TEMP_PACIF, but that's probably
-    // a bug for mons_attitude, not this.
-    // XXX: also, mons_attitude_type should be sorted hostile/neutral/friendly;
-    // will break saves a little bit though.
     attitude = mons_attitude(m);
-    if (m->has_ench(ENCH_CHARM))
-        attitude = ATT_FRIENDLY;
-    else if (m->has_ench(ENCH_TEMP_PACIF))
-        attitude = ATT_GOOD_NEUTRAL;
 
     bool type_known = false;
     bool nomsg_wounds = false;
 
-    // CHANGE: now friendly fake Rakshasas/Maras are known (before you could still tell by equipment)
     if (m->props.exists("mislead_as") && you.misled())
+    {
         type = m->get_mislead_type();
-    else if (attitude != ATT_FRIENDLY && (m->type == MONS_RAKSHASA || m->type == MONS_RAKSHASA_FAKE))
-        type = MONS_RAKSHASA;
-    else if (attitude != ATT_FRIENDLY && (m->type == MONS_MARA || m->type == MONS_MARA_FAKE))
-        type = MONS_MARA;
+        threat = mons_threat_level(&m->props["mislead_as"].get_monster());
+    }
+    // friendly fake Rakshasas/Maras are known
+    else if (attitude != ATT_FRIENDLY && m->props.exists("faking"))
+    {
+        type = m->props["faking"].get_monster().type;
+        threat = mons_threat_level(&m->props["faking"].get_monster());
+    }
     else
     {
         type_known = true;
         type = m->type;
+        threat = mons_threat_level(m);
     }
 
     props.clear();
@@ -389,8 +386,10 @@ monster_info::monster_info(const monster* m, int milev)
     else
         no_regen = !mons_class_can_regenerate(type);
 
-    if (m->haloed())
+    if (m->haloed() && !m->antihaloed())
         mb.set(MB_HALOED);
+    if (!m->haloed() && m->antihaloed())
+        mb.set(MB_ANTIHALOED);
     if (mons_looks_stabbable(m))
         mb.set(MB_STABBABLE);
     if (mons_looks_distracted(m))
@@ -444,10 +443,10 @@ monster_info::monster_info(const monster* m, int milev)
     }
 
     // fake enchantment (permanent)
-    if (mons_class_flag(m->type, M_DEFLECT_MISSILES))
+    if (mons_class_flag(type, M_DEFLECT_MISSILES))
         mb.set(MB_DEFLECT_MSL);
 
-    if (m->type == MONS_SILENT_SPECTRE)
+    if (type == MONS_SILENT_SPECTRE)
         mb.set(MB_SILENCING);
 
     if (you.beheld_by(m))
@@ -1031,7 +1030,13 @@ void monster_info::to_string(int count, std::string& desc,
          break;
     case ATT_HOSTILE:
         // out << " (hostile)";
-        desc_color = LIGHTGREY;
+        switch (threat)
+        {
+        case MTHRT_TRIVIAL: desc_color = DARKGREY;  break;
+        case MTHRT_EASY:    desc_color = LIGHTGREY; break;
+        case MTHRT_TOUGH:   desc_color = LIGHTRED;  break;
+        case MTHRT_NASTY:   desc_color = MAGENTA;
+        }
         break;
     }
 

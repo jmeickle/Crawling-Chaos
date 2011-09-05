@@ -99,13 +99,26 @@ unsigned short _cell_feat_show_colour(const map_cell& cell, bool coloured)
     {
         if (cell.flags & MAP_HALOED)
         {
-            if (cell.flags & MAP_SILENCED)
+            if (cell.flags & MAP_SILENCED && cell.flags & MAP_ANTIHALOED)
+                colour = CYAN; // Default for silence.
+            else if (cell.flags & MAP_SILENCED)
                 colour = LIGHTCYAN;
+            else if (cell.flags & MAP_ANTIHALOED)
+                colour = fdef.colour; // Cancels out!
             else
                 colour = YELLOW;
         }
+        else if (cell.flags & MAP_ANTIHALOED)
+        {
+           if (cell.flags & MAP_SILENCED)
+                colour = BLUE; // Silence gets darker
+           else
+                colour = ETC_DEATH; // If no holy or silence
+        }
         else if (cell.flags & MAP_SILENCED)
-            colour = CYAN;
+            colour = CYAN; // Silence but no holy/unholy
+        else if (cell.flags & MAP_ORB_HALOED)
+            colour = ETC_ORB_GLOW;
     }
     return (colour);
 }
@@ -121,7 +134,7 @@ static int _get_mons_colour(const monster_info& mi)
         col = RED;
 
     if (mi.is(MB_MIRROR_DAMAGE))
-        col = ETC_NECRO;
+        col = ETC_DEATH;
 
     if (mi.is(MB_INNER_FLAME))
         col = ETC_FIRE;
@@ -354,14 +367,7 @@ glyph get_cell_glyph_with_class(const map_cell& cell, const coord_def& loc,
 
     if (cls == SH_MONSTER)
     {
-        if (mons_genus(show.mons) == MONS_DOOR_MIMIC
-            && cell.monsterinfo()->mimic_feature)
-        {
-            const feature_def &fdef =
-                get_feature_def(cell.monsterinfo()->mimic_feature);
-            g.ch = cell.seen() ? fdef.symbol : fdef.magic_symbol;
-        }
-        else if (show.mons == MONS_SENSED)
+        if (show.mons == MONS_SENSED)
             g.ch = mons_char(cell.monsterinfo()->base_type);
         else
             g.ch = mons_char(show.mons);
@@ -399,11 +405,7 @@ glyph get_item_glyph(const item_def *item)
 glyph get_mons_glyph(const monster_info& mi, bool realcol)
 {
     glyph g;
-    if (mons_genus(mi.type) == MONS_DOOR_MIMIC && mons_is_known_mimic(mi.mon()))
-    {
-        g.ch = get_feature_def(get_mimic_feat(mi.mon())).symbol;
-    }
-    else if (mi.type == MONS_SLIME_CREATURE && mi.number > 1)
+    if (mi.type == MONS_SLIME_CREATURE && mi.number > 1)
         g.ch = mons_char(MONS_MERGED_SLIME_CREATURE);
     else if (mi.type == MONS_SENSED)
         g.ch = mons_char(mi.base_type);

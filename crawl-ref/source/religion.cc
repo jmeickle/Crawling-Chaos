@@ -270,7 +270,7 @@ const char* god_gain_power_messages[NUM_GODS][MAX_GOD_ABILITIES] =
       "" },
     // Trog
     { "go berserk at will",
-      "call upon Trog for regeneration and magic resistance",
+      "regenerate and be protected from hostile enchantments",
       "",
       "call in reinforcements",
       "" },
@@ -385,7 +385,7 @@ const char* god_lose_power_messages[NUM_GODS][MAX_GOD_ABILITIES] =
       "" },
     // Trog
     { "go berserk at will",
-      "call upon Trog for regeneration and magic resistance",
+      "regenerate and be protected from hostile enchantments",
       "",
       "call in reinforcements",
       "" },
@@ -877,6 +877,7 @@ std::string get_god_dislikes(god_type which_god, bool /*verbose*/)
     case GOD_TROG:
         dislikes.push_back("you memorise spells");
         dislikes.push_back("you attempt to cast spells");
+        dislikes.push_back("you train magic skills");
         break;
 
     case GOD_BEOGH:
@@ -1089,7 +1090,7 @@ static void _inc_penance(int val)
 
 static void _inc_gift_timeout(int val)
 {
-    if (you.gift_timeout + val > 200)
+    if (200 - you.gift_timeout < val)
         you.gift_timeout = 200;
     else
         you.gift_timeout += val;
@@ -1101,7 +1102,7 @@ static monster_type _yred_servants[] =
     MONS_MUMMY, MONS_WIGHT, MONS_FLYING_SKULL, MONS_WRAITH,
     MONS_ROTTING_HULK, MONS_FREEZING_WRAITH, MONS_PHANTASMAL_WARRIOR,
     MONS_FLAMING_CORPSE, MONS_FLAYED_GHOST, MONS_SKELETAL_WARRIOR,
-    MONS_GHOUL, MONS_DEATH_COB, MONS_BONE_DRAGON
+    MONS_GHOUL, MONS_DEATH_COB, MONS_BONE_DRAGON, MONS_PROFANE_SERVITOR,
 };
 
 #define MIN_YRED_SERVANT_THRESHOLD 3
@@ -2047,6 +2048,7 @@ bool do_god_gift(bool forced)
                 break;
 
             const bool need_missiles = _need_missile_gift(forced);
+            object_class_type gift_type;
 
             if (forced && (!need_missiles || one_chance_in(4))
                 || (!forced && you.piety > 130 && random2(you.piety) > 120
@@ -2055,43 +2057,35 @@ bool do_god_gift(bool forced)
                 if (you.religion == GOD_TROG
                     || (you.religion == GOD_OKAWARU && coinflip()))
                 {
-                    success = acquirement(OBJ_WEAPONS, you.religion);
+                    gift_type = OBJ_WEAPONS;
                 }
                 else
-                {
-                    success = acquirement(OBJ_ARMOUR, you.religion);
-                    // Okawaru charges extra for armour acquirements.
-                    if (success)
-                        _inc_gift_timeout(30 + random2avg(15, 2));
-                }
+                    gift_type = OBJ_ARMOUR;
+            }
+            else if (need_missiles)
+                gift_type = OBJ_MISSILES;
+            else
+                break;
 
-                if (success)
+            success = acquirement(gift_type, you.religion);
+            if (success)
+            {
+                simple_god_message(" grants you a gift!");
+                more();
+
+                if (gift_type == OBJ_MISSILES)
+                    _inc_gift_timeout(4 + roll_dice(2, 4));
+                else
                 {
-                    simple_god_message(" grants you a gift!");
-                    more();
+                    // Okawaru charges extra for armour acquirements.
+                    if (you.religion == GOD_OKAWARU && gift_type == OBJ_ARMOUR)
+                        _inc_gift_timeout(30 + random2avg(15, 2));
 
                     _inc_gift_timeout(30 + random2avg(19, 2));
-                    you.num_current_gifts[you.religion]++;
-                    you.num_total_gifts[you.religion]++;
-                    take_note(Note(NOTE_GOD_GIFT, you.religion));
                 }
-                break;
-            }
-
-            if (need_missiles)
-            {
-                success = acquirement(OBJ_MISSILES, you.religion);
-                if (success)
-                {
-                    simple_god_message(" grants you a gift!");
-                    more();
-
-                    _inc_gift_timeout(4 + roll_dice(2, 4));
-                    you.num_current_gifts[you.religion]++;
-                    you.num_total_gifts[you.religion]++;
-                    take_note(Note(NOTE_GOD_GIFT, you.religion));
-                }
-                break;
+                you.num_current_gifts[you.religion]++;
+                you.num_total_gifts[you.religion]++;
+                take_note(Note(NOTE_GOD_GIFT, you.religion));
             }
             break;
         }
@@ -2117,7 +2111,7 @@ bool do_god_gift(bool forced)
 
         case GOD_JIYVA:
             if (forced || you.piety > 80 && random2(you.piety) > 50
-                         && one_chance_in(4) && you.gift_timeout == 0
+                         && one_chance_in(4) && !you.gift_timeout
                          && you.can_safely_mutate())
             {
                 if (_jiyva_mutate())
@@ -2227,16 +2221,16 @@ bool do_god_gift(bool forced)
                     // meaningless for Kiku. evk
                     if (you.religion != GOD_KIKUBAAQUDGHA)
                     {
+                        // Vehumet gives books less readily.
+                        if (you.religion == GOD_VEHUMET)
+                            _inc_gift_timeout(10 + random2(10));
+
                         _inc_gift_timeout(40 + random2avg(19, 2));
                         you.num_current_gifts[you.religion]++;
                         you.num_total_gifts[you.religion]++;
                     }
                     take_note(Note(NOTE_GOD_GIFT, you.religion));
                 }
-
-                // Vehumet gives books less readily.
-                if (you.religion == GOD_VEHUMET && success)
-                    _inc_gift_timeout(10 + random2(10));
             }                   // End of giving books.
             break;              // End of book gods.
         }                       // switch (you.religion)
@@ -3279,6 +3273,7 @@ void god_welcome_identify_gear()
         mpr("Your amulet flashes!", MSGCH_GOD);
         flash_view_delay(god_colour(you.religion), 300);
         set_ident_type(*amulet, ID_KNOWN_TYPE);
+        set_ident_flags(*amulet, ISFLAG_KNOW_TYPE);
     }
 
     if (you.religion == GOD_ASHENZARI)
@@ -3398,6 +3393,12 @@ void god_pitch(god_type which_god)
     god_welcome_identify_gear();
     ash_check_bondage();
 
+    // We disable all magical skills to avoid accidentally angering Trog.
+    if (you.religion == GOD_TROG)
+        for (int sk = SK_SPELLCASTING; sk <= SK_LAST_MAGIC; ++sk)
+            if (you.skills[sk])
+                you.train[sk] = 0;
+
     // When you start worshipping a good god, you make all non-hostile
     // unholy and evil beings hostile; when you start worshipping Zin,
     // you make all non-hostile unclean and chaotic beings hostile; and
@@ -3491,6 +3492,12 @@ void god_pitch(god_type which_god)
     }
 
     // Note that you.worshipped[] has already been incremented.
+    if (you.char_class == JOB_MONK && had_gods() <= 1)
+    {
+        // monks get bonus piety for first god
+        gain_piety(35, 1, true, false);
+    }
+
     if (you.religion == GOD_LUGONU && you.worshipped[GOD_LUGONU] == 1)
         gain_piety(20, 1, true, false);  // allow instant access to first power
 
@@ -3518,9 +3525,24 @@ void god_pitch(god_type which_god)
     learned_something_new(HINT_CONVERT);
 }
 
+int had_gods()
+{
+    int count = 0;
+    for (int i = 0; i < MAX_NUM_GODS; i++)
+        count += you.worshipped[i];
+    return count;
+}
+
+bool god_likes_your_god(god_type god, god_type your_god)
+{
+    return (is_good_god(god) && is_good_god(your_god));
+}
+
 bool god_hates_your_god(god_type god, god_type your_god)
 {
-    ASSERT(god != your_god);
+    // Gods do not hate themselves.
+    if (god == your_god)
+        return (false);
 
     // Non-good gods always hate your current god.
     if (!is_good_god(god))

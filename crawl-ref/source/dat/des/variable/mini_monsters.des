@@ -491,7 +491,7 @@ ENDMAP
 NAME:  pond
 DEPTH: D:10-27, Lair
 MONS:  plant w:30 / fungus
-MONS:  giant frog w:30 / giant toad / snake / rat / green rat / swamp drake w:2
+MONS:  giant frog w:30 / snake / rat / green rat / swamp drake w:2
 MONS:  vampire mosquito
 SUBST: ! : w.
 SUBST: 2 : 23
@@ -603,7 +603,7 @@ NAME:  minmay_serpent_palace
 TAGS:  no_monster_gen no_item_gen
 DEPTH: D:18-
 MONS:  naga / naga warrior w:2 / naga mage w:1, greater naga / guardian serpent
-MONS:  small snake / snake / water moccasin / viper / black mamba / anaconda
+MONS:  small snake / snake / water moccasin / black mamba / anaconda
 MONS:  lindwurm
 SUBST: 1 = 11., 3 = ...3
 SUBST: c : cv
@@ -1454,7 +1454,7 @@ TILE:    c = wall_church
 FTILE:   .+23GtABC = floor_limestone
 COLOUR:  .23 = white
 SHUFFLE: ABC
-KFEAT:   A = altar_shining_one
+KFEAT:   A = altar_the_shining_one
 KFEAT:   B = altar_elyvilon
 KFEAT:   C = altar_zin
 MAP
@@ -2733,6 +2733,28 @@ XXX8888XXX
 XXXXXXXXXX
 XXXXXXXXXX
 XXXXXXXXXX
+ENDMAP
+
+# No, John. You are the door vault
+NAME:   reverse_minivault_9
+DEPTH:  D:15-27, Elf, Vault, Crypt, Dis, Geh, Tar, Coc
+MARKER: X = lua: props_marker { connected_exclude="true" }
+SUBST:  X = =
+MAP
+xxxxxxxxxxxxxx
+x8...8..8.9.8x
+x.XXXXXXXXXX.x
+x9XXXXXXXXXX.x
+x.XXXXXXXXXX.x
+x8XXX....XXX8x
+x.XXX.{..XXX.x
+x.XXX....XXX.x
+x8XXX....XXX8x
+x.XXXXXXXXXX.x
+x.XXXXXXXXXX9x
+x.XXXXXXXXXX.x
+x8.9.8..8...8x
+xxxxxxxxxxxxxx
 ENDMAP
 
 # Closed-box minivault

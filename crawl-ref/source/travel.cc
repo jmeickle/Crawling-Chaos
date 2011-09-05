@@ -182,6 +182,9 @@ static bool _loadlev_populate_stair_distances(const level_pos &target);
 static void _populate_stair_distances(const level_pos &target);
 static bool _is_greed_inducing_square(const LevelStashes *ls,
                                       const coord_def &c);
+static bool _is_travelsafe_square(const coord_def& c,
+                                  bool ignore_hostile = false,
+                                  bool ignore_danger = false);
 
 // Returns true if there is a known trap at (x,y). Returns false for non-trap
 // squares as also for undiscovered traps.
@@ -204,7 +207,7 @@ static inline bool _is_safe_cloud(const coord_def& c)
 
 // Returns an estimate for the time needed to cross this feature.
 // This is done, so traps etc. will usually be circumvented where possible.
-inline int feature_traverse_cost(dungeon_feature_type feature)
+static inline int _feature_traverse_cost(dungeon_feature_type feature)
 {
     if (feature == DNGN_SHALLOW_WATER || feat_is_closed_door(feature))
         return 2;
@@ -245,7 +248,7 @@ bool feat_is_traversable(dungeon_feature_type grid)
     return (traversable_terrain[grid] == TRAVERSABLE);
 }
 
-const char *run_mode_name(int runmode)
+static const char *_run_mode_name(int runmode)
 {
     return (runmode == RMODE_TRAVEL         ? "travel" :
             runmode == RMODE_INTERLEVEL     ? "intertravel" :
@@ -342,9 +345,9 @@ public:
             {
                 const coord_def p(*ri);
                 cell_travel_safety &ts(safegrid(p));
-                ts.safe = is_travelsafe_square(p, false);
+                ts.safe = _is_travelsafe_square(p, false);
                 ts.safe_if_ignoring_hostile_terrain =
-                    is_travelsafe_square(p, true);
+                    _is_travelsafe_square(p, true);
             }
             _travel_safe_grid = tsgrid;
         }
@@ -367,8 +370,8 @@ bool is_stair_exclusion(const coord_def &p)
 // Returns true if the square at (x,y) is okay to travel over. If ignore_hostile
 // is true, returns true even for dungeon features the character can normally
 // not cross safely (deep water, lava, traps).
-bool is_travelsafe_square(const coord_def& c, bool ignore_hostile,
-                          bool ignore_danger)
+static bool _is_travelsafe_square(const coord_def& c, bool ignore_hostile,
+                                  bool ignore_danger)
 {
     if (!in_bounds(c))
         return (false);
@@ -539,7 +542,12 @@ void initialise_travel()
 {
     for (int feat = DNGN_FLOOR_MIN; feat < NUM_FEATURES; feat++)
     {
-        if (feat >= DNGN_TRAP_MECHANICAL && feat <= DNGN_TRAP_NATURAL)
+#if TAG_MAJOR_VERSION == 32
+        if ((feat >= DNGN_TRAP_MECHANICAL && feat <= DNGN_TRAP_NATURAL)
+            || feat == DNGN_TRAP_WEB)
+#else
+        if (feat >= DNGN_TRAP_MECHANICAL && feat <= DNGN_TRAP_WEB)
+#endif
             continue;
 
         traversable_terrain[feat] = TRAVERSABLE;
@@ -555,7 +563,7 @@ void initialise_travel()
 //
 // Returns -1 if the feature named is not recognised, else returns the feature
 // number (guaranteed to be 0-255).
-int get_feature_type(const std::string &feature)
+static int _get_feature_type(const std::string &feature)
 {
     if (feature.find("deep water") != std::string::npos)
         return (DNGN_DEEP_WATER);
@@ -568,7 +576,7 @@ int get_feature_type(const std::string &feature)
 // type.
 void prevent_travel_to(const std::string &feature)
 {
-    int feature_type = get_feature_type(feature);
+    int feature_type = _get_feature_type(feature);
     if (feature_type != -1)
         traversable_terrain[feature_type] = FORBIDDEN;
 }
@@ -583,7 +591,7 @@ bool is_branch_stair(const coord_def& pos)
 
 // Prompts the user to stop explore if necessary for the given
 // explore-stop condition, returns true if explore should be stopped.
-bool prompt_stop_explore(int es_why)
+static bool _prompt_stop_explore(int es_why)
 {
     return (!(Options.explore_stop_prompt & es_why)
             || yesno("Stop exploring?", true, 'y', true, false));
@@ -633,7 +641,7 @@ static void _userdef_run_stoprunning_hook(void)
 {
 #ifdef CLUA_BINDINGS
     if (you.running)
-        clua.callfn("ch_stop_running", "s", run_mode_name(you.running));
+        clua.callfn("ch_stop_running", "s", _run_mode_name(you.running));
 #endif
 }
 
@@ -641,7 +649,7 @@ static void _userdef_run_startrunning_hook(void)
 {
 #ifdef CLUA_BINDINGS
     if (you.running)
-        clua.callfn("ch_start_running", "s", run_mode_name(you.running));
+        clua.callfn("ch_start_running", "s", _run_mode_name(you.running));
 #endif
 }
 
@@ -790,9 +798,9 @@ static void _explore_find_target_square()
                 target += delta;
                 feature = grd(target);
             }
-            while (is_travelsafe_square(target)
+            while (_is_travelsafe_square(target)
                    && feat_is_traversable(feature)
-                   && feature_traverse_cost(feature) == 1);
+                   && _feature_traverse_cost(feature) == 1);
 
             target -= delta;
 
@@ -856,7 +864,7 @@ void explore_pickup_event(int did_pickup, int tried_pickup)
             (you.running == RMODE_EXPLORE_GREEDY) ? ES_GREEDY_PICKUP_MASK
                                                   : ES_NONE;
 
-        if ((Options.explore_stop & estop) && prompt_stop_explore(estop))
+        if ((Options.explore_stop & estop) && _prompt_stop_explore(estop))
         {
             stop_delay();
             _reset_zigzag_info();
@@ -998,7 +1006,7 @@ command_type travel()
                 const LevelStashes *lev = StashTrack.find_current_level();
                 if (lev && lev->unverified_stash(newpos))
                 {
-                    if (prompt_stop_explore(ES_GREEDY_VISITED_ITEM_STACK))
+                    if (_prompt_stop_explore(ES_GREEDY_VISITED_ITEM_STACK))
                     {
                         explore_stopped_pos = newpos;
                         stop_running();
@@ -1311,7 +1319,7 @@ coord_def travel_pathfind::pathfind(run_mode_type rmode)
     // Abort run if we're trying to go someplace evil. Travel to traps is
     // specifically allowed here if the player insists on it.
     if (!floodout
-        && !is_travelsafe_square(start, false, ignore_danger)
+        && !_is_travelsafe_square(start, false, ignore_danger)
         && !is_trap(start))          // player likes pain
     {
         return coord_def();
@@ -1355,6 +1363,8 @@ coord_def travel_pathfind::pathfind(run_mode_type rmode)
     // next round in next_iter_points, we don't even need to reset the array.
     circumference[circ_index][0] = start;
 
+    bool found_target = false;
+
     for (; points > 0; ++traveled_distance, circ_index = !circ_index,
                         points = next_iter_points, next_iter_points = 0)
     {
@@ -1365,10 +1375,18 @@ coord_def travel_pathfind::pathfind(run_mode_type rmode)
             // and marked as such.
             if (path_examine_point(circumference[circ_index][i]))
             {
-                return (runmode == RMODE_TRAVEL ? travel_move()
-                                                : explore_target());
+                if (runmode == RMODE_TRAVEL)
+                    return travel_move();
+                else if (!Options.explore_wall_bias)
+                    return explore_target();
+                else
+                    found_target = true;
             }
         }
+
+        // Handle exploration with wall bias
+        if (next_iter_points == 0 && found_target)
+            return explore_target();
 
         // If there are no more points to look at, we're done, but we did
         // not find a path to our target.
@@ -1482,7 +1500,7 @@ bool travel_pathfind::square_slows_movement(const coord_def &c)
     //
     // Walking through shallow water and opening closed doors is considered to
     // have the cost of two normal moves for travel purposes.
-    const int feat_cost = feature_traverse_cost(feature);
+    const int feat_cost = _feature_traverse_cost(feature);
     if (feat_cost > 1
         && point_distance[c.x][c.y] > traveled_distance - feat_cost)
     {
@@ -1497,10 +1515,21 @@ void travel_pathfind::check_square_greed(const coord_def &c)
 {
     if (greedy_dist == UNFOUND_DIST
         && is_greed_inducing_square(c)
-        && is_travelsafe_square(c, ignore_hostile, ignore_danger))
+        && _is_travelsafe_square(c, ignore_hostile, ignore_danger))
     {
+        int dist = traveled_distance;
+
+        // Penalize distance for negative explore_item_greed
+        if (Options.explore_item_greed < 0)
+            dist -= Options.explore_item_greed;
+
+        // The addition of explore_wall_bias makes items as interesting
+        // as a room's perimeter (with one of four known adjacent walls).
+        if (Options.explore_wall_bias)
+            dist += Options.explore_wall_bias * 3;
+
+        greedy_dist = dist;
         greedy_place = c;
-        greedy_dist  = traveled_distance;
     }
 }
 
@@ -1534,7 +1563,7 @@ bool travel_pathfind::path_flood(const coord_def &c, const coord_def &dc)
                     if (unexplored_dist == 1)
                     {
                         _set_target_square(unexplored_place);
-                        return true;
+                        return (true);
                     }
                 }
 
@@ -1544,20 +1573,36 @@ bool travel_pathfind::path_flood(const coord_def &c, const coord_def &dc)
                     unreachables.insert(dc);
                 else
                     _set_target_square(unexplored_place);
-
             }
-            else if (!need_for_greed)
+            else
             {
                 // Found explore target!
-                unexplored_place = c;
-                unexplored_dist  = traveled_distance;
-                return (true);
-            }
-            else if (unexplored_dist == UNFOUND_DIST)
-            {
-                unexplored_place = c;
-                unexplored_dist  = traveled_distance
-                                   + Options.explore_item_greed;
+                int dist = traveled_distance;
+
+                if (need_for_greed && Options.explore_item_greed > 0)
+                    // Penalize distance to favor item pickup
+                    dist += Options.explore_item_greed;
+
+                if (Options.explore_wall_bias)
+                {
+                    dist += Options.explore_wall_bias * 4;
+
+                    // Favor squares directly adjacent to walls
+                    for (int dir = 0; dir < 8; dir += 2)
+                    {
+                        const coord_def ddc = dc + Compass[dir];
+
+                        if (feat_is_wall(env.map_knowledge(ddc).feat()))
+                            dist -= Options.explore_wall_bias;
+                    }
+                }
+
+                // Replace old target if nearer (or less penalized)
+                if (dist < unexplored_dist || unexplored_dist < 0)
+                {
+                    unexplored_dist = dist;
+                    unexplored_place = c;
+                }
             }
         }
 
@@ -1598,7 +1643,7 @@ bool travel_pathfind::path_flood(const coord_def &c, const coord_def &dc)
 
         return (true);
     }
-    else if (!is_travelsafe_square(dc, ignore_hostile, ignore_danger))
+    else if (!_is_travelsafe_square(dc, ignore_hostile, ignore_danger))
     {
         // This point is not okay to travel on, but if this is a
         // trap, we'll want to put it on the feature vector anyway.
@@ -1698,14 +1743,16 @@ bool travel_pathfind::path_examine_point(const coord_def &c)
     if (point_traverse_delay(c))
         return (false);
 
+    bool found_target = false;
+
     // For each point, we look at all surrounding points. Take them orthogonals
     // first so that the travel path doesn't zigzag all over the map. Note the
     // (dir = 1) is intentional assignment.
     for (int dir = 0; dir < 8; (dir += 2) == 8 && (dir = 1))
         if (path_flood(c, c + Compass[dir]))
-            return (true);
+            found_target = true;
 
-    return (false);
+    return (found_target);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1764,7 +1811,7 @@ void find_travel_pos(const coord_def& youpos,
             // next to a previously unseen monster but the same would
             // happen by manual movement, so I don't think we need to worry
             // about this. (jpeg)
-            if (!is_travelsafe_square(new_dest)
+            if (!_is_travelsafe_square(new_dest)
                 || !feat_is_traversable(env.map_knowledge(new_dest).feat()))
             {
                 new_dest = dest;
@@ -1793,17 +1840,17 @@ void find_travel_pos(const coord_def& youpos,
 
 // Given a branch id, returns the parent branch. If the branch id is not found,
 // returns BRANCH_MAIN_DUNGEON.
-branch_type find_parent_branch(branch_type br)
+static branch_type _find_parent_branch(branch_type br)
 {
     return branches[br].parent_branch;
 }
 
 extern std::map<branch_type, level_id> stair_level;
 
-void find_parent_branch(branch_type br, int depth,
-                        branch_type *pb, int *pd)
+static void _find_parent_branch(branch_type br, int depth,
+                                branch_type *pb, int *pd)
 {
-    *pb = find_parent_branch(br);   // Check depth before using *pb.
+    *pb = _find_parent_branch(br);   // Check depth before using *pb.
     if (stair_level.find(br) == stair_level.end())
         *pd = 0;
     else
@@ -1818,13 +1865,13 @@ void find_parent_branch(branch_type br, int depth,
 //   Stairs to snake pit on lair:5
 //
 // If level 3 of the snake pit is the level we want to track back from,
-// we'd call trackback(vec, BRANCH_SNAKE_PIT, 3), and the resulting vector will
+// we'd call _trackback(vec, BRANCH_SNAKE_PIT, 3), and the resulting vector will
 // look like:
 // { BRANCH_SNAKE_PIT, 3 }, { BRANCH_LAIR, 5 }, { BRANCH_MAIN_DUNGEON, 11 }
 // (Assuming, of course, that the vector started out empty.)
 //
-void trackback(std::vector<level_id> &vec,
-               branch_type branch, int subdepth)
+static void _trackback(std::vector<level_id> &vec,
+                       branch_type branch, int subdepth)
 {
     if (subdepth < 1 || subdepth > MAX_LEVELS)
         return;
@@ -1836,15 +1883,15 @@ void trackback(std::vector<level_id> &vec,
     {
         branch_type pb;
         int pd;
-        find_parent_branch(branch, subdepth, &pb, &pd);
+        _find_parent_branch(branch, subdepth, &pb, &pd);
         if (pd)
-            trackback(vec, pb, pd);
+            _trackback(vec, pb, pd);
     }
 }
 
-void track_intersect(std::vector<level_id> &cur,
-                     std::vector<level_id> &targ,
-                     level_id *cx)
+static void _track_intersect(std::vector<level_id> &cur,
+                             std::vector<level_id> &targ,
+                             level_id *cx)
 {
     cx->branch = BRANCH_MAIN_DUNGEON;
     cx->depth  = -1;
@@ -1883,11 +1930,11 @@ int level_distance(level_id first, level_id second)
         return abs(first.depth - second.depth);
 
     // Figure out the dungeon structure between the two levels.
-    trackback(fv, first.branch, first.depth);
-    trackback(sv, second.branch, second.depth);
+    _trackback(fv, first.branch, first.depth);
+    _trackback(sv, second.branch, second.depth);
 
     level_id intersect;
-    track_intersect(fv, sv, &intersect);
+    _track_intersect(fv, sv, &intersect);
 
     if (intersect.depth == -1)          // No common ground?
         return -1;
@@ -1899,8 +1946,8 @@ int level_distance(level_id first, level_id second)
     {
         distance += first.depth;
 
-        find_parent_branch(first.branch, first.depth,
-                           &first.branch, &first.depth);
+        _find_parent_branch(first.branch, first.depth,
+                            &first.branch, &first.depth);
         if (!first.depth)
             return -1;
     }
@@ -1923,9 +1970,9 @@ int level_distance(level_id first, level_id second)
     return distance;
 }
 
-std::string get_trans_travel_dest(const travel_target &target,
-                                  bool skip_branch = false,
-                                  bool skip_coord = false)
+static std::string _get_trans_travel_dest(const travel_target &target,
+                                          bool skip_branch = false,
+                                          bool skip_coord = false)
 {
     const int branch_id = target.p.id.branch;
     const char *branch = branches[branch_id].abbrevname;
@@ -1972,8 +2019,8 @@ static int _get_nearest_level_depth(uint8_t branch)
     level_id id = level_id::current();
     do
     {
-        find_parent_branch(id.branch, id.depth,
-                           &id.branch, &id.depth);
+        _find_parent_branch(id.branch, id.depth,
+                            &id.branch, &id.depth);
         if (id.depth && id.branch == branch)
         {
             depth = id.depth;
@@ -2120,7 +2167,7 @@ static int _prompt_travel_branch(int prompt_flags, bool* to_entrance)
         case '>':
             return (allow_updown? ID_DOWN : ID_CANCEL);
         case CONTROL('P'):
-            return find_parent_branch(curr.branch);
+            return _find_parent_branch(curr.branch);
         case '.':
             return (curr.branch);
         case '*':
@@ -2196,8 +2243,8 @@ level_id find_up_level(level_id curr, bool up_branch)
         if (curr.branch != BRANCH_MAIN_DUNGEON)
         {
             level_id parent;
-            find_parent_branch(curr.branch, curr.depth,
-                               &parent.branch, &parent.depth);
+            _find_parent_branch(curr.branch, curr.depth,
+                                &parent.branch, &parent.depth);
             if (parent.depth > 0)
                 return (parent);
             else if (curr.branch == BRANCH_VESTIBULE_OF_HELL)
@@ -2342,7 +2389,7 @@ static travel_target _prompt_travel_depth(const level_id &id,
         mprf(MSGCH_PROMPT, "What level of %s? "
              "(default %s, ? - help) ",
              branches[target.p.id.branch].longname,
-             get_trans_travel_dest(target, true).c_str());
+             _get_trans_travel_dest(target, true).c_str());
 
         char buf[100];
         const int response =
@@ -2399,7 +2446,7 @@ travel_target prompt_translevel_target(int prompt_flags,
     {
         target.p = _find_up_level();
         if (target.p.id.depth > 0 && remember_targ)
-            dest_name = get_trans_travel_dest(target);
+            dest_name = _get_trans_travel_dest(target);
         return (target);
     }
 
@@ -2407,7 +2454,7 @@ travel_target prompt_translevel_target(int prompt_flags,
     {
         target.p = _find_down_level();
         if (target.p.id.depth > 0 && remember_targ)
-            dest_name = get_trans_travel_dest(target);
+            dest_name = _get_trans_travel_dest(target);
         return (target);
     }
 
@@ -2415,7 +2462,7 @@ travel_target prompt_translevel_target(int prompt_flags,
     {
         target = travel_cache.get_waypoint(-branch - 1);
         if (target.p.id.depth > 0 && remember_targ)
-            dest_name = get_trans_travel_dest(target);
+            dest_name = _get_trans_travel_dest(target);
         return (target);
     }
 
@@ -2431,7 +2478,7 @@ travel_target prompt_translevel_target(int prompt_flags,
     }
 
     if (target.p.id.depth > -1 && remember_targ)
-        dest_name = get_trans_travel_dest(target);
+        dest_name = _get_trans_travel_dest(target);
 
     return target;
 }
@@ -2515,11 +2562,11 @@ void start_translevel_travel(const travel_target &pos)
             _populate_stair_distances(pos.p);
     }
 
-    trans_travel_dest = get_trans_travel_dest(level_target);
+    trans_travel_dest = _get_trans_travel_dest(level_target);
     _start_translevel_travel();
 }
 
-void start_translevel_travel_prompt()
+static void _start_translevel_travel_prompt()
 {
     if (!i_feel_safe(true, true))
         return;
@@ -2886,7 +2933,7 @@ void start_travel(const coord_def& p)
     if (!in_bounds(p))
         return;
 
-    if (!is_travelsafe_square(p, true))
+    if (!_is_travelsafe_square(p, true))
         return;
 
     you.travel_x = p.x;
@@ -3605,7 +3652,7 @@ void TravelCache::list_waypoints() const
         if (waypoints[i].id.depth == -1)
             continue;
 
-        dest = get_trans_travel_dest(waypoints[i], false, true);
+        dest = _get_trans_travel_dest(waypoints[i], false, true);
 
         snprintf(choice, sizeof choice, "(%d) %-9s", i, dest.c_str());
         line += choice;
@@ -3729,14 +3776,14 @@ void TravelCache::add_waypoint(int x, int y)
     const bool overwrite = waypoints[waynum].is_valid();
 
     std::string old_dest =
-        overwrite ? get_trans_travel_dest(waypoints[waynum], false, true) : "";
+        overwrite ? _get_trans_travel_dest(waypoints[waynum], false, true) : "";
     level_id old_lid = (overwrite ? waypoints[waynum].id : lid);
 
     waypoints[waynum].id  = lid;
     waypoints[waynum].pos = pos;
 
-    std::string new_dest = get_trans_travel_dest(waypoints[waynum],
-                                                 false, true);
+    std::string new_dest = _get_trans_travel_dest(waypoints[waynum],
+                                                  false, true);
     mesclr();
     if (overwrite)
     {
@@ -4368,7 +4415,7 @@ bool explore_discoveries::prompt_stop() const
 
     return ((Options.explore_stop_prompt & es_flags) != es_flags
             || marker_stop
-            || prompt_stop_explore(es_flags));
+            || _prompt_stop_explore(es_flags));
 }
 
 void do_interlevel_travel()
@@ -4394,7 +4441,7 @@ void do_interlevel_travel()
         start_travel(you.running.pos);
     }
     else
-        start_translevel_travel_prompt();
+        _start_translevel_travel_prompt();
 
     if (you.running)
         mesclr();
@@ -4481,4 +4528,10 @@ bool check_for_interesting_features()
 
     env.map_shadow = env.map_knowledge;
     return discoveries.prompt_stop();
+}
+
+void clear_level_target()
+{
+    level_target.clear();
+    trans_travel_dest.clear();
 }

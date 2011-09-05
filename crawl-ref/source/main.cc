@@ -76,6 +76,7 @@
 #include "maps.h"
 #include "message.h"
 #include "misc.h"
+#include "mislead.h"
 #include "mon-act.h"
 #include "mon-cast.h"
 #include "mon-iter.h"
@@ -302,6 +303,7 @@ static void _reset_game()
     you.init();
     StashTrack = StashTracker();
     travel_cache = TravelCache();
+    clear_level_target();
     you.clear_place_info();
     overview_clear();
     clear_message_window();
@@ -591,6 +593,7 @@ static void _do_wizard_command(int wiz_command, bool silent_fail)
     case CONTROL('I'): debug_item_statistics(); break;
     case CONTROL('L'): wizard_set_xl(); break;
     case CONTROL('R'): wizard_recreate_level(); break;
+    case CONTROL('S'): wizard_abyss_speed(); break;
     case CONTROL('T'): debug_terp_dlua(); break;
     case CONTROL('V'): wizard_toggle_xray_vision(); break;
     case CONTROL('X'): debug_xom_effects(); break;
@@ -646,6 +649,7 @@ static void _do_wizard_command(int wiz_command, bool silent_fail)
     case '%': wizard_create_spec_object_by_name();   break;
     case 'J': jiyva_eat_offlevel_items();            break;
     case 'W': wizard_god_wrath();                    break;
+    case 'w': wizard_god_mollify();                  break;
 
     case 'x':
         you.experience = 1 + exp_needed(1 + you.experience_level);
@@ -754,7 +758,7 @@ static void _handle_wizard_command(void)
     // WIZ_NEVER gives protection for those who have wiz compiles,
     // and don't want to risk their characters. Also, and hackishly,
     // it's used to prevent access for non-authorised users to wizard
-    // builds in dgamelaunch builds unlses the game is started with the
+    // builds in dgamelaunch builds unless the game is started with the
     // -wizard flag.
     if (Options.wiz_mode == WIZ_NEVER)
         return;
@@ -869,6 +873,7 @@ static bool _cmd_is_repeatable(command_type cmd, bool is_again = false)
     case CMD_DISPLAY_SKILLS:
     case CMD_DISPLAY_OVERMAP:
     case CMD_DISPLAY_RELIGION:
+    case CMD_DISPLAY_RUNES:
     case CMD_DISPLAY_CHARACTER_STATUS:
     case CMD_DISPLAY_SPELLS:
     case CMD_EXPERIENCE_CHECK:
@@ -1302,7 +1307,7 @@ static bool _prompt_dangerous_portal(dungeon_feature_type ftype)
         return yesno("If you enter this portal you will not be able to return "
                      "immediately. Continue?", false, 'n');
 
-    case DNGN_TEMP_PORTAL:
+    case DNGN_MALIGN_GATEWAY:
         return yesno("Are you sure you wish to approach this portal? There's no "
                      "telling what its forces would wreak upon your fragile "
                      "self.", false, 'n');
@@ -1312,18 +1317,19 @@ static bool _prompt_dangerous_portal(dungeon_feature_type ftype)
     }
 }
 
-static bool _has_orb()
+static bool _prompt_unique_pan_rune(dungeon_feature_type ygrd)
 {
-    for (int i = 0; i < ENDOFPACK; i++)
+    if (ygrd != DNGN_TRANSIT_PANDEMONIUM && ygrd != DNGN_EXIT_PANDEMONIUM)
+        return true;
+    item_def* rune = find_floor_item(OBJ_MISCELLANY, MISC_RUNE_OF_ZOT);
+    if (rune && (rune->plus == RUNE_CEREBOV || rune->plus == RUNE_LOM_LOBON
+                || rune->plus == RUNE_MNOLEG || rune->plus == RUNE_GLOORX_VLOQ))
     {
-        if (you.inv[i].defined()
-            && you.inv[i].base_type == OBJ_ORBS
-            && you.inv[i].sub_type == ORB_ZOT)
-        {
-            return (true);
-        }
+        return yesno("An item of great power still resides in this realm, "
+                "and once you leave you can never return. "
+                "Are you sure you want to leave?");
     }
-    return false;
+    return true;
 }
 
 static void _go_downstairs();
@@ -1396,6 +1402,9 @@ static void _go_upstairs()
             return;
     }
 
+    if (!_prompt_unique_pan_rune(ygrd))
+        return;
+
     const bool leaving_dungeon =
         level_id::current() == level_id(BRANCH_MAIN_DUNGEON, 1)
         && !feat_is_gate(ygrd);
@@ -1403,11 +1412,13 @@ static void _go_upstairs()
     if (leaving_dungeon)
     {
         bool stay = true;
-        if (_has_orb())
+        std::string prompt = make_stringf("Are you sure you want to leave the "
+                                          "Dungeon?%s",
+                                          crawl_state.game_is_tutorial() ? "" :
+                                          " This will make you lose the game!");
+        if (player_has_orb())
             stay = !yesno("Are you sure you want to win?");
-        else if (yesno("Are you sure you want to leave the Dungeon? "
-                       "This will make you lose the game!",
-                       false, 'n'))
+        else if (yesno(prompt.c_str(), false, 'n'))
         {
             // You did pick up the Orb but are not carrying it, this deserves
             // another warning due to automatism.
@@ -1425,10 +1436,7 @@ static void _go_upstairs()
     }
 
     if (you.duration[DUR_MISLED])
-    {
-        mpr("Away from their source, illusions no longer mislead you.", MSGCH_DURATION);
-        you.duration[DUR_MISLED] = 0;
-    }
+        end_mislead(true);
 
     you.clear_clinging();
 
@@ -1511,11 +1519,11 @@ static void _go_downstairs()
             return;
     }
 
+    if (!_prompt_unique_pan_rune(ygrd))
+        return;
+
     if (you.duration[DUR_MISLED])
-    {
-        mpr("Away from their source, illusions no longer mislead you.", MSGCH_DURATION);
-        you.duration[DUR_MISLED] = 0;
-    }
+        end_mislead(true);
 
     you.clear_clinging();
 
@@ -1543,12 +1551,11 @@ static void _experience_check()
 
     if (you.experience_level < 27)
     {
-        int xp_needed = (exp_needed(you.experience_level+1)-you.experience)+1;
-        mprf("Level %d requires %d experience (%d point%s to go!)",
-              you.experience_level + 1,
-              exp_needed(you.experience_level + 1) + 1,
+        int xp_needed = (you.experience - exp_needed(you.experience_level)) * 100 /
+                        (exp_needed(you.experience_level + 1) - exp_needed(you.experience_level));
+        mprf("You are %d%% of the way to level %d.",
               xp_needed,
-              (xp_needed > 1) ? "s" : "");
+              you.experience_level + 1);
     }
     else
     {
@@ -1934,6 +1941,7 @@ void process_command(command_type cmd)
     case CMD_DISPLAY_INVENTORY:        get_invent(OSEL_ANY);           break;
     case CMD_DISPLAY_KNOWN_OBJECTS:    check_item_knowledge();         break;
     case CMD_DISPLAY_MUTATIONS: display_mutations(); redraw_screen();  break;
+    case CMD_DISPLAY_RUNES:            display_runes();                break;
     case CMD_DISPLAY_SKILLS:           skill_menu(); redraw_screen();  break;
     case CMD_EXPERIENCE_CHECK:         _experience_check();            break;
     case CMD_FULL_VIEW:                full_describe_view();           break;
@@ -2154,6 +2162,8 @@ static void _decrement_paralysis(int delay)
             you.redraw_evasion = true;
             you.duration[DUR_PARALYSIS_IMMUNITY] = roll_dice(1, 3)
                                                    * BASELINE_DELAY;
+            if (you.props.exists("paralysed_by"))
+                you.props.erase("paralysed_by");
         }
     }
 }
@@ -2176,10 +2186,10 @@ static void _decrement_petrification(int delay)
         if ((dur -= delay) <= 0)
         {
             dur = 0;
-            you.duration[DUR_PETRIFIED] = 6 * BASELINE_DELAY
-                                + random2(4 * BASELINE_DELAY);
-            you.redraw_evasion = true;
-            mpr("You have turned to stone.");
+            // If we'd kill the player when active flight stops, this will
+            // need to pass the killer.  Unlike monsters, almost all cFly is
+            // magical (sans kenku) so there's no flapping of wings, though.
+            you.fully_petrify(NULL);
         }
         else if (dur < 15 && old_dur >= 15)
             mpr("Your limbs are stiffening.");
@@ -2190,7 +2200,7 @@ static void _check_invisibles()
 {
     for (radius_iterator ri(you.pos(), LOS_RADIUS, C_ROUND); ri; ++ri)
     {
-        if (!cell_see_cell(you.pos(), *ri))
+        if (!cell_see_cell(you.pos(), *ri, LOS_DEFAULT))
             continue;
         const monster* mons = monster_at(*ri);
         if (mons && !mons->visible_to(&you) && !mons->submerged())
@@ -2241,9 +2251,6 @@ static void _decrement_durations()
     // Must come before berserk.
     if (_decrement_a_duration(DUR_BUILDING_RAGE, delay))
         go_berserk(false);
-
-    if (_decrement_a_duration(DUR_SLEEP, delay))
-        you.awake();
 
     dec_napalm_player(delay);
 
@@ -2487,10 +2494,14 @@ static void _decrement_durations()
 
     _decrement_a_duration(DUR_BARGAIN, delay, "You feel less charismatic.");
     _decrement_a_duration(DUR_CONF, delay, "You feel less confused.");
-    _decrement_a_duration(DUR_LOWERED_MR, delay, "You feel more resistant to magic.");
+    _decrement_a_duration(DUR_LOWERED_MR, delay, "You feel less vulnerable to hostile enchantments.");
     _decrement_a_duration(DUR_SLIMIFY, delay, "You feel less slimy.",
                           coinflip(), "Your slime is starting to congeal.");
-    _decrement_a_duration(DUR_MISLED, delay, "Your thoughts are your own once more.");
+    if (_decrement_a_duration(DUR_MISLED, delay,
+                              "Your thoughts are your own once more."))
+    {
+        end_mislead();
+    }
     _decrement_a_duration(DUR_QUAD_DAMAGE, delay, NULL, 0,
                           "Quad Damage is wearing off.");
     _decrement_a_duration(DUR_MIRROR_DAMAGE, delay,
@@ -2504,7 +2515,7 @@ static void _decrement_durations()
     _decrement_a_duration(DUR_FINESSE, delay, "Your hands slow down.");
 
     _decrement_a_duration(DUR_CONFUSING_TOUCH, delay,
-                          ((std::string("Your ") + your_hand(true)) +
+                          ((std::string("Your ") + you.hand_name(true)) +
                           " stop glowing.").c_str());
 
     _decrement_a_duration(DUR_SURE_BLADE, delay,
@@ -2872,7 +2883,7 @@ static void _regenerate_hp_and_mp(int delay)
 
 static void _update_mold_state(const coord_def & pos)
 {
-    if (glowing_mold(pos) && coinflip())
+    if (coinflip())
     {
         // Doing a weird little state thing with the two mold
         // fprops. 'glowing' mold should turn back to normal after
@@ -2891,10 +2902,14 @@ static void _update_mold_state(const coord_def & pos)
 
 static void _update_mold()
 {
+    env.level_state &= ~LSTATE_GLOW_MOLD; // we'll restore it if any
+
     for (rectangle_iterator ri(0); ri; ++ri)
-    {
-        _update_mold_state(*ri);
-    }
+        if (glowing_mold(*ri))
+        {
+            _update_mold_state(*ri);
+            env.level_state |= LSTATE_GLOW_MOLD;
+        }
     for (monster_iterator mon_it; mon_it; ++mon_it)
     {
         if (mon_it->type == MONS_HYPERACTIVE_BALLISTOMYCETE)
@@ -2911,6 +2926,7 @@ static void _update_mold()
                     env.pgrid(*rad_it) |= FPROP_GLOW_MOLD;
                 }
             }
+            env.level_state |= LSTATE_GLOW_MOLD;
         }
     }
 }
@@ -2950,17 +2966,12 @@ static void _player_reacts()
         if (teleportitis_level > 0 && one_chance_in(100 / teleportitis_level))
             you_teleport_now(true);
 #ifdef NEW_ABYSS
-        else if (you.level_type == LEVEL_ABYSS)
-        {
-            if (one_chance_in(30))
-                abyss_maybe_decay_vaults();
-            else
-                abyss_morph();
-        }
+#define SHIFT_PERIOD 80
 #else
-        else if (you.level_type == LEVEL_ABYSS && one_chance_in(30))
-            you_teleport_now(false, true); // to new area of the Abyss
+#define SHIFT_PERIOD 30
 #endif
+        else if (you.level_type == LEVEL_ABYSS && one_chance_in(SHIFT_PERIOD))
+            you_teleport_now(false, true); // to new area of the Abyss
     }
 
     actor_apply_cloud(&you);
@@ -3034,6 +3045,9 @@ static void _player_reacts_to_monsters()
     handle_starvation();
     _decrement_paralysis(you.time_taken);
     _decrement_petrification(you.time_taken);
+    if (_decrement_a_duration(DUR_SLEEP, you.time_taken))
+        you.awake();
+
 }
 
 static void _update_golubria_traps()
@@ -3051,6 +3065,8 @@ static void _update_golubria_traps()
             }
         }
     }
+    if (traps.empty())
+        env.level_state &= ~LSTATE_GOLUBRIA;
 }
 
 void world_reacts()
@@ -3091,6 +3107,11 @@ void world_reacts()
     apply_noises();
     handle_monsters(true);
 
+#ifdef NEW_ABYSS
+    if (you.level_type == LEVEL_ABYSS)
+        abyss_morph();
+#endif
+
     _check_banished();
 
     ASSERT(you.time_taken >= 0);
@@ -3113,8 +3134,10 @@ void world_reacts()
 
     handle_time();
     manage_clouds();
-    _update_mold();
-    _update_golubria_traps();
+    if (env.level_state & LSTATE_GLOW_MOLD)
+        _update_mold();
+    if (env.level_state & LSTATE_GOLUBRIA)
+        _update_golubria_traps();
 
     if (crawl_state.game_is_zotdef() && you.num_turns == 100)
         zotdef_set_wave();
@@ -3963,8 +3986,7 @@ static void _do_berserk_no_combat_penalty(void)
             you.duration[DUR_BERSERK] = 1;
     }
     return;
-}                               // end do_berserk_no_combat_penalty()
-
+}
 
 // Called when the player moves by walking/running. Also calls attack
 // function etc when necessary.
@@ -4127,9 +4149,9 @@ static void _move_player(coord_def move)
 
     if (!attacking && targ_pass && moving && !beholder && !fmonger)
     {
-        if (crawl_state.game_is_zotdef() && you.pos() == orb_position())
+        if (crawl_state.game_is_zotdef() && you.pos() == env.orb_pos)
         {
-            // Aree you standing on the Orb? If so, are the critters near?
+            // Are you standing on the Orb? If so, are the critters near?
             bool danger = false;
             for (int i = 0; i < MAX_MONSTERS; ++i)
             {
@@ -4142,7 +4164,7 @@ static void _move_player(coord_def move)
                 }
             }
 
-            if (danger)
+            if (danger && !player_has_orb())
             {
                 std::string prompt = "Are you sure you want to leave the Orb unguarded?";
                 if (!yesno(prompt.c_str(), false, 'n'))
@@ -4203,7 +4225,7 @@ static void _move_player(coord_def move)
         _open_door(move.x, move.y, false);
         you.prev_move = move;
     }
-    else if (!targ_pass && grd(targ) == DNGN_TEMP_PORTAL && !attacking)
+    else if (!targ_pass && grd(targ) == DNGN_MALIGN_GATEWAY && !attacking)
     {
         if (!_prompt_dangerous_portal(grd(targ)))
             return;

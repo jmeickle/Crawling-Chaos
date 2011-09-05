@@ -566,7 +566,7 @@ void display_mutations()
 
 static int _calc_mutation_amusement_value(mutation_type which_mutation)
 {
-    int amusement = 16 * (11 - get_mutation_def(which_mutation).rarity);
+    int amusement = 12 * (11 - get_mutation_def(which_mutation).rarity);
 
     switch (which_mutation)
     {
@@ -608,6 +608,7 @@ static int _calc_mutation_amusement_value(mutation_type which_mutation)
     case MUT_BLURRY_VISION:
     case MUT_FRAIL:
     case MUT_CLAWS:
+    case MUT_TENTACLES:
     case MUT_FANGS:
     case MUT_HOOVES:
     case MUT_TALONS:
@@ -794,8 +795,11 @@ static int _handle_conflicting_mutations(mutation_type mutation,
 
             if (mutation == a && you.mutation[b] > 0)
             {
+                if (you.innate_mutations[b] >= you.mutation[b])
+                    return -1;
+
                 int res = conflict[i][2];
-                switch(res)
+                switch (res)
                 {
                 case -1:
                     // Fail if not forced, otherwise override.
@@ -1072,7 +1076,7 @@ bool mutate(mutation_type which_mutation, bool failMsg,
             rot_hp(roll_dice(1, 3));
         }
 
-        xom_is_stimulated(64);
+        xom_is_stimulated(50);
         return (true);
     }
 
@@ -1159,7 +1163,7 @@ bool mutate(mutation_type which_mutation, bool failMsg,
     }
 
     // God gifts and forced mutations clear away conflicting mutations.
-    int rc =_handle_conflicting_mutations(mutat, god_gift || force_mutation);
+    int rc = _handle_conflicting_mutations(mutat, god_gift || force_mutation);
     if (rc == 1)
         return (true);
     if (rc == -1)
@@ -1262,7 +1266,7 @@ bool mutate(mutation_type which_mutation, bool failMsg,
         break;
     }
 
-    // Amusement value will be 16 * (11-rarity) * Xom's-sense-of-humor.
+    // Amusement value will be 12 * (11-rarity) * Xom's-sense-of-humor.
     xom_is_stimulated(_calc_mutation_amusement_value(mutat));
 
     take_note(Note(NOTE_GET_MUTATION, mutat, you.mutation[mutat]));
@@ -1932,7 +1936,7 @@ void check_demonic_guardian()
     {
         monster_type mt;
 
-        switch(mutlevel)
+        switch (mutlevel)
         {
         case 1:
             mt = random_mons(MONS_WHITE_IMP, MONS_LEMURE, MONS_UFETUBUS,

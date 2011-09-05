@@ -256,15 +256,22 @@ void DungeonCellBuffer::pack_background(int x, int y, const packed_cell &cell)
                 m_buf_feat.add(TILE_ELDRITCH_OVERLAY_SW, x, y);
         }
 
-        if (cell.is_haloed)
+        if (cell.halo == HALO_MONSTER)
             m_buf_feat.add(TILE_HALO, x, y);
 
         if (!(bg & TILE_FLAG_UNSEEN))
         {
             if (cell.is_sanctuary)
                 m_buf_feat.add(TILE_SANCTUARY, x, y);
-            if (cell.is_silenced)
+            if (cell.is_silenced && (cell.halo == HALO_RANGE))
+                m_buf_feat.add(TILE_HALO_RANGE_SILENCED, x, y);
+            else if (cell.is_silenced)
                 m_buf_feat.add(TILE_SILENCED, x, y);
+            else if (cell.halo == HALO_RANGE)
+                m_buf_feat.add(TILE_HALO_RANGE, x, y);
+
+            if (cell.orb_glow)
+                m_buf_feat.add(TILE_ORB_GLOW + cell.orb_glow - 1, x, y);
 
             // Apply the travel exclusion under the foreground if the cell is
             // visible.  It will be applied later if the cell is unseen.

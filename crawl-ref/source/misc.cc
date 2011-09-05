@@ -94,7 +94,7 @@ static void _create_monster_hide(const item_def corpse)
 
     int mons_class = corpse.plus;
 
-    int o = get_item_slot();
+    int o = get_mitm_slot();
     if (o == NON_ITEM)
         return;
 
@@ -190,7 +190,7 @@ void turn_corpse_into_skeleton_and_chunks(item_def &item)
     if (mons_skeleton(item.plus))
         turn_corpse_into_skeleton(item);
 
-    int o = get_item_slot();
+    int o = get_mitm_slot();
     if (o != NON_ITEM)
     {
         turn_corpse_into_chunks(chunks);
@@ -392,7 +392,7 @@ void maybe_coagulate_blood_potions_floor(int obj)
     }
 
     // Else, create a new stack of potions.
-    int o = get_item_slot(20);
+    int o = get_mitm_slot(20);
     if (o == NON_ITEM)
         return;
 
@@ -730,7 +730,7 @@ bool maybe_coagulate_blood_potions_inv(item_def &blood)
     // If we got here nothing was found!
 
     // Create a new stack of potions.
-    o = get_item_slot();
+    o = get_mitm_slot();
     if (o == NON_ITEM)
         return (false);
 
@@ -956,7 +956,7 @@ void turn_corpse_into_skeleton_and_blood_potions(item_def &item)
     if (mons_skeleton(item.plus))
         turn_corpse_into_skeleton(item);
 
-    int o = get_item_slot();
+    int o = get_mitm_slot();
     if (o != NON_ITEM)
     {
         turn_corpse_into_blood_potions(blood_potions);
@@ -1242,7 +1242,8 @@ void search_around(bool only_adjacent)
                 if (ptrap)
                 {
                     ptrap->reveal();
-                    mpr("You found a trap!");
+                    mprf("You found %s trap!",
+                         ptrap->name(DESC_NOCAP_A).c_str());
                     learned_something_new(HINT_SEEN_TRAP, *ri);
                     practise(EX_TRAP_FOUND);
                 }
@@ -1846,7 +1847,7 @@ void timeout_malign_gateways (int duration)
             if (mmark->monster_summoned && !mons)
             {
                 // The marker hangs around until later.
-                if (env.grid(mmark->pos) == DNGN_TEMP_PORTAL)
+                if (env.grid(mmark->pos) == DNGN_MALIGN_GATEWAY)
                     env.grid(mmark->pos) = DNGN_FLOOR;
 
                 env.markers.remove(mmark);
@@ -1934,7 +1935,7 @@ void bring_to_safety()
     if (crawl_state.game_is_zotdef() && !orb_position().origin())
     {
         // In ZotDef, it's not the safety of your sorry butt that matters.
-        for (distance_iterator di(orb_position(), true, false); di; ++di)
+        for (distance_iterator di(env.orb_pos, true, false); di; ++di)
             if (!monster_at(*di)
                 && !(env.pgrid(*di) & FPROP_NO_TELE_INTO))
             {
@@ -2185,51 +2186,6 @@ void reveal_secret_door(const coord_def& p)
     learned_something_new(HINT_FOUND_SECRET_DOOR, p);
 }
 
-// A feeble attempt at Nethack-like completeness for cute messages.
-std::string your_hand(bool plural)
-{
-    std::string result;
-
-    switch (you.form)
-    {
-    default:
-        mpr("ERROR: unknown transformation in your_hand() (misc.cc)",
-            MSGCH_ERROR);
-    case TRAN_NONE:
-    case TRAN_STATUE:
-    case TRAN_LICH:
-        result = (you.has_usable_claws()) ? "claw" : "hand";
-        if (you.species == SP_FELID)
-            result = "paw";
-        if (you.species == SP_OCTOPODE)
-            result = "tentacle";
-        break;
-    case TRAN_ICE_BEAST:
-        result = "hand";
-        if (you.species == SP_FELID)
-            result = "paw";
-        if (you.species == SP_OCTOPODE)
-            result = "tentacle";
-        break;
-    case TRAN_SPIDER:
-    case TRAN_PIG:
-        result = "front leg";
-        break;
-    case TRAN_DRAGON:
-    case TRAN_BAT:
-        result = "foreclaw";
-        break;
-    case TRAN_BLADE_HANDS:
-        result = "scythe-like blade";
-        break;
-    }
-
-    if (plural)
-        result += 's';
-
-    return result;
-}
-
 bool stop_attack_prompt(const monster* mon, bool beam_attack,
                         coord_def beam_target, bool autohit_first)
 {
@@ -2252,6 +2208,7 @@ bool stop_attack_prompt(const monster* mon, bool beam_attack,
                                    && (mon->attitude != ATT_HOSTILE
                                        || testbits(mon->flags, MF_NO_REWARD)
                                        || testbits(mon->flags, MF_WAS_NEUTRAL));
+    const bool isSlime       = mons_is_slime(mon);
 
     if (isFriendly)
     {
@@ -2292,8 +2249,7 @@ bool stop_attack_prompt(const monster* mon, bool beam_attack,
         prompt = true;
     }
     else if (inSanctuary || wontAttack
-             || (you.religion == GOD_JIYVA && mons_is_slime(mon)
-                 && !mon->is_shapeshifter())
+             || (isSlime && you.religion == GOD_JIYVA)
              || (isNeutral || isHoly) && is_good_god(you.religion)
              || isUnchivalric
                 && you.religion == GOD_SHINING_ONE
@@ -2426,23 +2382,26 @@ void swap_with_monster(monster* mon_to_swap)
     {
         if (you.body_size(PSIZE_BODY) >= SIZE_GIANT)
         {
-            mpr("The net rips apart!");
-            you.attribute[ATTR_HELD] = 0;
-            you.redraw_quiver = true;
             int net = get_trapping_net(you.pos());
             if (net != NON_ITEM)
                 destroy_item(net);
+            mprf("The %s rips apart!", (net == NON_ITEM) ? "web" : "net");
+            you.attribute[ATTR_HELD] = 0;
+            you.redraw_quiver = true;
         }
         else
         {
             you.attribute[ATTR_HELD] = 10;
-            mpr("You become entangled in the net!");
+            if (get_trapping_net(you.pos()) != NON_ITEM)
+                mpr("You become entangled in the net!");
+            else
+                mpr("You get stuck in the web!");
             you.redraw_quiver = true; // Account for being in a net.
             // Xom thinks this is hilarious if you trap yourself this way.
             if (you_caught)
-                xom_is_stimulated(16);
+                xom_is_stimulated(12);
             else
-                xom_is_stimulated(255);
+                xom_is_stimulated(200);
         }
 
         if (!you_caught)

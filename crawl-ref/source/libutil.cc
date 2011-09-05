@@ -638,6 +638,7 @@ std::string replace_all(std::string s,
                         const std::string &find,
                         const std::string &repl)
 {
+    ASSERT(!find.empty());
     std::string::size_type start = 0;
     std::string::size_type found;
 
@@ -656,6 +657,7 @@ std::string replace_all_of(std::string s,
                            const std::string &tofind,
                            const std::string &replacement)
 {
+    ASSERT(!tofind.empty());
     std::string::size_type start = 0;
     std::string::size_type found;
 
@@ -670,6 +672,7 @@ std::string replace_all_of(std::string s,
 
 int count_occurrences(const std::string &text, const std::string &s)
 {
+    ASSERT(!s.empty());
     int nfound = 0;
     std::string::size_type pos = 0;
 
@@ -867,6 +870,19 @@ not_numeric:
 bool numcmpstr(const std::string a, const std::string b)
 {
     return numcmp(a.c_str(), b.c_str()) == -1;
+}
+
+bool version_is_stable(const char *v)
+{
+    // vulnerable to changes in the versioning scheme
+    for (;; v++)
+    {
+        if (*v == '.' || isadigit(*v))
+            continue;
+        if (*v == '-')
+            return isadigit(v[1]);
+        return true;
+    }
 }
 
 #ifndef USE_TILE

@@ -157,6 +157,14 @@ struct monsterentry
     size_type size;
 };
 
+enum mon_threat_level_type
+{
+    MTHRT_TRIVIAL,
+    MTHRT_EASY,
+    MTHRT_TOUGH,
+    MTHRT_NASTY,
+};
+
 habitat_type grid2habitat(dungeon_feature_type grid);
 dungeon_feature_type habitat2grid(habitat_type ht);
 
@@ -424,6 +432,7 @@ int scan_mon_inv_randarts(const monster* mon,
                           artefact_prop_type ra_prop);
 
 bool player_or_mon_in_sanct(const monster* mons);
+bool mons_is_immotile(const monster* mons);
 
 int get_dist_to_nearest_monster();
 actor *actor_by_mid(mid_t m);
@@ -436,5 +445,7 @@ actor *find_agent(mid_t m, kill_category kc);
 const char* mons_class_name(monster_type mc);
 void check_clinging();
 bool mons_is_tentacle_end(const int mtype);
+mon_threat_level_type mons_threat_level(const monster *mon,
+                                        bool real = false);
 
 #endif

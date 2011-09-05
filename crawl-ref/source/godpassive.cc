@@ -307,7 +307,7 @@ void ash_check_bondage(bool msg)
         }
     }
 
-    char new_bondage[NUM_ET];
+    int8_t new_bondage[NUM_ET];
     int old_level = you.bondage_level;
     for (int s = ET_WEAPON; s < NUM_ET; s++)
     {
@@ -347,8 +347,8 @@ void ash_check_bondage(bool msg)
     for (int s = ET_WEAPON; s < NUM_ET; s++)
     {
         you.bondage[s] = new_bondage[s];
-        std::map<skill_type, char> boosted_skills = ash_get_boosted_skills(eq_type(s));
-        for (std::map<skill_type, char>::iterator it = boosted_skills.begin();
+        std::map<skill_type, int8_t> boosted_skills = ash_get_boosted_skills(eq_type(s));
+        for (std::map<skill_type, int8_t>::iterator it = boosted_skills.begin();
              it != boosted_skills.end(); ++it)
         {
             you.skill_boost[it->first] += it->second;
@@ -689,29 +689,16 @@ int ash_detect_portals(bool all)
 
 monster_type ash_monster_tier(const monster *mon)
 {
-    double factor = sqrt(exp_needed(you.experience_level) / 30.0);
-    int tension = exper_value(mon) / (1 + factor);
-
     if (mon->friendly())
         return MONS_SENSED_FRIENDLY;
-    else if (tension <= 0)
-        // Conjurators use melee to conserve mana, MDFis switch plates...
-        return MONS_SENSED_TRIVIAL;
-    else if (tension <= 5)
-        // An easy fight but not ignorable.
-        return MONS_SENSED_EASY;
-    else if (tension <= 32)
-        // Hard but reasonable.
-        return MONS_SENSED_TOUGH;
-    else
-        // Check all wands/jewels several times, wear brown pants...
-        return MONS_SENSED_NASTY;
+
+    return monster_type(MONS_SENSED_TRIVIAL + monster_info(mon).threat);
 }
 
-std::map<skill_type, char> ash_get_boosted_skills(eq_type type)
+std::map<skill_type, int8_t> ash_get_boosted_skills(eq_type type)
 {
     const int bondage = you.bondage[type];
-    std::map<skill_type, char> boost;
+    std::map<skill_type, int8_t> boost;
     if (bondage <= 0)
         return boost;
 
@@ -776,7 +763,7 @@ std::map<skill_type, char> ash_get_boosted_skills(eq_type type)
 
     // Boost all spell schools and evoc (to give some appeal to melee).
     case (ET_JEWELS):
-        for (int i = SK_CONJURATIONS; i <= SK_ALCHEMY; ++i)
+        for (int i = SK_FIRST_MAGIC_SCHOOL; i <= SK_LAST_MAGIC; ++i)
             boost[skill_type(i)] = bondage;
         boost[SK_EVOCATIONS] = bondage;
         break;

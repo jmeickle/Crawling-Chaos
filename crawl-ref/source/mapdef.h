@@ -26,6 +26,8 @@
 #include "makeitem.h"
 #include "travel_defs.h"
 
+extern const char *traversable_glyphs;
+
 // Invalid heightmap height.
 static const int INVALID_HEIGHT = -31999;
 
@@ -1138,6 +1140,7 @@ private:
     bool            index_only;
     mutable long    cache_offset;
     std::string     file;
+    std::string     cache_name;
 
     typedef Matrix<bool> subvault_mask;
     subvault_mask *svmask;

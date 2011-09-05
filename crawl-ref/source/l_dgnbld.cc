@@ -8,6 +8,7 @@
 #include <cmath>
 
 #include "dungeon.h"
+#include "dgn-delve.h"
 #include "dgn-shoals.h"
 #include "dgn-swamp.h"
 #include "dgn-layouts.h"
@@ -17,9 +18,6 @@
 #include "l_libs.h"
 #include "mapdef.h"
 #include "random.h"
-
-static const char *traversable_glyphs =
-    ".+=w@{}()[]<>BC^~TUVY$%*|Odefghijk0123456789";
 
 static const char *exit_glyphs = "{}()[]<>@";
 
@@ -105,6 +103,9 @@ static bool _table_bool(lua_State *ls, int idx, const char *name, bool defval)
 #define TABLE_CHAR(ls, val, def) char val = _table_char(ls, -1, #val, def);
 #define TABLE_STR(ls, val, def) const char *val = _table_str(ls, -1, #val, def);
 #define TABLE_BOOL(ls, val, def) bool val = _table_bool(ls, -1, #val, def);
+
+#define ARG_INT(ls, num, val, def) int val = lua_isnone(ls, num) ? \
+                                             def : lua_tointeger(ls, num)
 
 // Read a set of box coords (x1, y1, x2, y2) from the table.
 // Return true if coords are valid.
@@ -899,6 +900,20 @@ LUAFN(dgn_layout_type)
     return 0;
 }
 
+LUAFN(dgn_delve)
+{
+    LINES(ls, 1, lines);
+
+    ARG_INT(ls, 2, ngb_min, 2);
+    ARG_INT(ls, 3, ngb_max, 3);
+    ARG_INT(ls, 4, connchance, 0);
+    ARG_INT(ls, 5, cellnum, -1);
+    ARG_INT(ls, 6, top, 125);
+
+    delve(&lines, ngb_min, ngb_max, connchance, cellnum, top);
+    return (0);
+}
+
 /* Wrappers for C++ layouts, to facilitate choosing of layouts by weight and
  * depth */
 
@@ -959,6 +974,7 @@ const struct luaL_reg dgn_build_dlib[] =
     { "replace_random", &dgn_replace_random },
     { "smear_map", &dgn_smear_map },
     { "spotty_map", &dgn_spotty_map },
+    { "delve", &dgn_delve },
     { "width", dgn_width },
     { "layout_type", &dgn_layout_type },
 

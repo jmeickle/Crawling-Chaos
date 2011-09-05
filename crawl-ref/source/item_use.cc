@@ -244,12 +244,12 @@ bool can_wield(item_def *weapon, bool say_reason,
 static bool _valid_weapon_swap(const item_def &item)
 {
     // Weapons and staves are valid weapons.
-    // Also allow missiles to enchant them.
-    if (item.base_type == OBJ_WEAPONS || item.base_type == OBJ_STAVES
-        || item.base_type == OBJ_MISSILES)
-    {
+    if (item.base_type == OBJ_WEAPONS || item.base_type == OBJ_STAVES)
         return (you.species != SP_FELID);
-    }
+
+    // Also allow missiles to enchant them.
+    if (item.base_type == OBJ_MISSILES)
+        return (true);
 
     // Some misc. items need to be wielded to be evoked.
     if (is_deck(item) || item.base_type == OBJ_MISCELLANY
@@ -360,7 +360,7 @@ bool wield_weapon(bool auto_wield, int slot, bool show_weff_messages,
                 return (false);
 
             if (show_unwield_msg)
-                canned_msg(MSG_EMPTY_HANDED);
+                canned_msg(MSG_EMPTY_HANDED_NOW);
 
             // Switching to bare hands is extra fast.
             you.turn_is_over = true;
@@ -368,7 +368,7 @@ bool wield_weapon(bool auto_wield, int slot, bool show_weff_messages,
             you.time_taken /= 10;
         }
         else
-            canned_msg(MSG_EMPTY_HANDED);
+            canned_msg(MSG_EMPTY_HANDED_ALREADY);
 
         return (true);
     }
@@ -684,7 +684,7 @@ bool can_wear_armour(const item_def &item, bool verbose, bool ignore_temporary)
         }
 
         // Soft helmets (caps and wizard hats) always fit, otherwise.
-        if (!is_hard_helmet(item))
+        if (!is_hard_helmet(item) && !player_is_shapechanged())
             return (true);
 
         if (player_mutation_level(MUT_HORNS))
@@ -767,10 +767,10 @@ bool do_wear_armour(int item, bool quiet)
     {
         if (!quiet)
         {
-            if (you.has_tentacles(false) == 3)
-                mpr("You'd need nine tentacles to do that!");
-            else
-                mpr("You'd need three hands to do that!");
+            const char* how_many = you.has_tentacles(false) == 3 ? "nine"
+                                                                 : "three";
+            mprf("You'd need %s %s to do that!", how_many,
+                 you.hand_name(true).c_str());
         }
         return (false);
     }
@@ -1059,9 +1059,8 @@ void fire_target_behaviour::set_prompt()
             << "</" << colour << ">";
     }
 
-    formatted_string cut(msg.str());
     // Write it out.
-    internal_prompt += cut.chop(crawl_view.msgsz.x);
+    internal_prompt += msg.str();
 
     // Never unset need_redraw here, because we might have cleared the
     // screen or something else which demands a redraw.
@@ -1209,7 +1208,7 @@ static bool _fire_validate_item(int slot, std::string &err)
             || you.inv[slot].base_type == OBJ_STAVES)
         && you.inv[slot].cursed())
     {
-        err = "That weapon is stuck to your hand!";
+        err = "That weapon is stuck to your " + you.hand_name(false) + "!";
         return (false);
     }
     else if (wearing_slot(slot))
@@ -1752,6 +1751,15 @@ static int _blowgun_power_roll(bolt &beam)
 
 static bool _blowgun_check(bolt &beam, actor* victim, bool message = true)
 {
+    if (victim->holiness() == MH_UNDEAD || victim->holiness() == MH_NONLIVING)
+    {
+        if (victim->atype() == ACT_MONSTER)
+            simple_monster_message(victim->as_monster(), " is unaffected.");
+        else
+            canned_msg(MSG_YOU_UNAFFECTED);
+        return (false);
+    }
+
     actor* agent = beam.agent();
 
     if (!agent || agent->atype() == ACT_MONSTER || beam.reflections > 0)
@@ -3128,7 +3136,7 @@ bool throw_it(bolt &pbolt, int throw_2, bool teleport, int acc_bonus,
         }
         dec_inv_item_quantity(throw_2, 1);
         if (unwielded)
-            canned_msg(MSG_EMPTY_HANDED);
+            canned_msg(MSG_EMPTY_HANDED_NOW);
     }
 
     throw_noise(&you, pbolt, thrown);
@@ -4078,7 +4086,7 @@ void zap_wand(int slot)
     {
         // Xom loves it when you use a Wand of Random Effects and
         // there is a dangerous monster nearby...
-        xom_is_stimulated(255);
+        xom_is_stimulated(200);
     }
 
     // Reset range.
@@ -4142,7 +4150,7 @@ void zap_wand(int slot)
     {
         // Xom loves it when you use an unknown wand and there is a
         // dangerous monster nearby...
-        xom_is_stimulated(255);
+        xom_is_stimulated(200);
     }
 
     you.turn_is_over = true;
@@ -4280,7 +4288,7 @@ void drink(int slot)
     {
         // Xom loves it when you drink an unknown potion and there is
         // a dangerous monster nearby...
-        xom_is_stimulated(255);
+        xom_is_stimulated(200);
     }
 
     if (is_blood_potion(potion))
@@ -4368,7 +4376,7 @@ static bool _drink_fountain()
     }
 
     if (fountain_effect != POT_WATER && fountain_effect != POT_BLOOD)
-        xom_is_stimulated(64);
+        xom_is_stimulated(50);
 
     // Good gods do not punish for bad random effects. However, they do
     // punish drinking from a fountain of blood.
@@ -4637,7 +4645,7 @@ bool enchant_weapon(enchant_stat_type which_stat, bool quiet, item_def &wpn)
 
             // Xom thinks it's funny if enchantment is possible but fails.
             if (is_enchantable_weapon(wpn, false, to_hit))
-                xom_is_stimulated(32);
+                xom_is_stimulated(25);
 
             return (false);
         }
@@ -5292,7 +5300,7 @@ void read_scroll(int slot)
         break;
 
     case SCR_IMMOLATION:
-        mprf("The scroll explodes in your %s!", your_hand(true).c_str());
+        mprf("The scroll explodes in your %s!", you.hand_name(true).c_str());
 
         // Doesn't destroy scrolls anymore, so no special check needed. (jpeg)
         immolation(10, IMMOLATION_SCROLL, you.pos(), alreadyknown, &you);
@@ -5539,7 +5547,7 @@ void read_scroll(int slot)
         // Xom loves it when you read an unknown scroll and there is a
         // dangerous monster nearby... (though not as much as potions
         // since there are no *really* bad scrolls, merely useless ones).
-        xom_is_stimulated(bad_effect ? 128 : 64);
+        xom_is_stimulated(bad_effect ? 100 : 50);
     }
 }
 
@@ -5555,7 +5563,7 @@ void examine_object(void)
     describe_item(you.inv[item_slot], true);
     redraw_screen();
     mesclr();
-}                               // end original_name()
+}
 
 bool wearing_slot(int inv_slot)
 {

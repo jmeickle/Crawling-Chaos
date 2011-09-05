@@ -550,9 +550,9 @@ bool melee_attack::attack()
         // ... and thinks fumbling when trying to hit yourself is just
         // hilarious.
         if (attacker == defender)
-            xom_is_stimulated(255);
+            xom_is_stimulated(200);
         else
-            xom_is_stimulated(14);
+            xom_is_stimulated(10);
 
         if (damage_brand == SPWPN_CHAOS)
             chaos_affects_attacker();
@@ -564,10 +564,7 @@ bool melee_attack::attack()
     else if (attacker == defender && attacker->confused())
     {
         // And is still hilarious if it's the player.
-        if (attacker->atype() == ACT_PLAYER)
-            xom_is_stimulated(255);
-        else
-            xom_is_stimulated(128);
+        xom_is_stimulated(attacker->atype() == ACT_PLAYER ? 200 : 100);
     }
 
     // Defending monster protects itself from attacks using the wall
@@ -1215,9 +1212,8 @@ bool melee_attack::player_aux_test_hit()
     const int helpful_evasion =
         defender->melee_evasion(attacker, EV_IGNORE_HELPLESS);
 
-    if (you.religion != GOD_ELYVILON
-        && you.penance[GOD_ELYVILON]
-        && god_hates_your_god(GOD_ELYVILON, you.religion)
+    if (you.penance[GOD_ELYVILON]
+        && god_hates_your_god(GOD_ELYVILON)
         && to_hit >= evasion
         && one_chance_in(20))
     {
@@ -1541,9 +1537,8 @@ int melee_attack::player_hits_monster()
         defender->melee_evasion(attacker, EV_IGNORE_HELPLESS);
     dprf("your to-hit: %d; defender effective EV: %d", to_hit, evasion);
 
-    if (you.religion != GOD_ELYVILON
-        && you.penance[GOD_ELYVILON]
-        && god_hates_your_god(GOD_ELYVILON, you.religion)
+    if (you.penance[GOD_ELYVILON]
+        && god_hates_your_god(GOD_ELYVILON)
         && to_hit >= evasion
         && one_chance_in(20))
     {
@@ -1893,6 +1888,18 @@ int melee_attack::player_weapon_type_modify(int damage)
                     attack_verb = "eviscerate";
                 break;
             }
+            else if (you.has_usable_tentacles())
+            {
+                if (damage < HIT_WEAK)
+                    attack_verb = "tentacle-slap";
+                else if (damage < HIT_MED)
+                    attack_verb = "bludgeon";
+                else if (damage < HIT_STRONG)
+                    attack_verb = "batter";
+                else
+                    attack_verb = "thrash";
+                break;
+            }
             // or fall-through
         case TRAN_ICE_BEAST:
             if (damage < HIT_WEAK)
@@ -2009,8 +2016,7 @@ int melee_attack::player_weapon_type_modify(int damage)
             else
                 attack_verb = "eviscerate";
         }
-
-        if (you.damage_type() == DVORP_TENTACLE)
+        else if (you.damage_type() == DVORP_TENTACLE)
         {
             if (damage < HIT_WEAK)
                 attack_verb = "tentacle-slap";
@@ -2021,7 +2027,6 @@ int melee_attack::player_weapon_type_modify(int damage)
             else
                 attack_verb = "thrash";
         }
-
         else
         {
             if (damage < HIT_MED)
@@ -2552,8 +2557,7 @@ void melee_attack::chaos_affects_defender()
     const bool immune     = mon && mons_immune_magic(defender->as_monster());
     const bool is_natural = mon && defender->holiness() == MH_NATURAL;
     const bool is_shifter = mon && defender->as_monster()->is_shapeshifter();
-    const bool can_clone  = mon && defender->is_holy()
-                            && mons_clonable(defender->as_monster(), true);
+    const bool can_clone  = mon && mons_clonable(defender->as_monster(), true);
     const bool can_poly   = is_shifter || (defender->can_safely_mutate()
                                            && !immune);
     const bool can_rage   = defender->can_go_berserk();
@@ -2668,7 +2672,7 @@ void melee_attack::chaos_affects_defender()
                 clone.mark_summoned(6, true, MON_SUMM_CLONE);
 
             // Monsters being cloned is interesting.
-            xom_is_stimulated(clone.friendly() ? 16 : 32);
+            xom_is_stimulated(clone.friendly() ? 12 : 25);
         }
         break;
     }
@@ -2992,7 +2996,7 @@ static bool _make_zombie(monster* mon, int corpse_class, int corpse_index,
     // First attempt to raise zombie fitted out with all its old
     // equipment.
     int zombie_index = -1;
-    int idx = get_item_slot(0);
+    int idx = get_mitm_slot(0);
     if (idx != NON_ITEM && last_item != NON_ITEM)
     {
         mitm[idx]     = fake_corpse;
@@ -4011,7 +4015,7 @@ int melee_attack::player_to_hit(bool random_factor)
         if (wpn_skill != SK_FIGHTING)
         {
             if (you.skill(wpn_skill) < 1 && player_in_a_dangerous_place())
-                xom_is_stimulated(14); // Xom thinks that is mildly amusing.
+                xom_is_stimulated(10); // Xom thinks that is mildly amusing.
 
             your_to_hit += maybe_random2(you.skill(wpn_skill) + 1,
                                          random_factor);
@@ -4130,11 +4134,18 @@ int melee_attack::player_to_hit(bool random_factor)
     // Check for backlight (Corona).
     if (defender && defender->atype() == ACT_MONSTER)
     {
-        if (defender->backlit(true, false))
-            your_to_hit += 2 + random2(8);
         // Invisible monsters are hard to hit.
-        else if (!defender->visible_to(&you))
+        if (!defender->visible_to(&you))
             your_to_hit -= 6;
+        else
+        {
+            if (defender->backlit(true, false))
+                your_to_hit += 2 + random2(8);
+
+            else if (!attacker->nightvision()
+                     && defender->umbra(true, true))
+                your_to_hit -= 2 + random2(4);
+        }
     }
 
     return (your_to_hit);
@@ -5026,7 +5037,7 @@ static void _steal_item_from_player(monster* mon)
     ASSERT(mon->inv[mslot] == NON_ITEM);
 
     // Create new item.
-    int index = get_item_slot(10);
+    int index = get_mitm_slot(10);
     if (index == NON_ITEM)
         return;
 
@@ -5450,9 +5461,7 @@ void melee_attack::mons_do_spines()
     if (body)
         evp = -property(*body, PARM_EVASION);
 
-    if (you.mutation[MUT_SPINY]
-        && attacker->alive()
-        && one_chance_in(evp + 1))
+    if (you.mutation[MUT_SPINY] && attacker->alive() && one_chance_in(evp + 1))
     {
         if (test_melee_hit(2 + 4 * mut, attacker->melee_evasion(defender), r)
             < 0)
@@ -5464,7 +5473,6 @@ void melee_attack::mons_do_spines()
 
         int dmg = roll_dice(mut, 6);
         int ac = random2(1 + attacker->armour_class());
-
         int hurt = dmg - ac - evp;
 
         dprf("Spiny: dmg = %d ac = %d hurt = %d", dmg, ac, hurt);
@@ -6096,19 +6104,26 @@ int melee_attack::mons_to_hit()
     if (attacker->confused())
         mhit -= 5;
 
-    if (defender->backlit(true, false))
-        mhit += 2 + random2(8);
-
-     if (defender->atype() == ACT_PLAYER
-         && player_mutation_level(MUT_TRANSLUCENT_SKIN) >= 3)
-         mhit -= 5;
-
     // Invisible defender is hard to hit if you can't see invis. Note
     // that this applies only to monsters vs monster and monster vs
     // player. Does not apply to a player fighting an invisible
     // monster.
     if (!defender->visible_to(attacker))
         mhit = mhit * 65 / 100;
+    else
+    {
+         // This can only help if you're visible!
+         if (defender->atype() == ACT_PLAYER
+             && player_mutation_level(MUT_TRANSLUCENT_SKIN) >= 3)
+             mhit -= 5;
+
+         if (defender->backlit(true, false))
+             mhit += 2 + random2(8);
+
+         else if (!attacker->nightvision() &&
+                  defender->umbra(true, true))
+             mhit -= 2 + random2(4);
+    }
 
 #ifdef DEBUG_DIAGNOSTICS
     mprf(MSGCH_DIAGNOSTICS, "%s: Base to-hit: %d, Final to-hit: %d",

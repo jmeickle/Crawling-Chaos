@@ -41,6 +41,7 @@
 #include "output.h"
 #include "player.h"
 #include "view.h"
+#include "viewchar.h"
 #include "viewgeom.h"
 
 
@@ -461,16 +462,21 @@ void canned_msg(canned_message_type which_message)
         mpr("Huh?", MSGCH_EXAMINE_FILTER);
         crawl_state.cancel_cmd_repeat();
         break;
-    case MSG_EMPTY_HANDED:
+    case MSG_EMPTY_HANDED_ALREADY:
+    case MSG_EMPTY_HANDED_NOW:
+    {
+        const char* when =
+            (which_message == MSG_EMPTY_HANDED_ALREADY ? "already" : "now");
         if (you.species == SP_FELID)
-            mpr("Your mouth is now empty.");
+            mprf("Your mouth is %s empty.", when);
         else if (you.has_usable_claws(true))
-            mpr("You are now empty-clawed.");
+            mprf("You are %s empty-clawed.", when);
         else if (you.has_usable_tentacles(true))
-            mpr("You are now empty-tentacled.");
+            mprf("You are %s empty-tentacled.", when);
         else
-            mpr("You are now empty-handed.");
+            mprf("You are %s empty-handed.", when);
         break;
+    }
     case MSG_YOU_BLINK:
         mpr("You blink.");
         break;
@@ -708,6 +714,7 @@ int yesnoquit(const char* str, bool safe, int safeanswer, bool allow_all,
 
 char index_to_letter(int the_index)
 {
+    ASSERT(the_index >= 0 && the_index < ENDOFPACK);
     return (the_index + ((the_index < 26) ? 'a' : ('A' - 26)));
 }
 
@@ -715,12 +722,13 @@ int letter_to_index(int the_letter)
 {
     if (the_letter >= 'a' && the_letter <= 'z')
         // returns range [0-25] {dlb}
-        the_letter -= 'a';
+        return (the_letter - 'a');
     else if (the_letter >= 'A' && the_letter <= 'Z')
         // returns range [26-51] {dlb}
-        the_letter -= ('A' - 26);
+        return (the_letter - 'A' + 26);
 
-    return (the_letter);
+    die("slot not a letter: %s (%d)", the_letter ?
+        stringize_glyph(the_letter).c_str() : "null", the_letter);
 }
 
 maybe_bool frombool(bool b)

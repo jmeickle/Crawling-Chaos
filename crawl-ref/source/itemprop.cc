@@ -35,7 +35,6 @@
 #include "shopping.h"
 #include "xom.h"
 
-
 // XXX: Name strings in most of the following are currently unused!
 struct armour_def
 {
@@ -261,12 +260,14 @@ static weapon_def Weapon_prop[NUM_WEAPONS] =
     { WPN_BLESSED_SCIMITAR,      "blessed scimitar",      12, -2, 13, 170,  3,
         SK_LONG_BLADES,  HANDS_ONE,    SIZE_MEDIUM, MI_NONE, false,
         DAMV_SLICING, 0 },
+#if TAG_MAJOR_VERSION == 32
     { WPN_KATANA,                "katana",                14,  3, 12, 160,  3,
         SK_LONG_BLADES,  HANDS_HALF,   SIZE_MEDIUM, MI_NONE, false,
         DAMV_SLICING, 0 },
     { WPN_BLESSED_KATANA,        "blessed katana",        15,  2, 12, 160,  3,
         SK_LONG_BLADES,  HANDS_HALF,   SIZE_MEDIUM, MI_NONE, false,
         DAMV_SLICING, 0 },
+#endif
     { WPN_DEMON_BLADE,           "demon blade",           13, -1, 13, 200,  4,
         SK_LONG_BLADES,  HANDS_ONE,    SIZE_MEDIUM, MI_NONE, false,
         DAMV_SLICING, 2 },
@@ -539,7 +540,7 @@ void do_curse_item(item_def &item, bool quiet)
     // they're worn/equipped.
     if (in_inventory(item))
     {
-        int amusement = 64;
+        int amusement = 50;
 
         if (item_is_equipped(item))
         {
@@ -558,9 +559,11 @@ void do_curse_item(item_def &item, bool quiet)
                 // Redraw the weapon.
                 you.wield_change = true;
             }
+
             ash_check_bondage();
             ash_id_inventory();
         }
+
         xom_is_stimulated(amusement);
     }
 }
@@ -626,7 +629,7 @@ bool item_is_stationary(const item_def &item)
             && item.plus2);
 }
 
-bool _is_affordable(const item_def &item)
+static bool _is_affordable(const item_def &item)
 {
     // Temp items never count.
     if (item.flags & ISFLAG_SUMMONED)
@@ -727,10 +730,13 @@ iflags_t full_ident_mask(const item_def& item)
         flagset = 0;
         break;
     case OBJ_MISCELLANY:
-        if (item.sub_type == MISC_RUNE_OF_ZOT)
-            flagset = 0;
-        else
+        if (item.sub_type == MISC_CRYSTAL_BALL_OF_SEEING
+            || item.sub_type == MISC_CRYSTAL_BALL_OF_ENERGY)
+        {
             flagset = ISFLAG_KNOW_TYPE;
+        }
+        else
+            flagset = 0;
         break;
     case OBJ_BOOKS:
     case OBJ_ORBS:
@@ -1443,10 +1449,13 @@ int weapon_rarity(int w_type)
     case WPN_BARDICHE:
         return (1);
 
+#if TAG_MAJOR_VERSION == 32
+    case WPN_KATANA:
+    case WPN_BLESSED_KATANA:
+#endif
     case WPN_DOUBLE_SWORD:
     case WPN_EVENINGSTAR:
     case WPN_EXECUTIONERS_AXE:
-    case WPN_KATANA:
     case WPN_QUICK_BLADE:
     case WPN_TRIPLE_SWORD:
     case WPN_DEMON_WHIP:
@@ -1455,7 +1464,6 @@ int weapon_rarity(int w_type)
     case WPN_BLESSED_FALCHION:
     case WPN_BLESSED_LONG_SWORD:
     case WPN_BLESSED_SCIMITAR:
-    case WPN_BLESSED_KATANA:
     case WPN_EUDEMON_BLADE:
     case WPN_BLESSED_DOUBLE_SWORD:
     case WPN_BLESSED_GREAT_SWORD:
@@ -1649,7 +1657,9 @@ bool is_blessed(const item_def &item)
         case WPN_BLESSED_FALCHION:
         case WPN_BLESSED_LONG_SWORD:
         case WPN_BLESSED_SCIMITAR:
+#if TAG_MAJOR_VERSION == 32
         case WPN_BLESSED_KATANA:
+#endif
         case WPN_EUDEMON_BLADE:
         case WPN_BLESSED_DOUBLE_SWORD:
         case WPN_BLESSED_GREAT_SWORD:
@@ -1711,11 +1721,13 @@ bool convert2good(item_def &item, bool allow_blessed)
             item.sub_type = WPN_EUDEMON_BLADE;
         break;
 
+#if TAG_MAJOR_VERSION == 32
     case WPN_KATANA:
         if (!allow_blessed)
             return (false);
         item.sub_type = WPN_BLESSED_KATANA;
         break;
+#endif
 
     case WPN_DOUBLE_SWORD:
         if (!allow_blessed)
@@ -1782,9 +1794,11 @@ bool convert2bad(item_def &item)
         item.sub_type = WPN_DEMON_BLADE;
         break;
 
+#if TAG_MAJOR_VERSION == 32
     case WPN_BLESSED_KATANA:
         item.sub_type = WPN_KATANA;
         break;
+#endif
 
     case WPN_BLESSED_DOUBLE_SWORD:
         item.sub_type = WPN_DOUBLE_SWORD;

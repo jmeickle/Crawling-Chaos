@@ -14,7 +14,6 @@
 #include "package.h"
 #include "place-info.h"
 #include "religion-enum.h"
-
 #include "species.h"
 
 #include <list>
@@ -116,7 +115,7 @@ public:
   int deaths;
 
   FixedVector<uint8_t, NUM_SKILLS>  skills; //!< skill level
-  FixedVector<char, NUM_SKILLS>  train; //!< 0: disabled, 1: normal, 2: focus.
+  FixedVector<int8_t, NUM_SKILLS>  train; //!< 0: disabled, 1: normal, 2: focus.
   FixedVector<unsigned int, NUM_SKILLS>  training; //<! percentage of XP used
   FixedVector<unsigned int, NUM_SKILLS> skill_points;
   FixedVector<unsigned int, NUM_SKILLS> ct_skill_points; //<!track skill points
@@ -125,6 +124,10 @@ public:
 
   bool auto_training;
   std::list<skill_type> exercises;
+
+  // Skill menu states
+  skill_menu_state skill_menu_do;
+  skill_menu_state skill_menu_view;
 
   //Ashenzari transfer knowledge
   skill_type    transfer_from_skill;
@@ -281,6 +284,8 @@ public:
   // The biggest assigned monster id so far.
   mid_t last_mid;
 
+  // Count of spells cast.
+  std::map<spell_type, FixedVector<int, 27> > spell_usage;
 
   // Non-saved UI state:
   unsigned short prev_targ;
@@ -299,9 +304,9 @@ public:
 
   time_t last_keypress_time;
   bool xray_vision;
-  char bondage_level;  // how much an Ash worshipper is into bondage
-  char bondage[NUM_ET];
-  std::map<skill_type, char> skill_boost; // Skill bonuses.
+  int8_t bondage_level;  // how much an Ash worshipper is into bondage
+  int8_t bondage[NUM_ET];
+  std::map<skill_type, int8_t> skill_boost; // Skill bonuses.
 
   // Volatile (same-turn) state:
   bool turn_is_over; // flag signaling that player has performed a timed action
@@ -329,6 +334,9 @@ public:
 
   entry_cause_type entry_cause;
   god_type         entry_cause_god;
+
+  // For now, only control the speed of abyss morphing.
+  int abyss_speed;
 
   int           old_hunger;  // used for hunger delta-meter (see output.cc)
 
@@ -402,6 +410,7 @@ public:
     int visible_igrd(const coord_def&) const;
     bool is_levitating() const;
     bool can_cling_to_walls() const;
+    bool is_web_immune() const;
     bool cannot_speak() const;
     bool invisible() const;
     bool misled() const;
@@ -409,6 +418,7 @@ public:
     bool can_see_invisible(bool unid, bool transient = true) const;
     bool visible_to(const actor *looker) const;
     bool can_see(const actor* a) const;
+    bool nightvision() const;
 
     bool see_cell(const coord_def& p) const;
     const los_base* get_los();
@@ -550,8 +560,9 @@ public:
     void make_hungry(int nutrition, bool silent = true);
     void poison(actor *agent, int amount = 1, bool force = false);
     bool sicken(int amount, bool allow_hint = true);
-    void paralyse(actor *, int str);
+    void paralyse(actor *, int str, std::string source = "");
     void petrify(actor *);
+    bool fully_petrify(actor *foe, bool quiet = false);
     void slow_down(actor *, int str);
     void confuse(actor *, int strength);
     bool heal(int amount, bool max_too = false);
@@ -604,9 +615,11 @@ public:
     bool confused() const;
     bool caught() const;
     bool backlit(bool check_haloed = true, bool self_halo = true) const;
+    bool umbra(bool check_haloed = true, bool self_halo = true) const;
     int halo_radius2() const;
     int silence_radius2() const;
     int liquefying_radius2 () const;
+    int antihalo_radius2 () const;
     bool glows_naturally() const;
     bool petrifying() const;
     bool petrified() const;
@@ -730,7 +743,8 @@ void moveto_location_effects(dungeon_feature_type old_feat,
                              bool stepped=false, bool allow_shift=true,
                              const coord_def& old_pos=coord_def());
 
-bool check_moveto(const coord_def& p, const std::string &move_verb = "step");
+bool check_moveto(const coord_def& p, const std::string &move_verb = "step",
+                  const std::string &msg = "");
 void move_player_to_grid(const coord_def& p, bool stepped, bool allow_shift);
 
 bool player_in_mappable_area(void);
@@ -865,7 +879,7 @@ void gain_exp(unsigned int exp_gained, unsigned int* actual_gain = NULL,
 
 bool player_in_bat_form();
 bool player_can_open_doors();
-bool player_can_reach_floor(std::string feat = "");
+bool player_can_reach_floor(std::string feat = "", bool quiet = false);
 
 inline bool player_can_handle_equipment()
 {
@@ -928,6 +942,7 @@ bool confuse_player(int amount, bool resistable = true);
 bool curare_hits_player(int death_source, int amount, const bolt &beam);
 bool poison_player(int amount, std::string source,
                    std::string source_aux = "", bool force = false);
+void paralyse_player(std::string source, int amount = 0, int factor = 1);
 void dec_poison_player();
 void reduce_poison_player(int amount);
 bool miasma_player(std::string source, std::string source_aux = "");

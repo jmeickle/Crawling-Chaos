@@ -272,7 +272,7 @@ NAME:    Scythe of Curses
 APPEAR:  warped scythe
 OBJ:     OBJ_WEAPONS/WPN_SCYTHE
 PLUS:    +13/+13
-COLOUR:  ETC_NECRO
+COLOUR:  ETC_DEATH
 TILE:    spwpn_scythe_of_curses
 TILE_EQ: finisher
 BRAND:   SPWPN_DRAINING
@@ -357,9 +357,9 @@ DESC:    Faerie dragons used to be a race of the same species as mottled ones.
 
 ##################### End of old fixed arts.
 
-NAME:    katana "Bloodbane"
-APPEAR:  blackened katana
-OBJ:     OBJ_WEAPONS/WPN_KATANA
+NAME:    demon blade "Bloodbane"
+APPEAR:  blackened demon blade
+OBJ:     OBJ_WEAPONS/WPN_DEMON_BLADE
 PLUS:    +7/+8
 COLOUR:  ETC_DARK
 TILE:    urand_bloodbane
@@ -978,7 +978,7 @@ DESC_END: According to legend, this robe was the gift of Ratri the Goddess
           of the Night to one of her followers.
 
 NAME:    armour of the Dragon King
-APPEAR:  shiny dragon armour
+APPEAR:  shiny gold dragon armour
 OBJ:     OBJ_ARMOUR/ARM_GOLD_DRAGON_ARMOUR
 PLUS:    +5
 COLOUR:  ETC_GOLD
@@ -1061,7 +1061,6 @@ TILE:    urand_air
 EV:      3
 STEALTH: 50
 BOOL:    elec, lev
-DESC:    A sky-blue amulet.
 
 NAME:    ring of Shadows
 APPEAR:  black ring
@@ -1133,7 +1132,6 @@ COLOUR:   ETC_MAGIC
 TILE:     urand_brooch_of_shielding
 AC:       4
 EV:       4
-DESC:     A shield-shaped amulet.
 DESC_END: Back in the good old days, every adventurer had one of these
           handy devices. That, and a pony.
 

@@ -362,10 +362,6 @@ static job_type _str_to_job(const std::string &str)
         job = JOB_UNKNOWN;
 #endif
 
-// XXX: Arcane Marksmen are temporarily disabled
-    if (job == JOB_ARCANE_MARKSMAN)
-        job = JOB_UNKNOWN;
-
     if (job == JOB_UNKNOWN)
         fprintf(stderr, "Unknown background choice: %s\n", str.c_str());
 
@@ -720,6 +716,7 @@ void game_options::reset_options()
 
     autopickup_on    = 1;
     default_friendly_pickup = FRIENDLY_PICKUP_FRIEND;
+    default_manual_training = false;
 
     show_newturn_mark = true;
 #ifdef EUCLIDEAN
@@ -853,6 +850,7 @@ void game_options::reset_options()
     explore_item_greed     = 10;
     explore_greedy         = true;
 
+    explore_wall_bias      = 0;
     explore_improved       = false;
     travel_key_stop        = true;
 
@@ -2211,6 +2209,13 @@ void game_options::read_option_line(const std::string &str, bool runscript)
         else if (field == "all")
             default_friendly_pickup = FRIENDLY_PICKUP_ALL;
     }
+    else if (key == "default_manual_training")
+    {
+        if (_read_bool(field, true))
+            default_manual_training = true;
+        else
+            default_manual_training = false;
+    }
 #ifndef DGAMELAUNCH
     else BOOL_OPTION(restart_after_game);
 #endif
@@ -2908,6 +2913,14 @@ void game_options::read_option_line(const std::string &str, bool runscript)
             explore_item_greed = -1000;
     }
     else BOOL_OPTION(explore_greedy);
+    else if (key == "explore_wall_bias")
+    {
+        explore_wall_bias = atoi(field.c_str());
+        if (explore_wall_bias > 1000)
+            explore_wall_bias = 1000;
+        else if (explore_wall_bias < 0)
+            explore_wall_bias = 0;
+    }
     else BOOL_OPTION(explore_improved);
     else BOOL_OPTION(travel_key_stop);
     else if (key == "stash_filter")
@@ -3374,7 +3387,7 @@ void get_system_environment(void)
     // The user's home directory (used to look for ~/.crawlrc file)
     SysEnv.home = check_string(getenv("HOME"));
 #endif
-}                               // end get_system_environment()
+}
 
 static void set_crawl_base_dir(const char *arg)
 {

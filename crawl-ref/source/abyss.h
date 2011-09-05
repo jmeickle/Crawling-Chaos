@@ -20,13 +20,11 @@ struct abyss_state
     double depth;
 };
 void abyss_morph();
-void abyss_maybe_decay_vaults();
 void push_features_to_abyss();
 #endif
 
 void generate_abyss();
 void maybe_shift_abyss_around_player();
-void abyss_area_shift();
 void abyss_teleport(bool new_area);
 void save_abyss_uniques();
 bool is_level_incorruptible();

@@ -377,7 +377,7 @@ void wizard_list_branches()
                  i, branches[i].longname, branches[i].startdepth,
                  branches[branches[i].parent_branch].abbrevname);
         }
-        else if (i == BRANCH_SWAMP || i == BRANCH_SHOALS)
+        else if (is_random_lair_subbranch((branch_type)i))
         {
             mprf(MSGCH_DIAGNOSTICS, "Branch %d (%s) was not generated "
                  "this game", i, branches[i].longname);
@@ -757,16 +757,6 @@ void debug_test_explore()
     you.moveto(where);
 
     mprf("Explore took %d turns.", explore_turns);
-}
-
-void debug_shift_labyrinth()
-{
-    if (you.level_type != LEVEL_LABYRINTH)
-    {
-        mpr("This only makes sense in a labyrinth!");
-        return;
-    }
-    change_labyrinth(true);
 }
 
 void wizard_list_levels()

@@ -105,10 +105,6 @@ blessed great sword
 
 A sword with a very long, heavy blade and a long handle. It has been enhanced by the Shining One's power.
 %%%%
-blessed katana
-
-A very rare and extremely effective imported weapon, featuring a long single-edged blade. It has been enhanced by the Shining One's power.
-%%%%
 blessed long sword
 
 A sword with a long, slashing blade. It has been enhanced by the Shining One's power.
@@ -140,10 +136,6 @@ A slightly seared book, with a hole burnt through the cover.
 book of annihilations
 
 While browsing, you note blood leaking from the pages. Even an illiterate will feel the sheer impact of arcane fury contained in this book. It is sought after by sorcerers, for it allows the gifted and resourceful to command destruction with the ease of a twinkle. Feeble wizards, however, may well meet their doom when trying to read this opus.
-%%%%
-book of brands
-
-This book contains magical spells related to the branding of weapons and launchers, as well as spells that are helpful in all forms of ranged combat.
 %%%%
 book of beasts
 
@@ -188,6 +180,10 @@ A book of magic spells.
 book of death
 
 A black book containing spells written in a hasty scrawl.
+%%%%
+book of debilitation
+
+A book of magic spells.
 %%%%
 book of dreams
 
@@ -595,14 +591,6 @@ else
     return ""
 end
 }}
-%%%%
-katana
-
-A very rare and extremely effective imported weapon, featuring a long single-edged blade.
-%%%%
-knife
-
-A simple survival knife. Designed more for utility than combat, it looks quite capable of butchering a corpse.
 %%%%
 lajatang
 
@@ -1084,7 +1072,7 @@ This scroll places an enchantment on the wielded weapon or stack of missiles, ma
 %%%%
 scroll of enchant weapon iii
 
-This scroll enchants the wielded weapon or stack of missiles to be far more effective in combat. Although it can be used in the creation of especially enchanted weapons, it may fail to affect those already heavily enchanted, and only allows enchantment up to +9. When used on ammunition this will also decrease the chances of missiles breaking upon impact.
+This scroll enchants the wielded weapon or stack of missiles to be far more effective in combat. It may fail to affect weapons or ammunition already heavily enchanted, and only allows enchantment up to +9. When used on ammunition this will also decrease the chances of missiles breaking upon impact.
 %%%%
 scroll of fear
 

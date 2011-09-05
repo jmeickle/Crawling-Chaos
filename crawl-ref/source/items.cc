@@ -80,6 +80,7 @@ static bool _invisible_to_player(const item_def& item);
 static void _autoinscribe_item(item_def& item);
 static void _autoinscribe_floor_items();
 static void _autoinscribe_inventory();
+static void _multidrop(std::vector<SelItem> tmp_items);
 
 static inline std::string _autopickup_item_name(const item_def &item);
 
@@ -307,7 +308,7 @@ bool dec_inv_item_quantity(int obj, int amount, bool suppress_burden)
                 if (i == EQ_WEAPON)
                 {
                     unwield_item();
-                    canned_msg(MSG_EMPTY_HANDED);
+                    canned_msg(MSG_EMPTY_HANDED_NOW);
                 }
                 you.equip[i] = -1;
             }
@@ -388,7 +389,7 @@ void init_item(int item)
 // Returns an unused mitm slot, or NON_ITEM if none available.
 // The reserve is the number of item slots to not check.
 // Items may be culled if a reserve <= 10 is specified.
-int get_item_slot(int reserve)
+int get_mitm_slot(int reserve)
 {
     ASSERT(reserve >= 0);
 
@@ -1203,37 +1204,44 @@ bool pickup_single_item(int link, int qty)
     if (!player_can_reach_floor())
         return (false);
 
-    if (qty == 0 && mitm[link].quantity > 1 && mitm[link].base_type != OBJ_GOLD)
+    item_def* item = &mitm[link];
+    if (item->base_type == OBJ_GOLD && !qty && !i_feel_safe()
+        && !yesno("Are you sure you want to pick up this pile of gold now?",
+                  true, 'n'))
+    {
+        return (false);
+    }
+    if (qty == 0 && item->quantity > 1 && item->base_type != OBJ_GOLD)
     {
         const std::string prompt
                 = make_stringf("Pick up how many of %s (; or enter for all)? ",
-                               mitm[link].name(DESC_NOCAP_THE,
+                               item->name(DESC_NOCAP_THE,
                                     false, false, false).c_str());
 
         qty = prompt_for_quantity(prompt.c_str());
         if (qty == -1)
-            qty = mitm[link].quantity;
+            qty = item->quantity;
         else if (qty == 0)
         {
             canned_msg(MSG_OK);
             return (false);
         }
-        else if (qty < mitm[link].quantity)
+        else if (qty < item->quantity)
         {
             // Mark rest item as not eligible for autopickup.
-            mitm[link].flags |= ISFLAG_DROPPED;
-            mitm[link].flags &= ~ISFLAG_THROWN;
+            item->flags |= ISFLAG_DROPPED;
+            item->flags &= ~ISFLAG_THROWN;
         }
     }
 
-    if (qty < 1 || qty > mitm[link].quantity)
-        qty = mitm[link].quantity;
+    if (qty < 1 || qty > item->quantity)
+        qty = item->quantity;
 
-    iflags_t oldflags = mitm[link].flags;
-    mitm[link].flags &= ~(ISFLAG_THROWN | ISFLAG_DROPPED);
+    iflags_t oldflags = item->flags;
+    item->flags &= ~(ISFLAG_THROWN | ISFLAG_DROPPED);
     int num = move_item_to_player(link, qty);
-    if (mitm[link].defined())
-        mitm[link].flags = oldflags;
+    if (item->defined())
+        item->flags = oldflags;
 
     if (num == -1)
     {
@@ -1497,20 +1505,17 @@ int find_free_slot(const item_def &i)
 
     // See if the item remembers where it's been. Lua code can play with
     // this field so be extra careful.
-    if (i.slot >= 'a' && i.slot <= 'z'
-        || i.slot >= 'A' && i.slot <= 'Z')
-    {
+    if (isaalpha(i.slot))
         slot = letter_to_index(i.slot);
-    }
 
     if (slotisfree(slot))
         return slot;
 
-    int disliked = -1;
+    FixedBitArray<ENDOFPACK> disliked;
     if (i.base_type == OBJ_FOOD)
-        disliked = 'e' - 'a';
+        disliked.set('e' - 'a'), disliked.set('y' - 'a');
     else if (i.base_type == OBJ_POTIONS)
-        disliked = 'y' - 'a';
+        disliked.set('y' - 'a');
 
     if (!searchforward)
     {
@@ -1521,7 +1526,7 @@ int find_free_slot(const item_def &i)
             if (you.inv[slot].defined())
             {
                 if (slot + 1 < ENDOFPACK && !you.inv[slot + 1].defined()
-                    && slot + 1 != disliked)
+                    && !disliked[slot + 1])
                 {
                     return (slot + 1);
                 }
@@ -1529,7 +1534,7 @@ int find_free_slot(const item_def &i)
             else
             {
                 if (slot + 1 < ENDOFPACK && you.inv[slot + 1].defined()
-                    && slot != disliked)
+                    && !disliked[slot])
                 {
                     return (slot);
                 }
@@ -1540,16 +1545,17 @@ int find_free_slot(const item_def &i)
     // Either searchforward is true, or search backwards failed and
     // we re-try searching the oposite direction.
 
+    int badslot = -1;
     // Return first free slot
     for (slot = 0; slot < ENDOFPACK; ++slot)
-        if (slot != disliked && !you.inv[slot].defined())
-            return slot;
+        if (!you.inv[slot].defined())
+            if (disliked[slot])
+                badslot = slot;
+            else
+                return slot;
 
     // If the least preferred slot is the only choice, so be it.
-    if (disliked != -1 && !you.inv[disliked].defined())
-        return disliked;
-
-    return (-1);
+    return (badslot);
 #undef slotisfree
 }
 
@@ -1634,6 +1640,8 @@ int move_item_to_player(int obj, int quant_got, bool quiet,
             }
             else if (nrunes > 1)
                 mprf("You now have %d runes.", nrunes);
+
+            mpr("Press } to see all the runes you have collected.");
         }
 
         dungeon_events.fire_position_event(
@@ -1821,12 +1829,15 @@ int move_item_to_player(int obj, int quant_got, bool quiet,
         // Take a note!
         _check_note_item(item);
 
+        env.orb_pos = you.pos(); // can be wrong in wizmode
         orb_pickup_noise(you.pos(), 30);
 
+        mpr("The lords of Pandemonium are not amused; beware!", MSGCH_WARN);
         mpr("Now all you have to do is get back out of the dungeon!", MSGCH_ORB);
 
         you.char_direction = GDT_ASCENDING;
-        xom_is_stimulated(255, XM_INTRIGUED);
+        xom_is_stimulated(200, XM_INTRIGUED);
+        invalidate_agrid(true);
     }
 
     if (item.base_type == OBJ_ORBS && you.level_type == LEVEL_DUNGEON)
@@ -2012,7 +2023,7 @@ bool copy_item_to_grid(const item_def &item, const coord_def& p,
     }
 
     // Item not found in current stack, add new item to top.
-    int new_item_idx = get_item_slot(10);
+    int new_item_idx = get_mitm_slot(10);
     if (new_item_idx == NON_ITEM)
         return (false);
     item_def& new_item = mitm[new_item_idx];
@@ -2170,10 +2181,7 @@ bool drop_item(int item_dropped, int quant_drop)
             {
                 // If we take off the item, cue up the item being dropped
                 if (takeoff_armour(item_dropped))
-                {
                     start_delay(DELAY_DROP_ITEM, 1, item_dropped, 1);
-                    you.turn_is_over = false; // turn happens later
-                }
             }
 
             // Regardless, we want to return here because either we're
@@ -2228,6 +2236,7 @@ bool drop_item(int item_dropped, int quant_drop)
         for (int i = 0; i < quant_drop; i++)
             remove_oldest_blood_potion(you.inv[item_dropped]);
     }
+
     dec_inv_item_quantity(item_dropped, quant_drop);
     you.turn_is_over = true;
 
@@ -2236,26 +2245,25 @@ bool drop_item(int item_dropped, int quant_drop)
     return (true);
 }
 
-bool drop_last()
+void drop_last()
 {
-    typedef std::map<int,int> MapType;
-    bool dropped = false;
-    MapType::iterator it = you.last_pickup.begin();
-    while (it != you.last_pickup.end())
+    std::vector<SelItem> items_to_drop;
+
+    for (std::map<int,int>::iterator it = you.last_pickup.begin();
+        it != you.last_pickup.end(); ++it)
     {
-        std::pair<int,int> curr_item = *it++;
-        if (you.inv[curr_item.first].quantity > 0)
-        {
-            drop_item(curr_item.first, curr_item.second);
-            dropped = true;
-        }
+        const item_def* item = &you.inv[it->first];
+        if (item->quantity > 0)
+            items_to_drop.push_back(SelItem(it->first, it->second, item));
     }
 
-    if (!dropped)
+    if (items_to_drop.empty())
         mprf("No item to drop.");
-
-    you.last_pickup.clear();
-    return dropped;
+    else
+    {
+        you.last_pickup.clear();
+        _multidrop(items_to_drop);
+    }
 }
 
 static std::string _drop_menu_invstatus(const Menu *menu)
@@ -2389,7 +2397,7 @@ void drop()
     }
 
     std::vector<SelItem> tmp_items;
-    tmp_items = prompt_invent_items("Drop what?  (Press _ for help.)", MT_DROP,
+    tmp_items = prompt_invent_items("Drop what? (Press _ for help.)", MT_DROP,
                                      -1, _drop_menu_title, true, true, 0,
                                      &Options.drop_filter, _drop_selitem_text,
                                      &items_for_multidrop);
@@ -2400,6 +2408,11 @@ void drop()
         return;
     }
 
+    _multidrop(tmp_items);
+}
+
+static void _multidrop(std::vector<SelItem> tmp_items)
+{
     // Sort the dropped items so we don't see weird behaviour when
     // dropping a worn robe before a cloak (old behaviour: remove
     // cloak, remove robe, wear cloak, drop robe, remove cloak, drop
@@ -2441,10 +2454,8 @@ void drop()
 
     if (items_for_multidrop.size() == 1) // only one item
     {
-        drop_item(items_for_multidrop[0].slot,
-                   items_for_multidrop[0].quantity);
+        drop_item(items_for_multidrop[0].slot, items_for_multidrop[0].quantity);
         items_for_multidrop.clear();
-        you.turn_is_over = true;
     }
     else
         start_delay(DELAY_MULTIDROP, items_for_multidrop.size());
@@ -3924,8 +3935,6 @@ item_info get_item_info(const item_def& item)
                 ii.sub_type = MISC_DECK_OF_ESCAPE;
             else if (item.sub_type >= MISC_CRYSTAL_BALL_OF_ENERGY && item.sub_type <= MISC_CRYSTAL_BALL_OF_SEEING)
                 ii.sub_type = MISC_CRYSTAL_BALL_OF_ENERGY;
-            else if (item.sub_type >= MISC_BOX_OF_BEASTS && item.sub_type <= MISC_EMPTY_EBONY_CASKET)
-                ii.sub_type = MISC_BOX_OF_BEASTS;
             else
                 ii.sub_type = item.sub_type;
         }
@@ -4021,4 +4030,21 @@ int runes_in_pack()
             num_runes++;
 
     return num_runes;
+}
+
+bool player_has_orb()
+{
+    if (you.char_direction != GDT_ASCENDING)
+        return false;
+
+    for (int i = 0; i < ENDOFPACK; i++)
+    {
+        if (you.inv[i].defined()
+            && you.inv[i].base_type == OBJ_ORBS
+            && you.inv[i].sub_type == ORB_ZOT)
+        {
+            return (true);
+        }
+    }
+    return false;
 }

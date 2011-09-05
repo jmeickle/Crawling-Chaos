@@ -222,7 +222,8 @@ static std::string _shop_print_stock(const std::vector<int>& stock,
                                       const std::vector<bool>& selected,
                                       const std::vector<bool>& in_list,
                                       const shop_struct& shop,
-                                      int total_cost)
+                                      int total_cost,
+                                      bool viewing)
 {
     ShopInfo &si  = StashTrack.get_shop(shop.pos);
     const bool id = shoptype_identifies_stock(shop.type);
@@ -266,7 +267,13 @@ static std::string _shop_print_stock(const std::vector<int>& stock,
         else
             cprintf("%c - ", c);
 
-        if (Options.menu_colour_shops)
+        const bool unknown = item_type_has_ids(item.base_type)
+                             && item_type_known(item)
+                             && get_ident_type(item) != ID_KNOWN_TYPE
+                             && !is_artefact(item);
+        if (viewing)
+            textcolor((unknown || is_artefact(item))? WHITE : LIGHTGREY);
+        else if (Options.menu_colour_shops)
         {
             // Colour stock according to menu colours.
             const std::string colprf = menu_colour_item_prefix(item);
@@ -277,9 +284,11 @@ static std::string _shop_print_stock(const std::vector<int>& stock,
         else
             textcolor(i % 2 ? LIGHTGREY : WHITE);
 
-        cprintf("%s%5d gold",
-                chop_string(item.name(DESC_NOCAP_A, false, id), 56).c_str(),
-                gp_value);
+        std::string item_name = item.name(DESC_NOCAP_A, false, id);
+        if (unknown)
+            item_name += " (unknown)";
+
+        cprintf("%s%5d gold", chop_string(item_name, 56).c_str(), gp_value);
 
         si.add_item(item, gp_value);
     }
@@ -395,7 +404,8 @@ static bool _in_a_shop(int shopidx, int &num_in_list)
 
         const std::string purchasable = _shop_print_stock(stock, selected,
                                                           in_list, shop,
-                                                          total_cost);
+                                                          total_cost,
+                                                          viewing);
         _list_shop_keys(purchasable, viewing, stock.size(), num_selected,
                         num_in_list);
 
@@ -1000,10 +1010,12 @@ unsigned int item_value(item_def item, bool ident)
             valued += 150;
             break;
 
+#if TAG_MAJOR_VERSION == 32
         case WPN_KATANA:
+        case WPN_BLESSED_KATANA:
+#endif
         case WPN_DEMON_BLADE:
         case WPN_TRIPLE_SWORD:
-        case WPN_BLESSED_KATANA:
         case WPN_EUDEMON_BLADE:
         case WPN_BLESSED_DOUBLE_SWORD:
         case WPN_BLESSED_GREAT_SWORD:
@@ -1750,8 +1762,10 @@ unsigned int item_value(item_def item, bool ident)
                 // n is the power. (The base variable is equal to 2n.)
                 int base = 0;
                 int coefficient = 0;
-                if (item.sub_type == RING_SLAYING) base = item.plus + 2 * item.plus2;
-                else base = 2 * item.plus;
+                if (item.sub_type == RING_SLAYING)
+                    base = item.plus + 2 * item.plus2;
+                else
+                    base = 2 * item.plus;
 
                 switch (item.sub_type)
                 {
@@ -1872,11 +1886,9 @@ unsigned int item_value(item_def item, bool ident)
             break;
 
         case MISC_EMPTY_EBONY_CASKET:
-            if (item_type_known(item))
-            {
-                valued += 20;
-                break;
-            }
+            valued += 20;
+            break;
+
         default:
             if (is_deck(item))
                 valued += 200 + item.special * 150;
@@ -1965,7 +1977,7 @@ unsigned int item_value(item_def item, bool ident)
     valued *= item.quantity;
 
     return (valued);
-}                               // end item_value()
+}
 
 bool is_worthless_consumable(const item_def &item)
 {

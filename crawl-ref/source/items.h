@@ -60,7 +60,7 @@ void link_items(void);
 
 void fix_item_coordinates(void);
 
-int get_item_slot(int reserve = 50);
+int get_mitm_slot(int reserve = 50);
 
 void unlink_item(int dest);
 void destroy_item(item_def &item, bool never_created = false);
@@ -99,11 +99,12 @@ void drop(void);
 
 int inv_count(void);
 int runes_in_pack();
+bool player_has_orb();
 
 bool pickup_single_item(int link, int qty);
 
 bool drop_item(int item_dropped, int quant_drop);
-bool drop_last();
+void drop_last();
 
 int          get_equip_slot(const item_def *item);
 mon_inv_type get_mon_equip_slot(const monster* mon, const item_def &item);

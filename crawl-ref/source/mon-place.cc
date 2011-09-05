@@ -191,7 +191,7 @@ bool monster_habitable_grid(monster_type mt,
     if (mt == MONS_FIRE_ELEMENTAL && feat_is_watery(actual_grid))
         return (false);
 
-    if (actual_grid == DNGN_TEMP_PORTAL)
+    if (actual_grid == DNGN_MALIGN_GATEWAY)
     {
         if (mt == MONS_ELDRITCH_TENTACLE
             || mt == MONS_ELDRITCH_TENTACLE_SEGMENT)
@@ -1549,6 +1549,9 @@ static int _place_monster_aux(const mgen_data &mg,
             case MONS_JELLY:
                 mon->god = GOD_JIYVA;
                 break;
+            case MONS_PROFANE_SERVITOR:
+                mon->god = GOD_YREDELEMNUL;
+                break;
             case MONS_MUMMY:
             case MONS_DRACONIAN:
             case MONS_ELF:
@@ -1606,7 +1609,7 @@ static int _place_monster_aux(const mgen_data &mg,
     // Holy monsters need their halo!
     if (mon->holiness() == MH_HOLY)
         invalidate_agrid(true);
-    if (mg.cls == MONS_SILENT_SPECTRE)
+    if (mg.cls == MONS_SILENT_SPECTRE || mg.cls == MONS_PROFANE_SERVITOR)
         invalidate_agrid(true);
 
     // If the caller requested a specific colour for this monster, apply
@@ -1748,22 +1751,19 @@ static int _place_monster_aux(const mgen_data &mg,
             bool got_stair = false;
 
             // If we're in lair, and we're in one of the suitable levels,
-            // and it's the disabled branch, pretend to be that one.
+            // and it's a disabled branch, pretend to be one of them.
             if (you.where_are_you == BRANCH_LAIR)
             {
-                const branch_type lair_branches[3] =
-                {
-                    BRANCH_SWAMP,
-                    BRANCH_SHOALS,
-                    BRANCH_SNAKE_PIT,
-                };
+                int cnt = 0;
 
-                for (int i = 0; i < 3; i++)
+                for (int i = 0; i < NUM_BRANCHES; i++)
                 {
-                    if (branches[lair_branches[i]].startdepth == -1)
+                    if (is_random_lair_subbranch(branches[i].id)
+                        && branches[i].startdepth == -1
+                        && one_chance_in(++cnt))
                     {
                         mon->props["stair_type"] = static_cast<short>(
-                            branches[lair_branches[i]].entry_stairs);
+                            branches[i].entry_stairs);
                         got_stair = true;
                     }
                 }
@@ -1945,6 +1945,11 @@ static int _place_monster_aux(const mgen_data &mg,
                            mark_items,
                            mg.summon_type);
     }
+
+    // Perm summons shouldn't leave gear either.
+    if (mg.extra_flags & MF_HARD_RESET && mg.extra_flags & MF_NO_REWARD)
+        mon->mark_summoned(0, true, 0, false);
+
     ASSERT(!invalid_monster_index(mg.foe)
            || mg.foe == MHITYOU || mg.foe == MHITNOT);
     mon->foe = mg.foe;

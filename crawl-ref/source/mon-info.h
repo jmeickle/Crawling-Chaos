@@ -74,6 +74,7 @@ enum monster_info_flags
     MB_NAME_ZOMBIE,
     MB_PERM_SUMMON,
     MB_INNER_FLAME,
+    MB_ANTIHALOED,
     NUM_MB_FLAGS
 };
 
@@ -89,6 +90,7 @@ struct monster_info_base
     unsigned number;
     unsigned colour;
     mon_attitude_type attitude;
+    mon_threat_level_type threat;
     mon_dam_level_type dam;
     // TODO: maybe we should store the position instead
     dungeon_feature_type fire_blocker;

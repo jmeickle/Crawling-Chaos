@@ -100,6 +100,16 @@ LUAFN(crawl_stderr)
     return (0);
 }
 
+LUAFN(crawl_dpr)
+{
+#ifdef DEBUG_DIAGNOSTICS
+    const char *text = luaL_checkstring(ls, 1);
+    if (crawl_state.io_inited)
+        dprf("%s", text);
+#endif
+    return (0);
+}
+
 LUAWRAP(crawl_delay, delay(luaL_checkint(ls, 1)))
 LUAWRAP(crawl_more, more())
 LUAWRAP(crawl_flush_prev_message, flush_prev_message())
@@ -514,6 +524,7 @@ static int crawl_article_a(lua_State *ls)
 }
 
 LUARET1(crawl_game_started, boolean, crawl_state.need_save)
+LUARET1(crawl_stat_gain_prompt, boolean, crawl_state.stat_gain_prompt)
 LUARET1(crawl_random2, number, random2(luaL_checkint(ls, 1)))
 LUARET1(crawl_one_chance_in, boolean, one_chance_in(luaL_checkint(ls, 1)))
 LUARET1(crawl_random2avg, number,
@@ -532,6 +543,17 @@ LUARET1(crawl_x_chance_in_y, boolean, x_chance_in_y(luaL_checkint(ls, 1),
 static int crawl_is_tiles(lua_State *ls)
 {
 #ifdef USE_TILE
+    lua_pushboolean(ls, true);
+#else
+    lua_pushboolean(ls, false);
+#endif
+
+    return (1);
+}
+
+static int crawl_is_webtiles(lua_State *ls)
+{
+#ifdef USE_TILE_WEB
     lua_pushboolean(ls, true);
 #else
     lua_pushboolean(ls, false);
@@ -704,7 +726,8 @@ static const struct luaL_reg crawl_clib[] =
 {
     { "mpr",            crawl_mpr },
     { "formatted_mpr",  crawl_formatted_mpr },
-    { "stderr",  crawl_stderr },
+    { "dpr",            crawl_dpr },
+    { "stderr",         crawl_stderr },
     { "more",           crawl_more },
     { "more_autoclear", crawl_set_more_autoclear },
     { "enable_more",    crawl_enable_more },
@@ -745,7 +768,9 @@ static const struct luaL_reg crawl_clib[] =
     { "grammar",        _crawl_grammar },
     { "article_a",      crawl_article_a },
     { "game_started",   crawl_game_started },
+    { "stat_gain_prompt", crawl_stat_gain_prompt },
     { "is_tiles",       crawl_is_tiles },
+    { "is_webtiles",    crawl_is_webtiles },
     { "err_trace",      crawl_err_trace },
     { "get_command",    crawl_get_command },
     { "endgame",        crawl_endgame },
