@@ -3733,8 +3733,8 @@ static void _heated_area(monster* mons)
     {
         if (mons->observable())
             mprf("%s is %s by your radiant heat.",
-                 mons->name(DESC_THE).c_str()),
-                 (final_damage > 10) ? "blasted" : "burned";
+                 mons->name(DESC_THE).c_str(),
+                 (final_damage) > 10 ? "blasted" : "burned");
 
         behaviour_event(mons, ME_DISTURB, 0, mons->pos());
 
