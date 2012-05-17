@@ -705,8 +705,7 @@ bool cast_a_spell(bool check_range, spell_type spell)
     // This needs more work: there are spells which are hated but allowed if
     // they don't have a certain effect.  You may use Poison Arrow on those
     // immune, use Mephitic Cloud to shield yourself from other clouds.
-    // There are also spells which god_hates_spell() doesn't recognize, like
-    // using Evaporate on certain potions.
+    // There are also spells which god_hates_spell() doesn't recognize.
     //
     // I'm disabling this code for now except for excommunication, please
     // re-enable if you can fix it.
@@ -907,25 +906,6 @@ static void _try_monster_cast(spell_type spell, int powc,
 }
 #endif // WIZARD
 
-static int _setup_evaporate_cast()
-{
-    int rc = prompt_invent_item("Throw which potion?", MT_INVLIST, OBJ_POTIONS);
-
-    if (prompt_failed(rc))
-        rc = -1;
-    else if (you.inv[rc].base_type != OBJ_POTIONS)
-    {
-        mpr("This spell works only on potions!");
-        rc = -1;
-    }
-    else
-    {
-        mprf(MSGCH_PROMPT, "Where do you want to aim %s?",
-             you.inv[rc].name(DESC_YOUR).c_str());
-    }
-    return rc;
-}
-
 static void _maybe_cancel_repeat(spell_type spell)
 {
     switch (spell)
@@ -1056,13 +1036,7 @@ spret_type your_spells(spell_type spell, int powc,
                                                 DIR_NONE);
 
         const char *prompt = get_spell_target_prompt(spell);
-        if (spell == SPELL_EVAPORATE)
-        {
-            potion = _setup_evaporate_cast();
-            if (potion == -1)
-                return (SPRET_ABORT);
-        }
-        else if (dir == DIR_DIR)
+        if (dir == DIR_DIR)
             mpr(prompt ? prompt : "Which direction?", MSGCH_PROMPT);
 
         const bool needs_path = (!testbits(flags, SPFLAG_GRID)
@@ -1269,9 +1243,6 @@ static spret_type _do_cast(spell_type spell, int powc,
     // Clouds and explosions.
     case SPELL_MEPHITIC_CLOUD:
         return stinking_cloud(powc, beam, fail);
-
-    case SPELL_EVAPORATE:
-        return cast_evaporate(powc, beam, potion, fail);
 
     case SPELL_POISONOUS_CLOUD:
         return cast_big_c(powc, CLOUD_POISON, &you, beam, fail);
@@ -1560,6 +1531,12 @@ static spret_type _do_cast(spell_type spell, int powc,
     case SPELL_RING_OF_FLAMES:
         return cast_ring_of_flames(powc, fail);
 
+    case SPELL_FULSOME_DISTILLATION:
+        return cast_fulsome_distillation(powc, check_range, fail);
+
+    case SPELL_EVAPORATE:
+        return cast_evaporate(powc, check_range, fail);
+
     // Escape spells.
     case SPELL_BLINK:
         return cast_blink(god != GOD_XOM, fail);
@@ -1587,9 +1564,6 @@ static spret_type _do_cast(spell_type spell, int powc,
 
     case SPELL_CORPSE_ROT:
         return cast_corpse_rot(fail);
-
-    case SPELL_FULSOME_DISTILLATION:
-        return cast_fulsome_distillation(powc, check_range, fail);
 
     case SPELL_GOLUBRIAS_PASSAGE:
         return cast_golubrias_passage(beam.target, fail);
@@ -1725,7 +1699,6 @@ std::string spell_noise_string(spell_type spell)
 
     // Small explosions.
     case SPELL_MEPHITIC_CLOUD:
-    case SPELL_EVAPORATE:
     case SPELL_FIREBALL:
     case SPELL_DELAYED_FIREBALL:
     case SPELL_HELLFIRE_BURST:

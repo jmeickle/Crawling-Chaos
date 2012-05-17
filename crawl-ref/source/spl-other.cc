@@ -513,6 +513,157 @@ spret_type cast_fulsome_distillation(int pow, bool check_range, bool fail)
     return SPRET_SUCCESS;
 }
 
+spret_type cast_evaporate(int pow, bool check_range, bool fail)
+{
+    int num_corpses = 0;
+    item_def *corpse = corpse_at(you.pos(), &num_corpses);
+    if (num_corpses && you.flight_mode() == FL_LEVITATE)
+        num_corpses = -1;
+
+    // If there is only one corpse, distill it; otherwise, ask the player
+    // which corpse to use.
+    switch (num_corpses)
+    {
+        case 0: case -1:
+            // Allow using Z to victory dance fulsome.
+            if (!check_range)
+            {
+                fail_check();
+                mpr("The spell fizzles.");
+                return SPRET_SUCCESS;
+            }
+
+            if (num_corpses == -1)
+                mpr("You can't reach the corpse!");
+            else
+                mpr("There aren't any corpses here.");
+            return SPRET_ABORT;
+        case 1:
+            // Use the only corpse available without prompting.
+            break;
+        default:
+            // Search items at the player's location for corpses.
+            // The last corpse detected earlier is irrelevant.
+            corpse = NULL;
+            for (stack_iterator si(you.pos(), true); si; ++si)
+            {
+                if (item_is_corpse(*si))
+                {
+                    const std::string corpsedesc =
+                        get_menu_colour_prefix_tags(*si, DESC_THE);
+                    const std::string prompt =
+                        make_stringf("Evaporate a potion from %s?",
+                                     corpsedesc.c_str());
+
+                    if (yesno(prompt.c_str(), true, 0, false))
+                    {
+                        corpse = &*si;
+                        break;
+                    }
+                }
+            }
+    }
+
+    if (!corpse)
+    {
+        canned_msg(MSG_OK);
+        return SPRET_ABORT;
+    }
+
+    fail_check();
+
+    //potion_type pot_type = POT_WATER;
+    special_missile_type vial_type = 
+    switch (mons_corpse_effect(corpse->mon_type))
+    {
+    case CE_CLEAN:
+        pot_type = POT_WATER;
+        break;
+
+    case CE_CONTAMINATED:
+        pot_type = (mons_weight(corpse->mon_type) >= 900)
+            ? POT_DEGENERATION : POT_CONFUSION;
+        break;
+
+    case CE_POISONOUS:
+    case CE_POISON_CONTAM:
+        pot_type = POT_POISON;
+        break;
+
+    case CE_MUTAGEN:
+        pot_type = POT_MUTATION;
+        break;
+
+    case CE_ROTTEN:         // actually this only occurs via mangling
+    case CE_ROT:            // necrophage
+        pot_type = POT_DECAY;
+        break;
+
+    case CE_NOCORPSE:       // shouldn't occur
+    default:
+        break;
+    }
+
+    switch (corpse->mon_type)
+    {
+    case MONS_RED_WASP:              // paralysis attack
+        pot_type = POT_PARALYSIS;
+        break;
+
+    case MONS_YELLOW_WASP:           // slowing attack
+        pot_type = POT_SLOWING;
+        break;
+
+    default:
+        break;
+    }
+
+    struct monsterentry* smc = get_monster_data(corpse->mon_type);
+
+    for (int nattk = 0; nattk < 4; ++nattk)
+    {
+        if (smc->attack[nattk].flavour == AF_POISON_MEDIUM
+            || smc->attack[nattk].flavour == AF_POISON_STRONG
+            || smc->attack[nattk].flavour == AF_POISON_STR
+            || smc->attack[nattk].flavour == AF_POISON_INT
+            || smc->attack[nattk].flavour == AF_POISON_DEX
+            || smc->attack[nattk].flavour == AF_POISON_STAT)
+        {
+            pot_type = POT_STRONG_POISON;
+        }
+    }
+
+    const bool was_orc = (mons_genus(corpse->mon_type) == MONS_ORC);
+    const bool was_holy = (mons_class_holiness(corpse->mon_type) == MH_HOLY);
+
+    // We borrow the corpse's object to make our potion.
+    corpse->base_type = OBJ_POTIONS;
+    corpse->sub_type  = pot_type;
+    corpse->quantity  = 1;
+    corpse->plus      = 0;
+    corpse->plus2     = 0;
+    corpse->flags     = 0;
+    corpse->inscription.clear();
+    item_colour(*corpse); // sets special as well
+
+    // Always identify said potion.
+    set_ident_type(*corpse, ID_KNOWN_TYPE);
+
+    mprf("You extract %s from the corpse.",
+         corpse->name(DESC_A).c_str());
+
+    // Try to move the potion to the player (for convenience).
+    if (move_item_to_player(corpse->index(), 1) != 1)
+        mpr("Unfortunately, you can't carry it right now!");
+
+    if (was_orc)
+        did_god_conduct(DID_DESECRATE_ORCISH_REMAINS, 2);
+    if (was_holy)
+        did_god_conduct(DID_DESECRATE_HOLY_REMAINS, 2);
+
+    return SPRET_SUCCESS;
+}
+
 void remove_condensation_shield()
 {
     mpr("Your icy shield evaporates.", MSGCH_DURATION);

@@ -1737,14 +1737,14 @@ struct spell_desc
 {
     SPELL_EVAPORATE, "Evaporate",
      SPTYP_FIRE | SPTYP_TRANSMUTATION,
-     SPFLAG_DIR_OR_TARGET | SPFLAG_AREA | SPFLAG_ALLOW_SELF,
-     2,   // XXX: level 2 or 3, what should it be now? -- bwr
-     50,
-     6, 6,
+     SPFLAG_CORPSE_VIOLATING,
+     2,
+     0,
+     -1, -1,
      0,
      NULL,
-     true,
-     false
+     false,
+     true
 },
 
 {

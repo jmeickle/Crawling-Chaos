@@ -259,6 +259,8 @@ enum missile_type
     MI_SLING_BULLET,
     MI_THROWING_NET,
 
+    MI_VIAL,
+
     NUM_MISSILES,
     MI_NONE             // was MI_EGGPLANT... used for launch type detection
 };
