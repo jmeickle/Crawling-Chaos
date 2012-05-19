@@ -171,7 +171,13 @@ elif mode == 'dot':
         i[fields[x]] = x
 
     data = {'id' : {}, 'name' : {}, 'genus' : {}, 'species' : {}, 'holiness' : {}}
-    viz = {'id': ("lightblue", "white", "6"), 'genus' : ("dodgerblue4", "white", "8"), 'species' : ("steelblue3", "white", "7"), 'holiness' : ("navy", "white", "12")}
+    viz = {
+        'id': ("lightblue", "white", "6"),
+        'genus' : ("dodgerblue4", "white", "8"),
+        'species' : ("steelblue3", "white", "7"),
+        'holiness' : ("navy", "white", "12"),
+        'unique' : ("seagreen", "white", "12")
+    }
     for m in mondata:
 
         attr = {
@@ -182,8 +188,15 @@ elif mode == 'dot':
             #'holiness' : m[i['holiness']],
         }
 
+        flags = m[i['flags']]
+        if not isinstance(flags, tuple):
+            flags = (flags,)
+        for flag in flags:
+            if flag == 'M_UNIQUE':
+                attr['unique'] = True
+
         for k, v in attr.items():
-            if k == 'name':
+            if k == 'name' or k == 'unique':
                 continue
             if data[k].get(v) is None:
                 data[k][v] = [attr]
@@ -215,7 +228,10 @@ elif mode == 'dot':
                         #nodes += "\n" + 'species%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['species'][0], viz['species'][1], viz['species'][2])
                         connections += "\n" + 'monster%s -> monster%s [arrowhead=".2"];' % (monster['genus'], monster['species'])
                     else:
-                        nodes += "\n" + 'monster%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['id'][0], viz['id'][1], viz['id'][2])
+                        if monster.get('unique') is True:
+                            nodes += "\n" + 'monster%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['unique'][0], viz['unique'][1], viz['unique'][2])
+                        else:
+                            nodes += "\n" + 'monster%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['id'][0], viz['id'][1], viz['id'][2])
                         connections += "\n" + 'monster%s -> monster%s [arrowhead=".2"];' % (monster['species'], monster['id'])
                         #print 'holiness%s -> monster%s [arrowhead=".2"];' % (monster['holiness'], monster['id'])
             #print '%s [label="%s"]' % (id, name)
