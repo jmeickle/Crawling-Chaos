@@ -1898,7 +1898,7 @@ enum monster_type                      // menv[].type
 {
     MONS_PROGRAM_BUG,
         MONS_0 = MONS_PROGRAM_BUG,
-
+    MONS_LIZARD,            // genus
     MONS_GIANT_NEWT,
     MONS_GIANT_GECKO,
     MONS_IGUANA,
@@ -1906,6 +1906,7 @@ enum monster_type                      // menv[].type
     MONS_BASILISK,
     MONS_BAT,
     MONS_FIRE_BAT,
+    MONS_SNAKE,             // genus
     MONS_BALL_PYTHON,
     MONS_ADDER,
     MONS_WATER_MOCCASIN,
@@ -1946,6 +1947,7 @@ enum monster_type                      // menv[].type
     MONS_MANTICORE,
     MONS_HIPPOGRIFF,
     MONS_GRIFFON,
+    MONS_FROG,            // genus
     MONS_GIANT_FROG,
     MONS_SPINY_FROG,
     MONS_BLINK_FROG,
@@ -1991,13 +1993,17 @@ enum monster_type                      // menv[].type
     MONS_GIANT_ORANGE_BRAIN,
 
     MONS_DANCING_WEAPON,
+    MONS_BIRD,                // genus
     MONS_HARPY,
     MONS_RAVEN,
     MONS_FIRE_CRAB,
     MONS_HOMUNCULUS,
     MONS_SOUPLING,
 
+    MONS_BUG,                 // genus
+    MONS_FLYING_BUG,          // genus
     MONS_BUTTERFLY,
+    MONS_ANT,                 // genus
     MONS_ANT_LARVA,
     MONS_WORKER_ANT,
     MONS_SOLDIER_ANT,
@@ -2009,6 +2015,7 @@ enum monster_type                      // menv[].type
     MONS_BUMBLEBEE,
     MONS_YELLOW_WASP,
     MONS_RED_WASP,
+    MONS_BEETLE,              // genus
     MONS_GOLIATH_BEETLE,
     MONS_BORING_BEETLE,
     MONS_BOULDER_BEETLE,
@@ -2055,18 +2062,22 @@ enum monster_type                      // menv[].type
     MONS_CRYSTAL_GOLEM,
     MONS_TOENAIL_GOLEM,
     MONS_ELECTRIC_GOLEM, // replacing the guardian robot -- bwr
+    MONS_ORB,            // genus
     MONS_ORB_OF_FIRE,    // Swords renamed to fit -- bwr
+    MONS_ELEMENTAL,      // genus
     MONS_EARTH_ELEMENTAL,
     MONS_FIRE_ELEMENTAL,
     MONS_AIR_ELEMENTAL,
     MONS_TWISTER,        // air miscasts
     MONS_GOLDEN_EYE,
+    MONS_CLOUD,           // genus
     MONS_FIRE_VORTEX,
     MONS_SPATIAL_VORTEX,
     MONS_INSUBSTANTIAL_WISP,
     MONS_VAPOUR,
 
     // Mimics:
+    MONS_MIMIC,             // genus
     MONS_INEPT_ITEM_MIMIC,
     MONS_ITEM_MIMIC,
     MONS_RAVENOUS_ITEM_MIMIC,
@@ -2106,7 +2117,7 @@ enum monster_type                      // menv[].type
     MONS_ORC_KNIGHT,
     MONS_ORC_SORCERER,
     MONS_ORC_WARLORD,
-    MONS_DWARF,
+    MONS_DWARF,                // genus
     MONS_DEEP_DWARF,
     MONS_DEEP_DWARF_SCION,
     MONS_DEEP_DWARF_ARTIFICER,
@@ -2114,7 +2125,8 @@ enum monster_type                      // menv[].type
     MONS_DEEP_DWARF_BERSERKER,
     MONS_DEEP_DWARF_DEATH_KNIGHT,
     MONS_UNBORN_DEEP_DWARF,
-    MONS_ELF,
+    MONS_ELF,                   // genus
+    MONS_DEEP_ELF,              // species
     MONS_DEEP_ELF_SOLDIER,
     MONS_DEEP_ELF_FIGHTER,
     MONS_DEEP_ELF_KNIGHT,
@@ -2151,6 +2163,7 @@ enum monster_type                      // menv[].type
     MONS_MERFOLK_IMPALER,
     MONS_MERFOLK_AQUAMANCER,
     MONS_MERFOLK_JAVELINEER,
+    MONS_HORSE,                 // genus
     MONS_CENTAUR,
     MONS_CENTAUR_WARRIOR,
     MONS_YAKTAUR,
@@ -2213,6 +2226,7 @@ enum monster_type                      // menv[].type
     MONS_LAVA_SNAKE,
     MONS_SALAMANDER,
     // Water monsters:
+    MONS_FISH,                 // genus
     MONS_BIG_FISH,
     MONS_GIANT_GOLDFISH,
     MONS_ELECTRIC_EEL,
@@ -2233,6 +2247,10 @@ enum monster_type                      // menv[].type
     MONS_LIGHTNING_SPIRE,
 
     // Demons:
+    MONS_IMP,            // genus
+    MONS_DEMON,          // genus
+    MONS_GREATER_DEMON,  // genus
+    MONS_FIEND,          // genus
     MONS_CRIMSON_IMP,
     MONS_QUASIT,
     MONS_WHITE_IMP,
@@ -2284,6 +2302,7 @@ enum monster_type                      // menv[].type
     MONS_ELDRITCH_TENTACLE,
     MONS_ELDRITCH_TENTACLE_SEGMENT,
     MONS_TENTACLED_MONSTROSITY,
+    MONS_ABOMINATION,               // species
     MONS_ABOMINATION_SMALL,
     MONS_ABOMINATION_LARGE,
     MONS_CRAWLING_CORPSE,
@@ -2322,11 +2341,14 @@ enum monster_type                      // menv[].type
     MONS_CURSE_TOE,
     MONS_CURSE_SKULL,
     MONS_PROFANE_SERVITOR,
+    MONS_SKELETON,                  // genus
     MONS_SKELETON_SMALL,
     MONS_SKELETON_LARGE,
+    MONS_ZOMBIE,                    // genus
     MONS_ZOMBIE_SMALL,
     MONS_ZOMBIE_LARGE,
     MONS_SPECTRAL_THING,
+    MONS_SIMULACRUM,                // genus
     MONS_SIMULACRUM_SMALL,
     MONS_SIMULACRUM_LARGE,
 
@@ -2427,6 +2449,7 @@ enum monster_type                      // menv[].type
     MONS_IRON_ELEMENTAL,
 
     // Specials:
+    MONS_ILLUSION,              // genus
     MONS_PLAYER_ILLUSION,
     MONS_PLAYER_GHOST,
     MONS_BALL_LIGHTNING,
