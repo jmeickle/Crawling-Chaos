@@ -208,14 +208,15 @@ elif mode == 'dot':
             for key, monsters in dict.items():
                 for monster in monsters:
                     if monster['genus'] == monster['species'] and monster['species'] == monster['id']:
-                        nodes += "\n" + 'genus%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['genus'][0], viz['genus'][1], viz['genus'][2])
+                        nodes += "\n" + 'monster%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['genus'][0], viz['genus'][1], viz['genus'][2])
                         #connections += 'species%s -> monster%s [arrowhead=".2"];' % (monster['species'], monster['id'])
                     elif monster['species'] == monster['id']:
-                        nodes += "\n" + 'species%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['species'][0], viz['species'][1], viz['species'][2])
-                        connections += "\n" + 'genus%s -> species%s [arrowhead=".2"];' % (monster['genus'], monster['species'])
+                        nodes += "\n" + 'monster%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['species'][0], viz['species'][1], viz['species'][2])
+                        #nodes += "\n" + 'species%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['species'][0], viz['species'][1], viz['species'][2])
+                        connections += "\n" + 'monster%s -> monster%s [arrowhead=".2"];' % (monster['genus'], monster['species'])
                     else:
                         nodes += "\n" + 'monster%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['id'][0], viz['id'][1], viz['id'][2])
-                        connections += "\n" + 'genus%s -> monster%s [arrowhead=".2"];' % (monster['genus'], monster['id'])
+                        connections += "\n" + 'monster%s -> monster%s [arrowhead=".2"];' % (monster['species'], monster['id'])
                         #print 'holiness%s -> monster%s [arrowhead=".2"];' % (monster['holiness'], monster['id'])
             #print '%s [label="%s"]' % (id, name)
             #print '%s [fontsize="%s"]' % (id, name)
