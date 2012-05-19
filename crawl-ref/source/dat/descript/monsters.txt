@@ -489,6 +489,29 @@ battle with an adventurer hundreds of years ago. Most of its reasons to live
 were reduced only to that of setting aflame whatever is roaming these halls
 with a burning passion.
 %%%%
+the Serpent of Hell gehenna
+
+A huge red glowing dragon, burning with hellfire. It seems to be possessed by
+the very essence of Gehenna and its eternal fire.
+%%%%
+the Serpent of Hell cocytus
+
+You can barely move through the hellish cold that's freezing your soul. It
+emanates from this massive white dragon. Your eyes hurt from the temperature,
+and from the gleam of shards of ice covering the demonic beast.
+%%%%
+the Serpent of Hell dis
+
+A towering beast with an army's worth of swords for teeth. Each scale is a
+shield with a razored edge. It watches you through a pair of featureless chrome
+spheres.
+%%%%
+the Serpent of Hell tartarus
+
+A pair of lurid magenta eyes hang in the darkness before you. You can just
+barely trace the outline of a vast, sinuous dragon. Its malice for you is
+palpable.
+%%%%
 # Non-unique monsters
 acid blob
 

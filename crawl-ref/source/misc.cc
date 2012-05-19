@@ -2656,6 +2656,12 @@ void maybe_id_resist(beam_type flavour)
         _maybe_id_jewel(RING_PROTECTION_FROM_FIRE, NUM_JEWELLERY, ARTP_FIRE);
         break;
 
+    case BEAM_POLYMORPH:
+        if (player_mutation_level(MUT_MUTATION_RESISTANCE))
+            return;
+        _maybe_id_jewel(NUM_JEWELLERY, AMU_RESIST_MUTATION);
+        break;
+
     default: ;
     }
 }
@@ -2689,6 +2695,7 @@ bool maybe_id_weapon(item_def &item, const char *msg)
         set_ident_flags(item, id);
         if (msg)
             mprf("%s%s", msg, item.name(DESC_INVENTORY_EQUIP).c_str());
+        you.wield_change = true;
         return true;
     }
 

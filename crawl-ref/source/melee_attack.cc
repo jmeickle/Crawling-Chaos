@@ -1764,7 +1764,7 @@ void melee_attack::set_attack_verb()
                 && defender_visible
                 && defender_genus == MONS_HOG)
             {
-                attack_verb = "split";
+                attack_verb = "spit";
                 verb_degree = "like the proverbial pig";
             }
             else
@@ -2201,7 +2201,7 @@ bool melee_attack::distortion_affects_defender()
         return (false);
     }
 
-    if (player_in_branch(BRANCH_ABYSS) && coinflip())
+    if (!player_in_branch(BRANCH_ABYSS) && coinflip())
     {
         if (defender->is_player() && attacker_visible
             && weapon != NULL && !is_unrandom_artefact(*weapon)

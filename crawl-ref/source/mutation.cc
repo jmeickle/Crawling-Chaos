@@ -31,6 +31,7 @@
 #include "macro.h"
 #include "menu.h"
 #include "mgen_data.h"
+#include "misc.h"
 #include "mon-place.h"
 #include "mon-iter.h"
 #include "mon-stuff.h"
@@ -975,6 +976,7 @@ static int _handle_conflicting_mutations(mutation_type mutation,
         { MUT_ACUTE_VISION,     MUT_BLURRY_VISION,    0},
         { MUT_FAST,             MUT_SLOW,             0},
         { MUT_FANGS,            MUT_BEAK,            -1},
+        { MUT_ANTENNAE,         MUT_HORNS,           -1},
         { MUT_HOOVES,           MUT_TALONS,          -1},
         { MUT_TRANSLUCENT_SKIN, MUT_CAMOUFLAGE,      -1},
         { MUT_STRONG,           MUT_WEAK,             1},
@@ -1227,7 +1229,10 @@ bool mutate(mutation_type which_mutation, const std::string &reason,
                     && !one_chance_in(3)))
             {
                 if (failMsg)
+                {
                     mpr("You feel odd for a moment.", MSGCH_MUTATION);
+                    maybe_id_resist(BEAM_POLYMORPH);
+                }
                 return (false);
             }
         }
