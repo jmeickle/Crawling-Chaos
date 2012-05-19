@@ -166,13 +166,65 @@ if mode == 'print':
         str += "\n"
     print str
 elif mode == 'dot':
-    print "digraph Crawl {"
-    for monster in mondata:
+    i = {}
+    for x in range(len(fields)):
+        i[fields[x]] = x
 
-    print str
+    data = {'id' : {}, 'name' : {}, 'genus' : {}, 'species' : {}, 'holiness' : {}}
+    viz = {'id': ("lightblue", "white", "6"), 'genus' : ("dodgerblue4", "white", "8"), 'species' : ("steelblue3", "white", "7"), 'holiness' : ("navy", "white", "12")}
+    for m in mondata:
+
+        attr = {
+            'id' : m[i['id']],
+            'name' : m[i['name']],
+            'genus' : m[i['genus']],
+            'species' : m[i['species']],
+            #'holiness' : m[i['holiness']],
+        }
+
+        for k, v in attr.items():
+            if k == 'name':
+                continue
+            if data[k].get(v) is None:
+                data[k][v] = [attr]
+            else:
+                data[k][v].append(attr)
+
+
+    nodes = ""
+    connections = ""
+
+    print "digraph Crawl {"
+    #print 'CENTER [label="DUNGEON CRAWL", shape="box", style="filled", fillcolor="navy", fontcolor="white", fontsize="40"]'
+    for type, dict in data.items():
+        if type != 'id':
+            a = 1
+            #for key, monsters in dict.items():
+        # Set up each genus, species, and holiness.
+                #print '%s%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (type, key, key, viz[type][0], viz[type][1], viz[type][2])
+                #if type == 'genus':
+                    #print 'CENTER -> %s%s;' % (type, key)
+        else:
+            for key, monsters in dict.items():
+                for monster in monsters:
+                    if monster['genus'] == monster['species'] and monster['species'] == monster['id']:
+                        nodes += "\n" + 'genus%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['genus'][0], viz['genus'][1], viz['genus'][2])
+                        #connections += 'species%s -> monster%s [arrowhead=".2"];' % (monster['species'], monster['id'])
+                    elif monster['species'] == monster['id']:
+                        nodes += "\n" + 'species%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['species'][0], viz['species'][1], viz['species'][2])
+                        connections += "\n" + 'genus%s -> species%s [arrowhead=".2"];' % (monster['genus'], monster['species'])
+                    else:
+                        nodes += "\n" + 'monster%s [label="%s", shape="box", style="filled", fillcolor="%s", fontcolor="%s", fontsize="%s"];' % (monster['id'], monster['name'], viz['id'][0], viz['id'][1], viz['id'][2])
+                        connections += "\n" + 'genus%s -> monster%s [arrowhead=".2"];' % (monster['genus'], monster['id'])
+                        #print 'holiness%s -> monster%s [arrowhead=".2"];' % (monster['holiness'], monster['id'])
+            #print '%s [label="%s"]' % (id, name)
+            #print '%s [fontsize="%s"]' % (id, name)
+    print nodes
+    print connections
+    print "overlap=prism;"
     print "}"
 
 
-    str = 
-    str = "}"
-    print str
+ #   str = 
+  #  str = "}"
+   # print str
