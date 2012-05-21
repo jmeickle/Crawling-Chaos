@@ -165,22 +165,22 @@
 
     {  MST_VAMPIRE,
       {
-       SPELL_VAMPIRE_SUMMON,
+       monster_spell(SPELL_VAMPIRE_SUMMON, SOURCE_INNATE),
        SPELL_CONFUSE,
        SPELL_INVISIBILITY,
        SPELL_NO_SPELL,
-       SPELL_VAMPIRE_SUMMON,
-       SPELL_VAMPIRE_SUMMON
+       monster_spell(SPELL_VAMPIRE_SUMMON, SOURCE_INNATE),
+       monster_spell(SPELL_VAMPIRE_SUMMON, SOURCE INNATE),
       }
     },
 
     {  MST_VAMPIRE_KNIGHT,
       {
-       SPELL_VAMPIRE_SUMMON,
+       monster_spell(SPELL_VAMPIRE_SUMMON, SOURCE_INNATE),
        SPELL_PARALYSE,
        SPELL_HASTE,
        SPELL_INVISIBILITY,
-       SPELL_VAMPIRE_SUMMON,
+       monster_spell(SPELL_VAMPIRE_SUMMON, SOURCE_INNATE),
        SPELL_MINOR_HEALING
       }
     },
@@ -385,7 +385,7 @@
 
     {  MST_ORC_PRIEST,
       {
-       SPELL_PAIN,
+       monster_spell(SPELL_PAIN, SOURCE_SPELL)
        SPELL_NO_SPELL,
        SPELL_CANTRIP,
        SPELL_SMITING,
@@ -396,11 +396,11 @@
 
     {  MST_ORC_HIGH_PRIEST,
       {
-       SPELL_PAIN,
-       SPELL_SUMMON_DEMON,
-       SPELL_SUMMON_DEMON,
+       monster_spell(SPELL_PAIN, SOURCE_SPELL),
+       monster_spell(SPELL_SUMMON_DEMON, SOURCE_SPELL),
+       monster_spell(SPELL_SUMMON_DEMON, SOURCE_SPELL),
        SPELL_SMITING,
-       SPELL_ANIMATE_DEAD,
+       monster_spell(SPELL_ANIMATE_DEAD, SOURCE_SPELL),
        SPELL_HEAL_OTHER
       }
     },
@@ -422,7 +422,7 @@
        SPELL_HELLFIRE,
        SPELL_NO_SPELL,
        SPELL_SYMBOL_OF_TORMENT,
-       SPELL_MELEE,
+       monster_spell(SPELL_MELEE, SOURCE_NATURAL),
        SPELL_NO_SPELL
       }
     },
@@ -431,9 +431,9 @@
       {
        SPELL_HELLFIRE,
        SPELL_HELLFIRE,
-       SPELL_MELEE,
+       monster_spell(SPELL_MELEE, SOURCE_NATURAL),
        SPELL_IRON_SHOT,
-       SPELL_MELEE,
+       monster_spell(SPELL_MELEE, SOURCE_NATURAL),
        SPELL_NO_SPELL
       }
     },
@@ -638,22 +638,22 @@
 
     {  MST_DEEP_ELF_PRIEST,
       {
-       SPELL_PAIN,
+       monster_spell(SPELL_PAIN, SOURCE_SPELL),
        SPELL_CANTRIP,
        SPELL_MINOR_HEALING,
        SPELL_SMITING,
-       SPELL_TWISTED_RESURRECTION,
+       monster_spell(SPELL_TWISTED_RESURRECTION SOURCE_SPELL),
        SPELL_MINOR_HEALING
       }
     },
 
     {  MST_DEEP_ELF_HIGH_PRIEST,
       {
-       SPELL_SUMMON_DEMON,
+       monster_spell(SPELL_SUMMON_DEMON, SOURCE_SPELL),
        SPELL_HELLFIRE_BURST,
        SPELL_MINOR_HEALING,
        SPELL_SMITING,
-       SPELL_TWISTED_RESURRECTION,
+       monster_spell(SPELL_TWISTED_RESURRECTION, SOURCE_SPELL),
        SPELL_MINOR_HEALING
       }
     },
@@ -1075,7 +1075,7 @@
        SPELL_NO_SPELL,
        SPELL_NO_SPELL,
        SPELL_NO_SPELL,
-       SPELL_BERSERKER_RAGE
+       monster_spell(SPELL_BERSERKER_RAGE, SOURCE_INNATE),
       }
     },
 
@@ -1771,3 +1771,4 @@
     }
 
 #endif
+
