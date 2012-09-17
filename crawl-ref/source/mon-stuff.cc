@@ -4664,3 +4664,159 @@ int count_allies()
 
     return count;
 }
+
+// Lava orcs!
+int temperature()
+{
+    return (int) you.temperature;
+}
+
+void temperature_check()
+{
+    double factor = sqrt(exp_needed(you.experience_level) / 30.0);
+    int tension = get_tension(GOD_NO_GOD);
+    double tension_b = tension / (1 + factor);
+    double tension_c = sqrt(tension_b);
+    float tempchange = .5 + tension_c / (1 + you.temperature);
+
+//    mprf("Factor: %f, Tension value: %d, Tension 2: %f, Tension 3: %f, Tempchange: %f", factor, tension, tension_b, tension_c, tempchange);
+
+    // Off from 1 so that there's less seesawing.
+    if ((tempchange - .9) > 0)
+        temperature_increment(tempchange);
+    else if ((tempchange - 1.1) < 0)
+        temperature_decrement(tempchange);
+
+    if (temperature_effect(LORC_HEAT_AURA))
+        invalidate_agrid(true);
+}
+
+void temperature_increment(float degree)
+{
+    you.temperature += sqrt(degree);
+    if (temperature() >= TEMP_MAX)
+        you.temperature = TEMP_MAX;
+    temperature_changed(true);
+}
+
+void temperature_decrement(float degree)
+{
+    you.temperature -= sqrt(degree);
+    if (temperature() <= TEMP_MIN)
+        you.temperature = TEMP_MIN;
+    temperature_changed(false);
+}
+
+void temperature_changed(bool inc_temp) {
+
+    // Okay, so here's how it works - it gets your current temperature, and it knows
+    // whether that temperature has just risen by one or not.
+    int new_temp = temperature();
+    int old_temp = temperature() + 1;
+
+    if (inc_temp)
+        old_temp -= 2;
+
+    // Stoneskin stuff.
+    if (inc_temp && !temperature_effect(LORC_STONESKIN) && you.duration[DUR_STONESKIN] > 0)
+    {
+        you.set_duration(DUR_STONESKIN, 0);
+        mpr("Your stony skin melts.", MSGCH_DURATION);
+        you.redraw_armour_class = true;
+    }
+
+    if (!inc_temp && temperature_effect(LORC_STONESKIN) && !you.duration[DUR_STONESKIN])
+    {
+        you.set_duration(DUR_STONESKIN, 500);
+        mpr("Your skin cools and hardens.", MSGCH_DURATION);
+        you.redraw_armour_class = true;
+    }
+
+    // Passive heat stuff.
+    if (inc_temp && new_temp == TEMP_HOT)
+        mpr("You're getting fired up.", MSGCH_DURATION);
+
+    if (!inc_temp && old_temp == TEMP_HOT)
+        mpr("You're cooling off.", MSGCH_DURATION);
+
+    // Heat aura stuff.
+    if (inc_temp && new_temp == TEMP_FIRE)
+    {
+        mpr("You blaze with the fury of an erupting volcano!", MSGCH_DURATION);
+        invalidate_agrid(true);
+    }
+
+    if (!inc_temp && old_temp == TEMP_FIRE)
+    {
+        mpr("The intensity of your heat diminishes.", MSGCH_DURATION);
+        invalidate_agrid(true);
+    }
+    // If we're in this function, temperature changed, anyways.
+    you.redraw_temperature = true;
+
+}
+
+bool temperature_effect(int which) {
+
+    switch (which)
+    {
+        case LORC_STONESKIN:
+            return (temperature() < TEMP_WARM); // 1-8
+//      case nothing, right now:
+//            return (you.temperature >= TEMP_COOL && you.temperature < TEMP_WARM); // 5-8
+        case LORC_FIRE_RES_II:
+        case LORC_LAVA_BOOST:
+            return (temperature() >= TEMP_WARM && temperature() < TEMP_HOT); // 9 - 10
+        case LORC_FIRE_RES_III:
+            return (temperature() >= TEMP_WARM); // 9-15
+        case LORC_FIRE_BOOST:
+        case LORC_COLD_VULN:
+        case LORC_PASSIVE_HEAT:
+            return (temperature() >= TEMP_HOT); // 11-15
+        case LORC_NO_SCROLLS:
+        case LORC_HEAT_AURA:
+            return (temperature() >= TEMP_FIRE); // 13-15
+
+        default:
+            return false;
+    }
+}
+
+int temperature_colour(int temp) {
+
+return (temp > TEMP_FIRE) ? LIGHTRED  :
+       (temp > TEMP_HOT)  ? RED       :
+       (temp > TEMP_WARM) ? YELLOW    :
+       (temp > TEMP_ROOM) ? WHITE     :
+       (temp > TEMP_COOL) ? LIGHTCYAN :
+       (temp > TEMP_COLD) ? LIGHTBLUE : BLUE;
+}
+
+std::string temperature_string(int temp) {
+
+return (temp > TEMP_FIRE) ? "lightred"  :
+       (temp > TEMP_HOT)  ? "red"       :
+       (temp > TEMP_WARM) ? "yellow"    :
+       (temp > TEMP_ROOM) ? "white"     :
+       (temp > TEMP_COOL) ? "lightcyan" :
+       (temp > TEMP_COLD) ? "lightblue" : "blue";
+}
+
+std::string temperature_text(int temp) {
+
+    switch (temp)
+    {
+        case TEMP_MIN:
+            return "Minimum temperature; always rF+.";
+        case TEMP_WARM:
+            return "rF++; lava magic boost; lava bleeding; lose stoneskin.";
+        case TEMP_HOT:
+            return "rF+++; fire magic boost; burn attackers; cold vulnerability.";
+        case TEMP_FIRE:
+            return "Burn surroundings; cannot read books or scrolls.";
+        case TEMP_MAX:
+            return "Maximum temperature!";
+        default:
+            return "";
+    }
+}
