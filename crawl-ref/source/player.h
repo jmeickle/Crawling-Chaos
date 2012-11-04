@@ -208,7 +208,6 @@ public:
 
   vector<demon_trait> demonic_traits;
 
-  int temperature; // For lava orcs.
   int earth_attunement; // nomes only
   int magic_contamination;
 
