@@ -146,6 +146,9 @@ static void _update_feat_at(const coord_def &gp)
     if (quad_haloed(gp))
         env.map_knowledge(gp).flags |= MAP_QUAD_HALOED;
 
+    if (heated(gp))
+        env.map_knowledge(gp).flags |= MAP_HOT;
+
     if (is_sanctuary(gp))
     {
         if (testbits(env.pgrid(gp), FPROP_SANCTUARY_1))
