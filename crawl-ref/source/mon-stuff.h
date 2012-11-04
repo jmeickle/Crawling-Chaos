@@ -50,6 +50,7 @@ enum temperature_effect
     LORC_HEAT_AURA,
     LORC_FAST_MOVE,
     LORC_NO_SCROLLS,
+    LORC_FIRE_RES_I,
     LORC_FIRE_RES_II,
     LORC_FIRE_RES_III,
 };
