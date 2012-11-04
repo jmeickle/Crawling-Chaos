@@ -348,7 +348,7 @@ bool feat_is_trap(dungeon_feature_type feat, bool undiscovered_too)
 
 bool feat_is_lava(dungeon_feature_type feat)
 {
-    return (feat == DNGN_LAVA);
+    return (feat == DNGN_LAVA || feat == DNGN_LAVA_SEA);
 }
 
 bool feat_is_water(dungeon_feature_type feat)
@@ -362,12 +362,6 @@ bool feat_is_water(dungeon_feature_type feat)
 bool feat_is_watery(dungeon_feature_type feat)
 {
     return (feat_is_water(feat) || feat == DNGN_FOUNTAIN_BLUE);
-}
-
-bool feat_is_lava(dungeon_feature_type feat)
-{
-    return (feat == DNGN_LAVA
-            || feat == DNGN_LAVA_SEA);
 }
 
 // Returns GOD_NO_GOD if feat is not an altar, otherwise returns the

@@ -12,6 +12,7 @@ enum area_centre_type
     AREA_UMBRA,
     AREA_SUPPRESSION,
     AREA_QUAD,
+    AREA_HOT,
 };
 
 void invalidate_agrid(bool recheck_new = false);
@@ -43,5 +44,7 @@ bool quad_haloed(const coord_def& p);
 bool umbraed(const coord_def& p);
 
 bool suppressed(const coord_def& p);
+
+bool heated(const coord_def& p);
 
 #endif
