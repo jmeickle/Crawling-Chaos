@@ -5574,6 +5574,7 @@ void player::init()
     deaths = 0;
 
     temperature = 1; // 1 is min; 15 is max.
+    temperature_last = 1;
 
     xray_vision = false;
 
