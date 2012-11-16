@@ -505,6 +505,8 @@ function ($, view_data, main, player, icons, dngn, enums, map_knowledge, tileinf
                 {
                     if (cell.sanctuary)
                         this.draw_dngn(dngn.SANCTUARY, x, y);
+                    if (cell.heat_aura)
+                        this.draw_dngn(dngn.HEAT_AURA + cell.heat_aura - 1, x, y);
                     if (cell.silenced)
                         this.draw_dngn(dngn.SILENCED, x, y);
                     if (cell.suppressed)
