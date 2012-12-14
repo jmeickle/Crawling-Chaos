@@ -113,7 +113,10 @@ bool bolt::is_blockable() const
     // BEAM_ELECTRICITY is added here because chain lightning is not
     // a true beam (stops at the first target it gets to and redirects
     // from there)... but we don't want it shield blockable.
-    return (!is_beam && !is_explosion && flavour != BEAM_ELECTRICITY);
+
+    // BEAM_VOID is here because it just goes through your shield!
+    return (!is_beam && !is_explosion && flavour != BEAM_ELECTRICITY
+            && flavour != BEAM_VOID);
 }
 
 void bolt::emit_message(msg_channel_type chan, const char* m)
@@ -213,6 +216,7 @@ static void _ench_animation(int flavour, const monster* mon, bool force)
     case BEAM_BANISH:
     case BEAM_BLINK:
     case BEAM_BLINK_CLOSE:
+    case BEAM_VOID:
         elem = ETC_WARP;
         break;
     case BEAM_MAGIC:
@@ -985,6 +989,42 @@ static bool _nuke_wall_msg(dungeon_feature_type feat, const coord_def& p)
         return false;
 }
 
+void bolt::void_wall_msg()
+{
+    // Start with the first affected terrain's description.
+    string amount_str = "The";
+    string terrain_str = feature_description(affected_terrain[0], NUM_TRAPS, "", DESC_PLAIN, false);
+    string verb_str = "is";
+
+    // Generate a better message if there's multiple terrain items affected.
+    if (affected_terrain.size() > 1)
+    {
+        // Assume they are all identical at first:
+        amount_str = "Some";
+        verb_str = "are";
+        terrain_str = pluralise(terrain_str);
+
+        // Check this assumption:
+        for (unsigned int i = 1; i < affected_terrain.size(); i++)
+        {
+            if (affected_terrain[0] != affected_terrain[i])
+            {
+                // Specialcase: "walls are"
+                if (feat_is_wall(affected_terrain[0]) && feat_is_wall(affected_terrain[i]))
+                    terrain_str = "walls";
+                // Default: switch to 'terrain is'
+                else
+                    terrain_str = "terrain";
+                    verb_str = "is";
+                    break;
+            }
+        }
+    }
+
+    // Print it as a banishment message.
+    mprf(MSGCH_BANISHMENT, "%s %s %s devoured by a tear in reality.", amount_str.c_str(), terrain_str.c_str(), verb_str.c_str());
+}
+
 void bolt::nuke_wall_effect()
 {
     if (env.markers.property_at(pos(), MAT_ANY, "veto_disintegrate") == "veto")
@@ -1023,7 +1063,11 @@ void bolt::nuke_wall_effect()
         return;
     }
 
-    obvious_effect = _nuke_wall_msg(feat, pos());
+    if (flavour != BEAM_VOID)
+        obvious_effect = _nuke_wall_msg(feat, pos());
+    else if (you.see_cell(pos()))
+        obvious_effect = true;
+        affected_terrain.push_back(feat);
 
     if (feat == DNGN_ORCISH_IDOL)
     {
@@ -1038,7 +1082,9 @@ void bolt::nuke_wall_effect()
             did_god_conduct(DID_PLANT_KILLED_BY_SERVANT, 1, effect_known, 0);
     }
 
-    finish_beam();
+    // Only a 50% chance of void beams being stopped by each wall
+    if (flavour != BEAM_VOID || coinflip())
+        finish_beam();
 }
 
 int bolt::range_used(bool leg_only) const
@@ -1049,6 +1095,9 @@ int bolt::range_used(bool leg_only) const
 
 void bolt::finish_beam()
 {
+    // Print void beam's message right before stopping the beam.
+    if (flavour == BEAM_VOID && affected_terrain.size() > 0)
+        void_wall_msg();
     extra_range_used = BEAM_STOP;
 }
 
@@ -1067,7 +1116,8 @@ void bolt::affect_wall()
         fire_wall_effect();
     else if (flavour == BEAM_ELECTRICITY)
         elec_wall_effect();
-    else if (flavour == BEAM_DISINTEGRATION || flavour == BEAM_NUKE)
+    else if (flavour == BEAM_DISINTEGRATION || flavour == BEAM_NUKE
+             || flavour == BEAM_VOID)
         nuke_wall_effect();
 
     if (cell_is_solid(pos()))
@@ -1824,6 +1874,16 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
 
     case BEAM_ENSNARE:
         ensnare(mons);
+        break;
+
+    // MR immune monsters can't be banished and thus don't take damage.
+    case BEAM_VOID:
+        if (mons_immune_magic(mons))
+        {
+            hurted = 0;
+            if (doFlavouredEffects)
+                simple_monster_message(mons, " is unaffected.");
+        }
         break;
 
     default:
@@ -2633,7 +2693,7 @@ maybe_bool bolt::affects_wall(dungeon_feature_type wall) const
         return (is_superhot() ? B_TRUE : B_MAYBE);
 
     if (flavour == BEAM_DISINTEGRATION && damage.num >= 3
-        || flavour == BEAM_NUKE)
+        || flavour == BEAM_NUKE || flavour == BEAM_VOID)
     {
         if (wall == DNGN_ROCK_WALL
             || wall == DNGN_SLIMY_WALL
@@ -2854,6 +2914,15 @@ void bolt::internal_ouch(int dam)
     {
         ouch(dam, beam_source, KILLED_BY_DISINT, what, true,
              source_name.empty() ? NULL : source_name.c_str());
+    }
+    else if (flavour == BEAM_VOID)
+    {
+        ouch(dam, beam_source, KILLED_BY_DISINT, what, true,
+             source_name.empty() ? NULL : source_name.c_str());
+        // Chance to banish.
+        bolt beam;
+        beam.flavour = BEAM_BANISH;
+        beam.affect_player_enchantment();
     }
     else if (YOU_KILL(thrower) && aux_source.empty())
     {
@@ -4175,6 +4244,13 @@ void bolt::monster_post_hit(monster* mon, int dmg)
     if ((flavour == BEAM_WATER && origin_spell == SPELL_PRIMAL_WAVE) ||
           (name == "freezing breath" && mon->flight_mode()))
         beam_hits_actor(mon);
+
+    if (dmg && flavour == BEAM_VOID)
+    {
+        bolt beam;
+        beam.flavour = BEAM_BANISH;
+        beam.apply_enchantment_to_monster(mon);
+    }
 }
 
 void bolt::beam_hits_actor(actor *act)
@@ -5901,6 +5977,7 @@ static string _beam_type_name(beam_type type)
     case BEAM_PETRIFYING_CLOUD:      return "calcifying dust";
     case BEAM_BOLT_OF_ZIN:           return "silver light";
     case BEAM_ENSNARE:               return "magic web";
+    case BEAM_VOID:                  return "void";
 
     case NUM_BEAMS:                  die("invalid beam type");
     }

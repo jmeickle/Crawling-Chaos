@@ -2893,6 +2893,19 @@ struct spell_desc
 },
 
 {
+    SPELL_VOID_BOLT, "Void Bolt",
+     SPTYP_CONJURATION | SPTYP_TRANSLOCATION,
+     SPFLAG_DIR_OR_TARGET | SPFLAG_MONSTER,
+     7,
+     0,
+     8, 8,
+     0,
+     NULL,
+     false,
+     false
+},
+
+{
     SPELL_NO_SPELL, "nonexistent spell",
      0,
      SPFLAG_TESTING,

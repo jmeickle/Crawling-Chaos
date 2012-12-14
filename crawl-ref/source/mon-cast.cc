@@ -647,6 +647,17 @@ bolt mons_spell_beam(monster* mons, spell_type spell_cast, int power,
         beam.is_beam    = true;
         break;
 
+    case SPELL_VOID_BOLT:          // black eye
+        beam.colour     = MAGENTA;
+        beam.name       = "void bolt";
+        beam.short_name = "void";
+        beam.damage     = dice_def(3, 6 + power / 25);
+        beam.hit        = 12 + power / 35;
+        beam.flavour    = BEAM_VOID; // banishes things it hits, incl. walls
+        beam.is_beam    = true;
+        beam.ac_rule    = AC_NONE;
+        break;
+
     case SPELL_STING:              // sting
         beam.colour   = GREEN;
         beam.name     = "sting";

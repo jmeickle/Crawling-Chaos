@@ -382,7 +382,8 @@ enum beam_type                  // bolt::flavour
     BEAM_PETRIFYING_CLOUD,
     BEAM_BOLT_OF_ZIN,
     BEAM_ENSNARE,
-    BEAM_LAST_REAL = BEAM_ENSNARE,
+    BEAM_VOID,
+    BEAM_LAST_REAL = BEAM_VOID,
 
     // For getting the visual effect of a beam.
     BEAM_VISUAL,
@@ -3281,6 +3282,7 @@ enum spell_type
     SPELL_THUNDERBOLT,
     SPELL_SUMMON_MINOR_DEMON,
     SPELL_DISJUNCTION,
+    SPELL_VOID_BOLT,
 
     NUM_SPELLS
 };

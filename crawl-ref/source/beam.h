@@ -164,6 +164,8 @@ struct bolt
 
     ray_def     ray;             // shoot on this specific ray
 
+    vector<dungeon_feature_type> affected_terrain; // Terrain affected by beam
+
 #ifdef USE_TILE
     int         tile_beam;
 #endif
@@ -241,6 +243,8 @@ private:
     bool apply_hit_funcs(actor* victim, int dmg);
     bool apply_dmg_funcs(actor* victim, int &dmg, vector<string> &messages);
     int apply_AC(const actor* victim, int hurted);
+
+    void void_wall_msg();
 
     // Functions which handle actually affecting things. They all
     // operate on the beam's current position (i.e., whatever pos()
