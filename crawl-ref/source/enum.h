@@ -2036,6 +2036,7 @@ enum monster_type                      // menv[].type
     MONS_EYE_OF_DEVASTATION,
     MONS_GREAT_ORB_OF_EYES,
     MONS_GIANT_ORANGE_BRAIN,
+    MONS_BLACK_EYE,
 
     MONS_DANCING_WEAPON,
     MONS_HARPY,

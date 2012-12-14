@@ -1814,6 +1814,17 @@
       }
     },
 
+    {  MST_BLACK_EYE,
+      {
+       SPELL_VOID_BOLT,
+       SPELL_VOID_BOLT,
+       SPELL_NO_SPELL,
+       SPELL_VOID_BOLT,
+       SPELL_VOID_BOLT,
+       SPELL_NO_SPELL
+      }
+    },
+
     {  MST_FRANCES,
       {
        SPELL_THROW_ICICLE,
