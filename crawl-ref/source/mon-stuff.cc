@@ -39,6 +39,7 @@
 #include "libutil.h"
 #include "losglobal.h"
 #include "makeitem.h"
+#include "math.h"
 #include "message.h"
 #include "mgen_data.h"
 #include "misc.h"
