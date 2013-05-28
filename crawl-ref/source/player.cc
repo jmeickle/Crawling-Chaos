@@ -79,6 +79,7 @@
 #include "status.h"
 #include "stuff.h"
 #include "terrain.h"
+#include "temperature.h"
 #include "throw.h"
 #ifdef USE_TILE
  #include "tileview.h"
@@ -339,9 +340,10 @@ void moveto_location_effects(dungeon_feature_type old_feat,
 
                 // This gets called here because otherwise you wouldn't heat
                 // until your second turn in lava.
-                if (temperature() < TEMP_FIRE)
+                you.set_raw_upcoming_temperature((float) TEMP_MAX);
+                if (you.temperature_reached_level(TEMP_MAX))
                     mpr("The lava instantly superheats you.");
-                you.temperature = TEMP_MAX;
+
             }
 
             else if (!feat_is_lava(new_grid) && feat_is_lava(old_feat))
@@ -5456,8 +5458,8 @@ void player::init()
     lives = 0;
     deaths = 0;
 
-    temperature = 1; // 1 is min; 15 is max.
-    temperature_last = 1;
+    temperature_current = TEMP_STARTING;
+    temperature_upcoming = TEMP_STARTING;
 
     xray_vision = false;
 

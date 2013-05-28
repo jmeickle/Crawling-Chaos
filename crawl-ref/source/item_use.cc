@@ -55,6 +55,7 @@
 #include "state.h"
 #include "stuff.h"
 #include "target.h"
+#include "temperature.h"
 #include "throw.h"
 #include "transform.h"
 #include "uncancel.h"

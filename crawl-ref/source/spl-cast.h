@@ -87,4 +87,5 @@ bool is_prevented_teleport(spell_type spell);
 bool spell_is_uncastable(spell_type spell, string &message);
 void spell_skills(spell_type spell, set<skill_type> &skills);
 
+bool too_hot_to_cast(spell_type spell);
 #endif

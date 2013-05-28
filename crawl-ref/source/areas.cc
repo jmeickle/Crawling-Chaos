@@ -26,6 +26,7 @@
 #include "religion.h"
 #include "godconduct.h"
 #include "stuff.h"
+#include "temperature.h"
 #include "terrain.h"
 #include "traps.h"
 #include "travel.h"
@@ -807,10 +808,10 @@ int player::suppression_radius2() const
 // Player radius
 int player::heat_radius2() const
 {
-    if (you.species != SP_LAVA_ORC)
+    if (!has_temperature_effects())
         return (-1);
 
-    if (!temperature_effect(LORC_HEAT_AURA))
+    if (!temperature_effect_is_active(LORC_HEAT_AURA))
         return (-1);
 
     return (2); // Surrounds you to radius of 1.

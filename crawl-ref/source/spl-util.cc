@@ -1134,20 +1134,10 @@ bool spell_is_useless(spell_type spell, bool transient)
             return true;
         }
 
-        if (you.species == SP_LAVA_ORC && !temperature_effect(LORC_STONESKIN))
-        {
-            switch (spell)
-            {
-            case SPELL_STATUE_FORM: // Stony self is too melty
-            // Too hot for these ice spells:
-            case SPELL_ICE_FORM:
-            case SPELL_OZOCUBUS_ARMOUR:
-            case SPELL_CONDENSATION_SHIELD:
+        // Attempt to avoid duplicating logic with spl-cast.cc
+        if (you.has_temperature_effects())
+            if (too_hot_to_cast(spell))
                 return true;
-            default:
-                break;
-            }
-        }
     }
 
     switch (spell)

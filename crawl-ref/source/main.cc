@@ -123,6 +123,7 @@
 #include "startup.h"
 #include "tags.h"
 #include "target.h"
+#include "temperature.h"
 #include "terrain.h"
 #include "throw.h"
 #include "transform.h"
@@ -2484,7 +2485,7 @@ static void _decrement_durations()
 
     // Lava orcs don't have stoneskin decay like normal.
     if (you.species != SP_LAVA_ORC
-        || (you.species == SP_LAVA_ORC && temperature_effect(LORC_STONESKIN)))
+        || (you.species == SP_LAVA_ORC && you.temperature_effect_is_active(LORC_STONESKIN)))
         if (_decrement_a_duration(DUR_STONESKIN, delay, "Your skin feels tender."))
             you.redraw_armour_class = true;
 
@@ -2999,8 +3000,8 @@ static void _player_reacts()
     if (you.attribute[ATTR_SHADOWS])
         shadow_lantern_effect();
 
-    if (you.species == SP_LAVA_ORC)
-        temperature_check();
+    if (you.has_temperature_effects())
+        you.check_temperature();
 
     if (player_mutation_level(MUT_DEMONIC_GUARDIAN))
         check_demonic_guardian();

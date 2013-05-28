@@ -31,6 +31,7 @@
 #include "skills2.h"
 #include "state.h"
 #include "stuff.h"
+#include "temperature.h"
 #include "terrain.h"
 #include "traps.h"
 #include "xom.h"
@@ -722,12 +723,18 @@ bool transform(int pow, transformation_type which_trans, bool force,
         return _abort_or_fizzle(just_check);
     }
 
-    if (you.species == SP_LAVA_ORC && !temperature_effect(LORC_STONESKIN)
-        && (which_trans == TRAN_ICE_BEAST || which_trans == TRAN_STATUE))
+    if (you.has_temperature_effects())
     {
-        if (!force)
-            mpr("Your temperature is too high to benefit from that spell.");
-        return _abort_or_fizzle(just_check);
+        if (which_trans == TRAN_ICE_BEAST && you.temperature_effect_is_active(LORC_MELT_ICE) && !force)
+        {
+            mpr("Your temperature is too high to turn to ice.");
+            return _abort_or_fizzle(just_check);
+        }
+        if (which_trans == TRAN_STATUE && you.temperature_effect_is_active(LORC_MELT_STONE) && !force)
+        {
+            mpr("Your temperature is too high to turn to stone.");
+            return _abort_or_fizzle(just_check);
+        }
     }
 
     set<equipment_type> rem_stuff = _init_equipment_removal(which_trans);
@@ -1066,9 +1073,13 @@ void untransform(bool skip_wielding, bool skip_move)
         break;
 
     case TRAN_STATUE:
-        // This only handles lava orcs going statue -> stoneskin.
-        if (you.species == SP_LAVA_ORC && temperature_effect(LORC_STONESKIN))
-            mpr("You revert to a slightly less stony form.", MSGCH_DURATION);
+        if (you.species == SP_LAVA_ORC)
+        {
+            if (!you.temperature_effect_is_active(LORC_MELT_STONE))
+                mpr("You revert to a slightly less stony form.", MSGCH_DURATION);
+            else
+                mpr("You revert to your normal molten form.", MSGCH_DURATION);
+        }
         else if (you.species != SP_LAVA_ORC)
             mpr("You revert to your normal fleshy form.", MSGCH_DURATION);
         notify_stat_change(STAT_DEX, 2, true,
@@ -1078,13 +1089,18 @@ void untransform(bool skip_wielding, bool skip_move)
 
         // Note: if the core goes down, the combined effect soon disappears,
         // but the reverse isn't true. -- bwr
-        if (you.duration[DUR_STONESKIN])
+        if (you.duration[DUR_STONESKIN] && you.species != SP_LAVA_ORC)
             you.duration[DUR_STONESKIN] = 1;
         break;
 
     case TRAN_ICE_BEAST:
-        if (you.species == SP_LAVA_ORC && !temperature_effect(LORC_STONESKIN))
-            mpr("Your icy form melts away into molten rock.", MSGCH_DURATION);
+        if (you.species == SP_LAVA_ORC)
+        {
+            if (!you.temperature_effect_is_active(LORC_MELT_STONE))
+                mpr("Your icy form melts away into cool rock.", MSGCH_DURATION);
+            else
+                mpr("Your icy form melts away into molten rock.", MSGCH_DURATION);
+        }
         else
             mpr("You warm up again.", MSGCH_DURATION);
 
@@ -1174,7 +1190,7 @@ void untransform(bool skip_wielding, bool skip_move)
     }
 
     // Lava orcs become stony again if at the right temperature.
-    if (you.species == SP_LAVA_ORC && temperature_effect(LORC_STONESKIN)
+    if (you.species == SP_LAVA_ORC && you.temperature_effect_is_active(LORC_STONESKIN)
         && you.duration[DUR_STONESKIN] < 500)
         you.duration[DUR_STONESKIN] = 500;
 

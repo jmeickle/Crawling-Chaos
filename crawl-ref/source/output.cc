@@ -46,6 +46,7 @@
 #include "status.h"
 #include "stuff.h"
 #include "tagstring.h"
+#include "temperature.h"
 #include "throw.h"
 #include "transform.h"
 #include "travel.h"
@@ -101,8 +102,7 @@ class colour_bar
             return;
         }
 
-        int temp_colour;
-        temp_colour = temperature_colour(temperature());
+        int temp_colour = temperature_colour(you.get_current_temperature_level());
 
         const int width = crawl_view.hudsz.x - (ox-1);
         const int disp  = width * val / max_val;
@@ -244,7 +244,7 @@ static void _print_stats_temperature(int x, int y)
     textcolor(HUD_CAPTION_COLOUR);
     cprintf("Temperature: ");
 
-    Temp_Bar.draw(19, y, temperature(), TEMP_MAX, true);
+    Temp_Bar.draw(19, y, you.get_current_temperature_level(), TEMP_MAX, true);
 }
 
 static void _print_stats_mp(int x, int y)
@@ -1685,7 +1685,7 @@ static vector<formatted_string> _get_overview_stats()
     if (you.species == SP_LAVA_ORC)
     {
         snprintf(temperature, sizeof(temperature), "Temperature: %f",
-                 you.temperature);
+                 you.temperature_current);
     }
     else
         temperature[0] = 0;

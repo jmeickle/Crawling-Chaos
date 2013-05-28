@@ -42,6 +42,7 @@
 #include "spl-util.h"
 #include "state.h"
 #include "stuff.h"
+#include "temperature.h"
 #ifdef USE_TILE
  #include "tilepick.h"
 #endif
@@ -1061,7 +1062,7 @@ bool can_learn_spell(bool silent)
         return false;
     }
 
-    if (you.species == SP_LAVA_ORC && temperature_effect(LORC_NO_SCROLLS))
+    if (you.has_temperature_effects() && you.temperature_effect_is_active(LORC_NO_SCROLLS))
     {
         if (!silent)
             mpr("You'd burn any book you tried to read!");

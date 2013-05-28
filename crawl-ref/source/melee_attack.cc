@@ -65,6 +65,7 @@
 #include "state.h"
 #include "stuff.h"
 #include "target.h"
+#include "temperature.h"
 #include "transform.h"
 #include "traps.h"
 #include "travel.h"
@@ -4623,7 +4624,7 @@ void melee_attack::do_passive_freeze()
 
 void melee_attack::do_passive_heat()
 {
-    if (you.species == SP_LAVA_ORC && temperature_effect(LORC_PASSIVE_HEAT)
+    if (you.has_temperature_effects() && you.temperature_effect_is_active(LORC_PASSIVE_HEAT)
         && attacker->alive()
         && grid_distance(you.pos(), attacker->as_monster()->pos()) == 1)
     {

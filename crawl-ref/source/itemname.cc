@@ -43,6 +43,7 @@
 #include "spl-summoning.h"
 #include "state.h"
 #include "stuff.h"
+#include "temperature.h"
 #include "throw.h"
 #include "transform.h"
 
@@ -3084,8 +3085,8 @@ bool is_useless_item(const item_def &item, bool temp)
         if (is_bad_item(item, temp))
             return true;
 
-        if (you.species == SP_LAVA_ORC && temperature_effect(LORC_NO_SCROLLS))
-            return (true);
+        if (you.has_temperature_effects() && you.temperature_effect_is_active(LORC_NO_SCROLLS))
+            return true;
 
         switch (item.sub_type)
         {
@@ -3316,7 +3317,7 @@ bool is_useless_item(const item_def &item, bool temp)
         }
 
     case OBJ_BOOKS:
-        if (you.species == SP_LAVA_ORC && temperature_effect(LORC_NO_SCROLLS))
+        if (you.has_temperature_effects() && you.temperature_effect_is_active(LORC_NO_SCROLLS))
             return true;
         if (item.sub_type != BOOK_MANUAL || !item_type_known(item))
             return false;

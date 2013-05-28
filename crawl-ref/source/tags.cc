@@ -1187,8 +1187,8 @@ static void tag_construct_you(writer &th)
     marshallByte(th, you.deaths);
     marshallByte(th, you.lives);
 
-    marshallFloat(th, you.temperature);
-    marshallFloat(th, you.temperature_last);
+    marshallFloat(th, you.temperature_current);
+    marshallFloat(th, you.temperature_upcoming);
 
     marshallInt(th, you.dactions.size());
     for (unsigned int k = 0; k < you.dactions.size(); k++)
@@ -1987,14 +1987,14 @@ static void tag_read_you(reader &th)
     if (th.getMinorVersion() >= TAG_MINOR_LORC_TEMPERATURE)
     {
 #endif
-        you.temperature = unmarshallFloat(th);
-        you.temperature_last = unmarshallFloat(th);
+        you.temperature_current = unmarshallFloat(th);
+        you.temperature_upcoming = unmarshallFloat(th);
 #if TAG_MAJOR_VERSION == 34
     }
     else
     {
-        you.temperature = 0.0;
-        you.temperature_last = 0.0;
+        you.temperature_current = 0.0;
+        you.temperature_upcoming = 0.0;
     }
 #endif
 

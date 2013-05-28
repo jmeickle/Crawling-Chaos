@@ -421,6 +421,13 @@ public:
     virtual bool has_usable_tentacle() const = 0;
     virtual int constriction_damage() const = 0;
 
+    // Temperature methods
+    void set_raw_upcoming_temperature(float degree);
+    bool has_temperature_effects() const;
+    uint8_t get_current_temperature_level();
+    bool temperature_reached_level (uint8_t level);
+    bool temperature_effect_is_active(uint8_t effect) const;
+    void check_temperature();
 
 protected:
     void clear_constricted();

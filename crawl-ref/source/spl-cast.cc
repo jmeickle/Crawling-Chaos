@@ -61,6 +61,7 @@
 #include "state.h"
 #include "stuff.h"
 #include "target.h"
+#include "temperature.h"
 #ifdef USE_TILE
  #include "tilepick.h"
 #endif
@@ -503,8 +504,7 @@ static int _spell_enhancement(unsigned int typeflags)
     if (you.archmagi())
         enhanced++;
 
-
-    if (you.species == SP_LAVA_ORC && temperature_effect(LORC_LAVA_BOOST)
+    if (you.has_temperature_effects() && you.temperature_effect_is_active(LORC_LAVA_BOOST)
         && typeflags & SPTYP_FIRE && typeflags & SPTYP_EARTH)
         enhanced++;
 
@@ -850,31 +850,29 @@ static bool _vampire_cannot_cast(spell_type spell)
     }
 }
 
-static bool _too_hot_to_cast(spell_type spell)
+bool too_hot_to_cast(spell_type spell)
 {
-    if (you.species != SP_LAVA_ORC)
-        return (false);
+    if (!you.has_temperature_effects())
+        return false;
 
     // Lava orcs can never benefit from casting stoneskin.
-    if (spell == SPELL_STONESKIN)
-        return (true);
+    if (you.species != SP_LAVA_ORC && spell == SPELL_STONESKIN)
+        return true;
 
-    // Lava orcs have no restrictions if their skin is
-    // non-molten.
-    if (temperature_effect(LORC_STONESKIN))
-        return (false);
-
-    // If it is, though, they lose out on these spells:
     switch (spell)
     {
-    case SPELL_STATUE_FORM: // Stony self is too melty
-    // Too hot for these ice spells:
+    case SPELL_STONESKIN:
+    case SPELL_STATUE_FORM:
+        if (you.temperature_effect_is_active(LORC_MELT_STONE))
+            return true;
+
     case SPELL_ICE_FORM:
     case SPELL_OZOCUBUS_ARMOUR:
     case SPELL_CONDENSATION_SHIELD:
-        return (true);
+        if (you.temperature_effect_is_active(LORC_MELT_ICE))
+            return true;
     default:
-        return (false);
+        return false;
     }
 }
 
@@ -903,11 +901,13 @@ bool spell_is_uncastable(spell_type spell, string &msg)
         return true;
     }
 
-    if (_too_hot_to_cast(spell))
+    if (too_hot_to_cast(spell))
     {
-        if (spell == SPELL_STONESKIN && temperature_effect(LORC_STONESKIN))
+        if (spell == SPELL_STONESKIN && you.has_temperature_effects()
+            && you.temperature_effect_is_active(LORC_STONESKIN))
             msg = "Your skin is already made of stone.";
-        else if (spell == SPELL_STONESKIN && !temperature_effect(LORC_STONESKIN))
+        else if (spell == SPELL_STONESKIN && you.has_temperature_effects()
+            && !you.temperature_effect_is_active(LORC_STONESKIN))
             msg = "Your skin is already made of molten stone.";
         else
             msg = "Your temperature is too high to benefit from that spell.";

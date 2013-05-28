@@ -72,6 +72,7 @@
 #include "state.h"
 #include "stuff.h"
 #include "target.h"
+#include "temperature.h"
 #include "terrain.h"
 #include "transform.h"
 #include "traps.h"
@@ -1451,11 +1452,11 @@ bool go_berserk(bool intentional, bool potion)
 
     you.redraw_quiver = true; // Account for no firing.
 
+    // Enraged lava orcs are set to maximum temperature.
     if (you.species == SP_LAVA_ORC)
     {
+        you.set_raw_upcoming_temperature((float) TEMP_MAX);
         mpr("You burn with rage!");
-        // This will get sqrt'd later, so.
-        you.temperature = TEMP_MAX;
     }
     return true;
 }
