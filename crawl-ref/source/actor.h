@@ -422,12 +422,26 @@ public:
     virtual int constriction_damage() const = 0;
 
     // Temperature methods
-    void set_raw_upcoming_temperature(float degree);
-    bool has_temperature_effects() const;
-    uint8_t get_current_temperature_level();
-    bool temperature_reached_level (uint8_t level);
-    bool temperature_effect_is_active(uint8_t effect) const;
-    void check_temperature();
+    virtual float get_raw_current_temperature() const;
+    virtual float get_raw_upcoming_temperature() const;
+    virtual float get_temperature_delta() const;
+    virtual void set_raw_current_temperature(float temperature);
+    virtual void set_raw_upcoming_temperature(float temperature);
+    virtual void cap_raw_upcoming_temperature(float degree);
+    virtual bool temperature_can_increase() const;
+    virtual bool temperature_can_decrease() const;
+    virtual void change_temperature(float degree);
+    virtual void temperature_decay(float factor);
+    virtual uint8_t get_current_temperature_level() const;
+    virtual uint8_t get_next_temperature_level() const;
+    virtual bool temperature_reached_level (uint8_t level) const;
+    virtual bool temperature_fell_below_level (uint8_t level) const;
+    virtual bool has_temperature_effects() const;
+    virtual bool temperature_effect_is_active (uint8_t effect) const;
+    virtual bool temperature_effect_is_activating (uint8_t effect) const;
+    virtual bool temperature_effect_is_deactivating (uint8_t effect) const;
+    virtual void check_temperature();
+    virtual void process_temperature_change();
 
 protected:
     void clear_constricted();

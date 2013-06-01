@@ -728,6 +728,16 @@ public:
     int usable_tentacles() const;
     bool has_usable_tentacle() const;
 
+    // Temperature methods
+    float get_raw_current_temperature() const;
+    float get_raw_upcoming_temperature() const;
+    void set_raw_current_temperature(float temperature);
+    void set_raw_upcoming_temperature(float temperature);
+    bool temperature_can_increase() const;
+    bool temperature_can_decrease() const;
+    bool has_temperature_effects() const;
+    void process_temperature_change();
+
 protected:
     void _removed_beholder();
     bool _possible_beholder(const monster* mon) const;
