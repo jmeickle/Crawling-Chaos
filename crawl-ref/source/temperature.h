@@ -3,22 +3,6 @@
  * @brief Misc monster related functions.
 **/
 
-/**
- * Exponential decay of temperature is ultimately defined by a half life.
- *
- * Temp(t+1) = Temp(t) * e^(-λ)
- * λ = TEMP_DECAY_CONSTANT = t_1/2 / ln(2)
- * t_1/2 = TEMP_HALF_LIFE
-**/
-
-// The number of turns it takes for temperature to halve.
-#define TEMP_HALF_LIFE = 10
-#define TEMP_DECAY_CONSTANT = TEMP_HALF_LIFE / ln(2)
-
-// Caps on the amount temperature can change by in a turn.
-#define TEMP_MAXIMUM_INCREASE = 15
-#define TEMP_MAXIMUM_DECREASE = -15
-
 enum temperature_level
 {
     TEMP_MIN = 1, // Minimum temperature. Not any warmer than bare rock.
@@ -51,5 +35,6 @@ enum temperature_effect
     LORC_MELT_STONE, // Melt stone
 };
 
+bool temperature_effect(uint8_t effect, uint8_t level);
 colour_t temperature_colour(uint8_t level);
 std::string temperature_description(uint8_t level);

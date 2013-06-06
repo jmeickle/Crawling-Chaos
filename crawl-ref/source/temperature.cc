@@ -3,19 +3,61 @@
  * @brief Temperature calculation and effects.
 **/
 
+#include "AppHdr.h"
+#include "temperature.h"
+
+#include "areas.h"
+#include "cloud.h"
+#include "coord.h"
+#include "coordit.h"
+#include "env.h"
 #include "math.h"
 #include "monster.h"
+#include "ouch.h"
 #include "player.h"
 #include "religion.h"
+#include "terrain.h"
+#include "transform.h"
+
+/**
+ * Exponential decay of temperature is ultimately defined by a half life.
+ *
+ * Temp(t+1) = Temp(t) * e^(-λ)
+ * λ = TEMP_DECAY_CONSTANT = t_1/2 / ln(2)
+ * t_1/2 = TEMP_HALF_LIFE
+**/
+
+// The number of turns it takes for temperature to halve.
+//#define TEMP_HALF_LIFE = 10
+static int _temp_half_life = 10;
+//#define TEMP_DECAY_CONSTANT = (TEMP_HALF_LIFE / log(2))
+static float _temp_decay_constant = _temp_half_life / log(2);
+// Caps on the amount temperature can change by in a turn.
+//#define TEMP_MAXIMUM_INCREASE = 15
+static int _temp_maximum_increase = TEMP_MAX;
+static int _temp_maximum_decrease = -TEMP_MAX;
+//#define TEMP_MAXIMUM_DECREASE = -15
 
 /**
  * Raw temperature getters and setters.
 **/
 
+// STUB: Get the raw value of the actor's current temperature.
+float actor::get_raw_current_temperature() const
+{
+    return 0;
+}
+
 // Get the raw value of the player's current temperature.
 float player::get_raw_current_temperature() const
 {
     return you.temperature_current;
+}
+
+// STUB: Get the raw value of the actor's upcoming temperature.
+float actor::get_raw_upcoming_temperature() const
+{
+    return 0;
 }
 
 // Get the raw value of the player's upcoming temperature.
@@ -30,27 +72,38 @@ float actor::get_temperature_delta() const
     return get_raw_upcoming_temperature() - get_raw_current_temperature();
 }
 
+// STUB: Set the raw value of the actor's current temperature.
+void actor::set_raw_current_temperature(float temperature) {}
+
 // Set the raw value of the player's current temperature.
 void player::set_raw_current_temperature(float temperature)
 {
     you.temperature_current = temperature;
-    cap_temperature();
+    cap_raw_upcoming_temperature();
 }
+
+// STUB: Set the raw value of the actor's upcoming temperature.
+void actor::set_raw_upcoming_temperature(float temperature) {}
 
 // Set the raw value of the player's upcoming temperature.
 void player::set_raw_upcoming_temperature(float temperature)
 {
     you.temperature_upcoming = temperature;
-    cap_temperature();
+    cap_raw_upcoming_temperature();
 }
 
 // Ensure the actor's upcoming temperature doesn't exceed the allowable range.
-void actor::cap_raw_upcoming_temperature(float degree)
+void actor::cap_raw_upcoming_temperature()
 {
     if (get_raw_upcoming_temperature() > TEMP_MAX)
         set_raw_upcoming_temperature((float) TEMP_MAX);
     else if (get_raw_upcoming_temperature() < TEMP_MIN)
         set_raw_upcoming_temperature((float) TEMP_MIN);
+}
+
+// STUB: Return whether the actor's temperature can increase naturally.
+bool actor::temperature_can_increase() const {
+    return false;
 }
 
 // Return whether the player's temperature can increase naturally.
@@ -60,6 +113,11 @@ bool player::temperature_can_increase() const
     if (you.duration[DUR_EXHAUSTED])
         return false;
     return true;
+}
+
+// STUB: Return whether the actor's temperature can decrease naturally.
+bool actor::temperature_can_decrease() const {
+    return false;
 }
 
 // Return whether the player's temperature can decrease naturally.
@@ -86,12 +144,12 @@ void actor::change_temperature(float degree)
 }
 
 // Exponentially decay an actor's temperature based on a decay constant, λ.
-void actor::temperature_decay(float factor)
+void actor::temperature_decay()
 {
     // Decay is based on current (rather than upcoming) temperature.
-    float base_upcoming_temperature = get_raw_current_temperature() * pow(M_E, -TEMP_DECAY_CONSTANT);
+    float base_upcoming_temperature = get_raw_current_temperature() * pow(M_E, -_temp_decay_constant);
     // Upcoming temperature is set, with the current delta added back in.
-    set_raw_upcoming_temperature(base_upcoming_temperature + get_temperature_delta())
+    set_raw_upcoming_temperature(base_upcoming_temperature + get_temperature_delta());
 }
 
 /**
@@ -104,8 +162,8 @@ uint8_t actor::get_current_temperature_level() const
     return (uint8_t) get_raw_current_temperature();
 }
 
-// Get an actor's next temperature level (floored upcoming temperature).
-uint8_t actor::get_next_temperature_level() const
+// Get an actor's upcoming temperature level (floored upcoming temperature).
+uint8_t actor::get_upcoming_temperature_level() const
 {
     return (uint8_t) get_raw_upcoming_temperature();
 }
@@ -114,14 +172,14 @@ uint8_t actor::get_next_temperature_level() const
 bool actor::temperature_reached_level (uint8_t level) const
 {
     return (get_current_temperature_level() < level
-        && get_upcoming_temperature_level() >= level)
+        && get_upcoming_temperature_level() >= level);
 }
 
 // Return whether an actor's temperature fell below a level recently.
 bool actor::temperature_fell_below_level (uint8_t level) const
 {
     return (get_current_temperature_level() >= level
-        && get_upcoming_temperature_level() < level)
+        && get_upcoming_temperature_level() < level);
 }
 
 /**
@@ -152,14 +210,14 @@ bool actor::temperature_effect_is_active (uint8_t effect) const
 bool actor::temperature_effect_is_activating (uint8_t effect) const
 {
     return (!temperature_effect_is_active(effect)
-        && temperature_effect(effect, get_next_temperature_level())
+        && temperature_effect(effect, get_upcoming_temperature_level()));
 }
 
 // Return whether an actor's temperature effect is deactivating.
 bool actor::temperature_effect_is_deactivating (uint8_t effect) const
 {
     return (temperature_effect_is_active(effect)
-        && !temperature_effect(effect, get_next_temperature_level())
+        && !temperature_effect(effect, get_upcoming_temperature_level()));
 }
 
 /**
@@ -167,7 +225,7 @@ bool actor::temperature_effect_is_deactivating (uint8_t effect) const
 **/
 
 // Return whether a temperature effect is active at a temperature level.
-bool temperature_effect(uint8_t effect, uint8_t level) const
+bool temperature_effect(uint8_t effect, uint8_t level)
 {
     switch (effect)
     {
@@ -201,7 +259,7 @@ bool temperature_effect(uint8_t effect, uint8_t level) const
 }
 
 // Return the colour matching a temperature level.
-colour_t temperature_colour(uint8_t level) const
+colour_t temperature_colour(uint8_t level)
 {
 return (level > TEMP_FIRE) ? LIGHTRED  :
        (level > TEMP_HOT)  ? RED       :
@@ -212,7 +270,7 @@ return (level > TEMP_FIRE) ? LIGHTRED  :
 }
 
 // Return the text description matching a temperature level.
-std::string temperature_description(uint8_t level) const
+std::string temperature_description(uint8_t level)
 {
     switch (level)
     {
@@ -247,7 +305,7 @@ void actor::check_temperature()
     if (feat_is_lava(env.grid(pos())) && ground_level())
     {
         // Bypass the normal increment method.
-        set_raw_upcoming_temperature((float) TEMP_MAX)
+        set_raw_upcoming_temperature((float) TEMP_MAX);
         ignore_maximum_increase = true;
 
         // Print a message if a new temperature level was reached.
@@ -262,10 +320,10 @@ void actor::check_temperature()
         {
             const coord_def p(*ai);
             if (!one_chance_in(5))
-                continue
+                continue;
 
             // Temperature decreases from boiling even if no cloud is placed.
-            temperature_decrement(1);
+            change_temperature(-1);
             if (in_bounds(p) && env.cgrid(p) == EMPTY_CLOUD)
                 place_cloud(CLOUD_STEAM, *ai, 2 + random2(5), &you);
         }
@@ -279,30 +337,34 @@ void actor::check_temperature()
     int tension = get_tension(GOD_NO_GOD);
 
     // Increment temperature by the square root of tension.
-    float degree = sqrt(tension)
-    temperature_increment(degree);
+    float degree = sqrt(tension);
+    change_temperature(degree);
 
     // Calculate temperature delta since last turn.
-    float temperature_delta = get_temperature_delta()
+    float temperature_delta = get_temperature_delta();
 
     // Cap temperature delta by TEMP_MAXIMUM_(INCREASE/DECREASE).
-    if (temperature_delta > TEMP_MAXIMUM_INCREASE and !ignore_maximum_increase)
-        temperature_delta = min(temperature_delta, TEMP_MAXIMUM_INCREASE)
-    else if (temperature_delta < TEMP_MAXIMUM_DECREASE)
-        temperature_delta = max(temperature_delta, TEMP_MAXIMUM_DECREASE)
+    if (temperature_delta > _temp_maximum_increase && !ignore_maximum_increase)
+        temperature_delta = min(temperature_delta, (float) _temp_maximum_increase);
+    else if (temperature_delta < _temp_maximum_decrease)
+        temperature_delta = max(temperature_delta, (float) _temp_maximum_decrease);
 
     // Set the new upcoming temperature, respecting the cap.
-    set_raw_upcoming_temperature(get_raw_current_temperature() + temperature_delta)
+    set_raw_upcoming_temperature(get_raw_current_temperature() + temperature_delta);
 
     // Process the upcoming temperature change.
     process_temperature_change();
 }
 
+// STUB: Handle any effects or messaging that occur when temperature changes, then
+// change temperature, then handle necessary cleanup.
+void actor::process_temperature_change() {}
+
 // Handle any effects or messaging that occur when temperature changes, then
 // change temperature, then handle necessary cleanup.
 void player::process_temperature_change() {
 
-    bool invalidate_agrid = false;
+    bool _invalidate_agrid = false;
 
     // The messages we might see while warming up:
     if (get_temperature_delta() > 0) {
@@ -320,6 +382,7 @@ void player::process_temperature_change() {
 
         // Warmed up enough to lose statue form.
         if (temperature_effect_is_activating(LORC_MELT_STONE))
+        {
             if (you.form == TRAN_STATUE)
                 untransform(true, false);
         }
@@ -347,7 +410,7 @@ void player::process_temperature_change() {
         if (temperature_effect_is_activating(LORC_HEAT_AURA))
         {
             mpr("You blaze with the fury of an erupting volcano!", MSGCH_DURATION);
-            invalidate_agrid = true;
+            _invalidate_agrid = true;
         }
 
     // The messages we might see while cooling down:
@@ -356,7 +419,7 @@ void player::process_temperature_change() {
         if (temperature_effect_is_deactivating(LORC_HEAT_AURA))
         {
             mpr("The intensity of your heat diminishes.", MSGCH_DURATION);
-            invalidate_agrid = true;
+            _invalidate_agrid = true;
         }
 
         // Cooled down enough to lose passive heat.
@@ -381,7 +444,7 @@ void player::process_temperature_change() {
     }
 
     // Set the current temperature to the upcoming temperature.
-    set_raw_current_temperature(get_raw_upcoming_temperature())
+    set_raw_current_temperature(get_raw_upcoming_temperature());
 
     // Mark the temperature bar for redraw.
     you.redraw_temperature = true;
@@ -392,6 +455,6 @@ void player::process_temperature_change() {
     #endif
 
     // Invalidate the area grid if necessary.
-    if (invalidate_agrid)
+    if (_invalidate_agrid)
         invalidate_agrid(true);
 }

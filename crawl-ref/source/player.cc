@@ -1491,11 +1491,11 @@ int player_res_fire(bool calc_unid, bool temp, bool items)
 
     if (you.species == SP_LAVA_ORC)
     {
-    if (temperature_effect(LORC_FIRE_RES_I))
+    if (you.temperature_effect_is_active(LORC_FIRE_RES_I))
         rf++;
-    if (temperature_effect(LORC_FIRE_RES_II))
+    if (you.temperature_effect_is_active(LORC_FIRE_RES_II))
         rf++;
-    if (temperature_effect(LORC_FIRE_RES_III))
+    if (you.temperature_effect_is_active(LORC_FIRE_RES_III))
         rf++;
     }
 
@@ -1608,7 +1608,7 @@ int player_res_cold(bool calc_unid, bool temp, bool items)
         }
 
         if (you.species == SP_LAVA_ORC)
-            if (temperature_effect(LORC_COLD_VULN))
+            if (you.temperature_effect_is_active(LORC_COLD_VULN))
                 rc--;
     }
 
@@ -1938,7 +1938,7 @@ int player_spec_fire()
         sf += you.wearing(EQ_RINGS, RING_FIRE);
     }
 
-    if (you.species == SP_LAVA_ORC && temperature_effect(LORC_FIRE_BOOST))
+    if (you.species == SP_LAVA_ORC && you.temperature_effect_is_active(LORC_FIRE_BOOST))
         sf++;
 
     if (you.duration[DUR_FIRE_SHIELD])
@@ -1961,7 +1961,7 @@ int player_spec_cold()
         sc += you.wearing(EQ_RINGS, RING_ICE);
     }
 
-    if (you.species == SP_LAVA_ORC && (temperature_effect(LORC_LAVA_BOOST) || temperature_effect(LORC_FIRE_BOOST)))
+    if (you.species == SP_LAVA_ORC && (you.temperature_effect_is_active(LORC_LAVA_BOOST) || you.temperature_effect_is_active(LORC_FIRE_BOOST)))
         sc--;
 
     return sc;
@@ -2212,9 +2212,9 @@ int player_movement_speed(bool ignore_burden)
         mv -= 2;
 
     // Lava orc heat-based speed. -2 when cold; 0 when normal; +2 when hot.
-    if (you.species == SP_LAVA_ORC && temperature_effect(LORC_SLOW_MOVE))
+    if (you.species == SP_LAVA_ORC && you.temperature_effect_is_active(LORC_SLOW_MOVE))
         mv += 2;
-    if (you.species == SP_LAVA_ORC && temperature_effect(LORC_FAST_MOVE))
+    if (you.species == SP_LAVA_ORC && you.temperature_effect_is_active(LORC_FAST_MOVE))
         mv -= 2;
 
     // Mutations: -2, -3, -4, unless innate and shapechanged.
